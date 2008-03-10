@@ -37,7 +37,7 @@
 #
 #           https://mail.kde.org/mailman/listinfo/freenx-knx
 #
-# SVN: $Id: node.conf.sample 486 2008-03-02 12:02:00Z fabianx $
+# SVN: $Id: node.conf.sample 512 2008-03-10 23:01:03Z fabianx $
 
 #########################################################################
 # General FreeNX directives

@@ -76,4 +76,4 @@ If you use 1.5.0 as backend be sure to set ENABLE_1_5_0_BACKEND to 1 in node.con
 
 --
 
-SVN: $Id: INSTALL 418 2007-11-09 14:03:03Z fabianx $
+SVN: $Id: INSTALL 512 2008-03-10 23:01:03Z fabianx $
