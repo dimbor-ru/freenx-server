@@ -37,7 +37,7 @@
 #
 #           https://mail.kde.org/mailman/listinfo/freenx-knx
 #
-# SVN: $Id: node.conf.sample 512 2008-03-10 23:01:03Z fabianx $
+# SVN: $Id: node.conf.sample 515 2008-03-11 01:03:54Z fabianx $
 
 #########################################################################
 # General FreeNX directives
@@ -355,6 +355,14 @@
 # none, no network file-sharing protocol is supported.
 
 #SAMBA_MOUNT_SHARE_PROTOCOL="both"
+
+# FreeNX with ENABLE_SAMBA_PRELOAD="1" will automatically setup
+# port 445 and 139 and forward them to the used samba port.
+#
+# This enables samba browsing to the local subnet in for example 
+# konqueror.
+#
+#ENABLE_SAMBA_PRELOAD="0"
 
 #########################################################################
 # Path directives

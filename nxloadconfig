@@ -5,7 +5,7 @@
 #
 # License: GPL, version 2
 #
-# SVN: $Id: nxloadconfig 512 2008-03-10 23:01:03Z fabianx $
+# SVN: $Id: nxloadconfig 515 2008-03-11 01:03:54Z fabianx $
 #
 # ========================================================================
 
@@ -163,6 +163,7 @@ CUPS_DEFAULT_SOCK="/var/run/cups/cups.sock"
 CUPS_ETC="/etc/cups/"
 
 SAMBA_MOUNT_SHARE_PROTOCOL="both"
+ENABLE_SAMBA_PRELOAD="0"
 
 # Path directives
 
