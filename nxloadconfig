@@ -5,7 +5,7 @@
 #
 # License: GPL, version 2
 #
-# SVN: $Id: nxloadconfig 515 2008-03-11 01:03:54Z fabianx $
+# SVN: $Id: nxloadconfig 517 2008-03-11 05:55:27Z fabianx $
 #
 # ========================================================================
 
@@ -98,6 +98,7 @@ ENABLE_USER_DB="0"
 ENABLE_FORCE_ENCRYPTION="0"
 SSHD_CHECK_IP="0"
 
+ENABLE_SLAVE_MODE="0"
 
 # Restriction directives
 

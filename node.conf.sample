@@ -37,7 +37,7 @@
 #
 #           https://mail.kde.org/mailman/listinfo/freenx-knx
 #
-# SVN: $Id: node.conf.sample 515 2008-03-11 01:03:54Z fabianx $
+# SVN: $Id: node.conf.sample 517 2008-03-11 05:55:27Z fabianx $
 
 #########################################################################
 # General FreeNX directives
@@ -92,6 +92,19 @@
 #    is not provided.
 #SSHD_CHECK_IP="0"
 
+# If ENABLE_SLAVE_MODE="1" the user will be just logged in _once_ and the 
+# communication is done via nxnode slave mode.
+#
+# This is useful for one time passwords or to have less traffic in utmp 
+# and wtmp.
+#
+# Also session startup times are much faster in slave mode. This is true especially 
+# if many printers or shares have to be added.
+#
+# For this to work the binary nxserver-helper has to be installed in 
+# PATH_BIN.
+#
+#ENABLE_SLAVE_MODE="0"
 
 #########################################################################
 # Restriction directives
