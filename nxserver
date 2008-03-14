@@ -11,7 +11,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxserver 530 2008-03-14 21:30:03Z fabianx $
+# SVN: $Id: nxserver 531 2008-03-14 21:39:08Z fabianx $
 #
 
 # Read the config file
@@ -1249,8 +1249,7 @@ server_startrestore_session()
 			NEW_PARAMS=$($PATH_BIN/nxacl "$CMDLINE")
 			if [ $? -ne 0 ]
 			then
-				echo_x "NX> 596 The session failed due to a nxacl policy setting:"
-				echo_x "$NEW_PARAMS"
+				echo_x "NX> 596 The session failed due to a nxacl policy setting: $NEW_PARAMS"
 				return 1
 			fi
 
