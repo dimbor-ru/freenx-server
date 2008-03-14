@@ -5,7 +5,7 @@
 #
 # License: GPL, version 2
 #
-# SVN: $Id: nxloadconfig 523 2008-03-14 10:32:16Z fabianx $
+# SVN: $Id: nxloadconfig 524 2008-03-14 15:03:44Z fabianx $
 #
 # ========================================================================
 
@@ -117,6 +117,8 @@ ENABLE_CLIPBOARD="both"
 ENABLE_PULLDOWN_MENU="1"
 
 USE_PROCESSOR_TASKSET=""
+
+ENABLE_ADVANCED_SESSION_CONTROL="0"
 
 # Logging directives
 
