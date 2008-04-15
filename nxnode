@@ -13,7 +13,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxnode 537 2008-04-01 20:29:53Z fabianx $
+# SVN: $Id: nxnode 540 2008-04-15 23:38:54Z fabianx $
 #
 # 21.06.2004: - Full reconnection support
 
@@ -154,8 +154,8 @@ node_terminate_session()
 	
 	[ "$SESSION_LOG_CLEAN" = "1" ] && rm -rf "$USER_FAKE_HOME/.nx/C-$1/"
 	
-	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/F-C-$1/"
-	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/T-C-$1/"
+	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/F-C-$1"
+	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/T-C-$1"
 }
 
 #
