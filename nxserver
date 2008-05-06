@@ -11,7 +11,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxserver 534 2008-03-16 20:40:13Z fabianx $
+# SVN: $Id: nxserver 541 2008-05-06 13:29:58Z fabianx $
 #
 
 # Read the config file
@@ -233,10 +233,12 @@ session_list_user_suspended()
 		then
 			CMDLINE=$(session_get_cmdline $i)
 			depth=$(getparam screeninfo | cut -d "x" -f3 | cut -d "+" -f1 )
+			[ "$depth" = "32" ] && depth=24
 			geom=$(getparam screeninfo | cut -d "x" -f1,2) 
 			render=$(getparam screeninfo | cut -d "+" -f2 )
 			available="N/A"
 			udepth=$(echo $3 | cut -d "x" -f3 | cut -d "+" -f1 )
+			[ "$udepth" = "32" ] && udepth=24
 			urender=$(echo $3 | cut -d "+" -f2 )
 
 			mode="D"
