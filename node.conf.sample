@@ -37,7 +37,7 @@
 #
 #           https://mail.kde.org/mailman/listinfo/freenx-knx
 #
-# SVN: $Id: node.conf.sample 534 2008-03-16 20:40:13Z fabianx $
+# SVN: $Id: node.conf.sample 543 2008-05-06 14:40:24Z fabianx $
 
 #########################################################################
 # General FreeNX directives
@@ -415,6 +415,13 @@
 # konqueror.
 #
 #ENABLE_SAMBA_PRELOAD="0"
+
+# FreeNX with ENABLE_SOURCE_BASH_PROFILE="1" will source the users ~/.bash_profile
+# before application startup as we are kind of a login shell.
+#
+# With this key this behaviour can be enabled (default) or disabled.
+# 
+#ENABLE_SOURCE_BASH_PROFILE="1"
 
 #########################################################################
 # Path directives
