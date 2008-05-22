@@ -37,7 +37,7 @@
 #
 #           https://mail.kde.org/mailman/listinfo/freenx-knx
 #
-# SVN: $Id: node.conf.sample 543 2008-05-06 14:40:24Z fabianx $
+# SVN: $Id: node.conf.sample 544 2008-05-22 18:43:26Z fabianx $
 
 #########################################################################
 # General FreeNX directives
@@ -476,7 +476,7 @@
 
 # The key that contains the name of the complete path of command name
 # 'xauth'.
-#COMMAND_XAUTH=/usr/X11R6/bin/xauth
+#COMMAND_XAUTH=/usr/bin/xauth
 
 # The key that contains the name of the complete path of command name
 # 'smbmount'.
