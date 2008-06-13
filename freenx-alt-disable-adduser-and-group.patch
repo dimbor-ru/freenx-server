@@ -1,0 +1,136 @@
+--- nxsetup.orig	2008-06-13 13:43:26 +0400
++++ nxsetup	2008-06-13 18:42:56 +0400
+@@ -149,84 +149,6 @@ run_nscd()
+ 	fi
+ }
+ 
+-nx_user_exists()
+-{
+-	if [ "$SETUP_LOCAL_USER" = "yes" ]
+-	then
+-		egrep "^nx:" /etc/passwd >/dev/null
+-	else
+-		getent passwd nx >/dev/null
+-	fi
+-}	
+-nx_group_exists()
+-{
+-	# useradd/adduser need a valid group to add the user to
+-	if [ "$SETUP_LOCAL_USER" = "yes" ]
+-	then
+-		egrep "^nx:" /etc/group >/dev/null
+-	else
+-		getent group nx >/dev/null
+-	fi
+-}	
+-
+-# Tries to add a system user
+-useradd_nx()
+-{
+-	# In any case create the basedir of the HOME directory before, 
+-	# because useradd will fail to make more than one directory
+-	mkdir -p $(dirname "$NX_HOME_DIR")
+-
+-	# Is it a debian?
+-	if [ -f /etc/debian_version -a -z "$SETUP_UID" ]
+-	then
+-		USERADD_OPTIONS="--ingroup nx --system --home $NX_HOME_DIR --shell $PATH_BIN/nxserver"
+-		[ -n "$SETUP_GID" ] && GROUPADD_OPTIONS="--gid $SETUP_GID"
+-
+-		# adduser needs a valid group to add the user to
+-		! nx_group_exists && addgroup --system --quiet $GROUPADD_OPTIONS nx
+-		[ -f /etc/nscd.conf ] && { run_nscd --invalidate group; }
+-
+-		adduser $USERADD_OPTIONS nx
+-		[ -f /etc/nscd.conf ] && { run_nscd --invalidate passwd; }
+-		
+-	# no, its a "normal" useradd
+-	else
+-		USERADD_OPTIONS="-g nx -d $NX_HOME_DIR -s $PATH_BIN/nxserver"
+-		[ -n "$SETUP_GID" ] && GROUPADD_OPTIONS="-g $SETUP_GID"
+-
+-		# uid specified?
+-		if [ -n "$SETUP_UID" ]
+-		then
+-			USERADD_OPTIONS="-u $SETUP_UID $USERADD_OPTIONS"
+-		
+-		# Is it a SuSE?
+-		elif [ -f /etc/SuSE-release ]
+-		then
+-			USERADD_OPTIONS="-r $USERADD_OPTIONS"
+-		fi
+-		
+-		if [ "$SETUP_LOCAL_USER" = "yes" ]
+-		then
+-			! nx_group_exists && lgroupadd $GROUPADD_OPTIONS nx 
+-			[ -f /etc/nscd.conf ] && { run_nscd --invalidate group; }
+-
+-			luseradd $USERADD_OPTIONS nx
+-			[ -f /etc/nscd.conf ] && { run_nscd --invalidate passwd; }
+-		else
+-			! nx_group_exists && groupadd $GROUPADD_OPTIONS nx
+-			[ -f /etc/nscd.conf ] && { run_nscd --invalidate group; }
+-
+-			useradd $USERADD_OPTIONS nx
+-			[ -f /etc/nscd.conf ] && { run_nscd --invalidate passwd; }
+-		fi
+-
+-		
+-	fi
+-
+-	# the nx user account might be locked, so unlock it.
+-	passwd -u nx
+-}
+-
+ install_nx()
+ {
+ 	set -e
+@@ -266,27 +188,6 @@ install_nx()
+ 	chmod 600 "$NX_LOGFILE"
+ 	echo "done"
+ 	
+-	if ! nx_user_exists
+-	then
+-		echo -n "Setting up special user \"nx\" ..."
+-		useradd_nx
+-		echo "done"
+-	fi
+-	
+-	if [ "$ENABLE_USESSION" = "1" ]
+-	then
+-		echo -n "Adding user \"nx\" to group \"utmp\" ..."
+-		usermod -G utmp nx
+-		echo "done"
+-	fi
+-	
+-	if [ "$ENABLE_NOMACHINE_FORWARD_PORT" = "1" -a -x "$NOMACHINE_SERVER" ]
+-	then
+-		echo -n "Setting up NoMachine forwarding ..."
+-		usermod -s "$PATH_BIN/nxserver" -d "$NOMACHINE_NX_HOME_DIR" nx
+-		echo "done"
+-	fi
+-	
+ 	echo -n "Setting up known_hosts and $SSH_AUTHORIZED_KEYS ..."
+ 	
+ 	SETUP_NX_KEY="no"
+@@ -439,20 +340,6 @@ test_nx()
+ 
+ uninstall_nx() 
+ {
+-	if nx_user_exists
+-	then
+-		echo -n "Removing special user \"nx\" ..."
+-		
+-		if [ "$SETUP_LOCAL_USER" = "yes" ]
+-		then
+-			luserdel nx
+-		else
+-			userdel nx
+-		fi
+-			
+-		echo "done"
+-	fi
+-	
+ 	if [ -e "$NX_SESS_DIR" ]
+ 	then
+ 		echo -n "Removing session database ..."

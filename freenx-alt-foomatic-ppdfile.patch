@@ -1,0 +1,24 @@
+diff -ur freenx.orig/node.conf.sample freenx/node.conf.sample
+--- freenx.orig/node.conf.sample	2007-12-18 18:06:54 +0200
++++ freenx/node.conf.sample	2007-12-24 06:24:57 +0200
+@@ -319,7 +319,7 @@
+ # of available ppd drivers via the $COMMAND_FOOMATIC command.
+ 
+ #ENABLE_FOOMATIC="1"
+-#COMMAND_FOOMATIC="/usr/lib/cups/driver/foomatic-ppdfile"
++#COMMAND_FOOMATIC="/usr/bin/foomatic-ppdfile"
+ 
+ # CUPS_BACKEND and CUPS_ETC are the corresponding paths of your CUPS 
+ # installation.
+diff -ur freenx.orig/nxloadconfig freenx/nxloadconfig
+--- freenx.orig/nxloadconfig	2007-12-18 18:06:55 +0200
++++ freenx/nxloadconfig	2007-12-24 06:24:49 +0200
+@@ -154,7 +154,7 @@
+ ENABLE_CUPS_SEAMLESS="0"
+ CUPS_SEAMLESS_DELAY="10"
+ ENABLE_FOOMATIC="1"
+-COMMAND_FOOMATIC="/usr/lib/cups/driver/foomatic-ppdfile"
++COMMAND_FOOMATIC="/usr/bin/foomatic-ppdfile"
+ 
+ CUPS_BACKEND="/usr/lib/cups/backend"
+ CUPS_IPP_BACKEND="$CUPS_BACKEND/nxipp"

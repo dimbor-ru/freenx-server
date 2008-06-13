@@ -1,0 +1,17 @@
+diff -uNrp freenx-0.7.1.orig/node.conf.sample freenx-0.7.1/node.conf.sample
+--- freenx-0.7.1.orig/node.conf.sample	2007-10-14 17:25:14.000000000 -0500
++++ freenx-0.7.1/node.conf.sample	2007-10-16 11:35:31.000000000 -0500
+@@ -377,11 +377,11 @@
+ 
+ # The key that contains the name of the script that starts a KDE session.
+ # It's run when a 'unix-kde' session is requested by the client.
+-#COMMAND_START_KDE=startkde
++#COMMAND_START_KDE="/usr/bin/ssh-agent /usr/bin/dbus-launch --exit-with-session /usr/bin/startkde"
+ 
+ # The key that contains the name of the script that starts a gnome session.
+ # It's run when a 'unix-gnome' session is requested by the client.
+-#COMMAND_START_GNOME=gnome-session
++#COMMAND_START_GNOME="/usr/bin/ssh-agent /usr/bin/dbus-launch --exit-with-session /usr/bin/gnome-session"
+ 
+ # The key that contains the name of the script that starts a CDE session.
+ # It's run when a 'unix-cde' session is requested by the client.
