@@ -53,6 +53,8 @@ of the nxserver component.
 %install
 %makeinstall_std
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
+mkdir -p %buildroot%_initdir
+install -m 755 init.d/%name %buildroot%_initdir
 
 %pre
 /usr/sbin/groupadd -r -f nx 2> /dev/null ||:
@@ -67,6 +69,7 @@ fi
 %doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample
 %dir %_sysconfdir/nxserver
 %config(noreplace) %_sysconfdir/nxserver/node.conf
+%_initdir/%name
 %_bindir/nx*
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
