@@ -19,12 +19,16 @@ Patch12: freenx-alt-disable-adduser-and-group.patch
 Patch13: freenx-alt-foomatic-ppdfile.patch
 Patch16: freenx-alt-ld_library_path.patch
 Patch18: freenx-centos-dbus.patch
+Patch19: freenx-alt-Xsession.patch
+
+Obsoletes: freenx
+Provides: freenx = %version
 
 Requires: nx
-
 Requires: openssl
 Requires: netcat
 Requires: foomatic-db-engine
+Requires: dbus-tools-gui
 
 # Automatically added by buildreq on Fri Jun 13 2008
 BuildRequires: imake xorg-cf-files
@@ -46,6 +50,7 @@ of the nxserver component.
 %patch13 -p1
 %patch16 -p0
 %patch18 -p1
+%patch19 -p0
 
 %build
 %make
