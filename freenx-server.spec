@@ -70,6 +70,12 @@ then
     ln -s /usr/share/fonts/bitmap/misc /usr/share/fonts/misc
 fi
 
+%post
+%post_service %name
+
+%preun
+%preun_service %name
+
 %files
 %doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample
 %dir %_sysconfdir/nxserver
