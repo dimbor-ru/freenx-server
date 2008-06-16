@@ -61,6 +61,10 @@ mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nx
 mkdir -p %buildroot%_initdir
 install -m 755 init.d/%name %buildroot%_initdir
 
+sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxloadconfig
+sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxredir
+sed -i "s|/usr/lib|%_libdir|" %buildroot%_libdir/cups/backend/nxsmb
+
 %pre
 /usr/sbin/groupadd -r -f nx 2> /dev/null ||:
 /usr/sbin/useradd -r -g nx -G utmp -d /var/lib/nxserver/home/ -s /usr/bin/nxserver \
@@ -87,6 +91,7 @@ fi
 %changelog
 * Fri Jun 13 2008 Boris Savelev <boris@altlinux.org> 0.7.2-alt1
 - new version
+- fix altbug #16049
 
 * Mon Jan 14 2008 Igor Zubkov <icesik@altlinux.org> 0.7.2-alt5.r430
 - fix path for libXrender
