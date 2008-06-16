@@ -60,8 +60,8 @@ of the nxserver component.
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
 mkdir -p %buildroot%_initdir
 install -m 755 init.d/%name %buildroot%_initdir
-
 sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxloadconfig
+sed -i "s|PATH_LIB=$NX_DIR/lib|%_libdir|" %buildroot%_bindir/nxloadconfig
 sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxredir
 sed -i "s|/usr/lib|%_libdir|" %buildroot%_libdir/cups/backend/nxsmb
 
