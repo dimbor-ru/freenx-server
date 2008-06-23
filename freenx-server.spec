@@ -5,12 +5,13 @@ Release: alt1
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
 License: GPLv2
-URL: http://freenx.berlios.de
+Url: http://freenx.berlios.de
 
 Packager: Boris Savelev <boris@altlinux.org>
 
-Source0: http://download.berlios.de/freenx/%name-%version.tar.gz
-#Source0: %name-%version.tar.bz2
+Source: http://download.berlios.de/freenx/%name-%version.tar.gz
+Source1: %name.init
+Source2: %name.outformat
 
 # ALT
 Patch10: freenx-alt-luser.patch
@@ -20,6 +21,7 @@ Patch13: freenx-alt-foomatic-ppdfile.patch
 Patch16: freenx-alt-ld_library_path.patch
 Patch18: freenx-centos-dbus.patch
 Patch19: freenx-alt-Xsession.patch
+Patch20: freenx-add_3_2_0.patch
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -34,7 +36,7 @@ Requires: dbus-tools-gui
 BuildRequires: imake xorg-cf-files
 
 %description
-Freenx is an application/thin-client server based on nx technology. 
+Freenx is an application/thin-client server based on nx technology.
 NoMachine nx is the next-generation X compression and roundtrip suppression
 scheme. It can operate remote X11 sessions over 56k modem dialup links
 or anything better. This package contains a free (GPL) implementation
@@ -42,7 +44,6 @@ of the nxserver component.
 
 %prep
 %setup -q
-#patch0 -p0
 
 %patch10 -p1
 %patch11 -p1
@@ -51,6 +52,7 @@ of the nxserver component.
 %patch16 -p0
 %patch18 -p1
 %patch19 -p0
+%patch20 -p0
 
 %build
 %make
@@ -59,19 +61,20 @@ of the nxserver component.
 %makeinstall_std
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
 mkdir -p %buildroot%_initdir
-install -m 755 init.d/%name %buildroot%_initdir
+install -m 755 %SOURCE1 %buildroot%_initdir/%name
+install -m 755 %SOURCE2 %buildroot%_initdir
 sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxloadconfig
 sed -i "s|PATH_LIB=$NX_DIR/lib|%_libdir|" %buildroot%_bindir/nxloadconfig
 sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxredir
 sed -i "s|/usr/lib|%_libdir|" %buildroot%_libdir/cups/backend/nxsmb
 
 %pre
-/usr/sbin/groupadd -r -f nx 2> /dev/null ||:
-/usr/sbin/useradd -r -g nx -G utmp -d /var/lib/nxserver/home/ -s /usr/bin/nxserver \
+%_sbindir/groupadd -r -f nx 2> /dev/null ||:
+%_sbindir/useradd -r -g nx -G utmp -d /var/lib/nxserver/home/ -s %_bindir/nxserver \
         -c "NX System User" nx 2> /dev/null ||:
-if [ ! -h /usr/share/fonts/misc ]
+if [ ! -h %_datadir/fonts/misc ]
 then
-    ln -s /usr/share/fonts/bitmap/misc /usr/share/fonts/misc
+    ln -s %_datadir/fonts/bitmap/misc %_datadir/fonts/misc
 fi
 
 %post
@@ -79,12 +82,12 @@ fi
 
 %preun
 %preun_service %name
-
 %files
 %doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample
 %dir %_sysconfdir/nxserver
 %config(noreplace) %_sysconfdir/nxserver/node.conf
 %_initdir/%name
+%_initdir/%name.outformat
 %_bindir/nx*
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
@@ -92,6 +95,7 @@ fi
 * Fri Jun 13 2008 Boris Savelev <boris@altlinux.org> 0.7.2-alt1
 - new version
 - fix altbug #16049
+- new init-script
 
 * Mon Jan 14 2008 Igor Zubkov <icesik@altlinux.org> 0.7.2-alt5.r430
 - fix path for libXrender
@@ -103,8 +107,8 @@ fi
 - update from svn
 
 * Fri Dec 28 2007 Igor Zubkov <icesik@altlinux.org> 0.7.2-alt2.r427
-- mark /etc/nxserver/node.conf a config(noreplace)
-- own /etc/nxserver dir
+- mark %_sysconfdir/nxserver/node.conf a config(noreplace)
+- own %_sysconfdir/nxserver dir
 - add requires nx
 
 * Mon Dec 24 2007 Igor Zubkov <icesik@altlinux.org> 0.7.2-alt1.r427
