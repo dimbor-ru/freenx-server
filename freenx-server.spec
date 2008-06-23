@@ -30,7 +30,6 @@ Requires: nx
 Requires: openssl
 Requires: netcat
 Requires: foomatic-db-engine
-Requires: dbus-tools-gui
 
 # Automatically added by buildreq on Fri Jun 13 2008
 BuildRequires: imake xorg-cf-files
