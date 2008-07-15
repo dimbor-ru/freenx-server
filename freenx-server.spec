@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.2
-Release: alt1
+Release: alt2
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -9,7 +9,7 @@ Url: http://freenx.berlios.de
 
 Packager: Boris Savelev <boris@altlinux.org>
 
-Source: http://download.berlios.de/freenx/%name-%version.tar.gz
+Source: %name-%version.tar.gz
 Source1: %name.init
 Source2: %name.outformat
 
@@ -21,7 +21,6 @@ Patch13: freenx-alt-foomatic-ppdfile.patch
 Patch16: freenx-alt-ld_library_path.patch
 Patch18: freenx-centos-dbus.patch
 Patch19: freenx-alt-Xsession.patch
-Patch20: freenx-add_3_2_0.patch
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -51,7 +50,6 @@ of the nxserver component.
 %patch16 -p0
 %patch18 -p1
 %patch19 -p0
-%patch20 -p0
 
 %build
 %make
@@ -91,6 +89,9 @@ fi
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
 %changelog
+* Tue Jul 15 2008 Boris Savelev <boris@altlinux.org> 0.7.2-alt2
+- svn update to r546
+
 * Fri Jun 13 2008 Boris Savelev <boris@altlinux.org> 0.7.2-alt1
 - new version
 - fix altbug #16049

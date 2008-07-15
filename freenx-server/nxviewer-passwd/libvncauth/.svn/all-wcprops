@@ -1,0 +1,29 @@
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/repos/freenx/!svn/ver/528/trunk/freenx-server/nxviewer-passwd/libvncauth
+END
+d3des.c
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svnroot/repos/freenx/!svn/ver/528/trunk/freenx-server/nxviewer-passwd/libvncauth/d3des.c
+END
+Imakefile
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svnroot/repos/freenx/!svn/ver/528/trunk/freenx-server/nxviewer-passwd/libvncauth/Imakefile
+END
+d3des.h
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svnroot/repos/freenx/!svn/ver/528/trunk/freenx-server/nxviewer-passwd/libvncauth/d3des.h
+END
+vncauth.c
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svnroot/repos/freenx/!svn/ver/528/trunk/freenx-server/nxviewer-passwd/libvncauth/vncauth.c
+END

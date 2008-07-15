@@ -37,7 +37,7 @@
 #
 #           https://mail.kde.org/mailman/listinfo/freenx-knx
 #
-# SVN: $Id: node.conf.sample 533 2008-03-14 21:47:47Z fabianx $
+# SVN: $Id: node.conf.sample 544 2008-05-22 18:43:26Z fabianx $
 
 #########################################################################
 # General FreeNX directives
@@ -105,6 +105,15 @@
 # PATH_BIN.
 #
 #ENABLE_SLAVE_MODE="0"
+
+# If ENABLE_LOG_FAILED_LOGINS="1" then failed login attempts are logged to the system
+# auth.log.
+#
+# This is useful in combination with tools like fail2ban.
+#
+# The default is to log failed login attemps via syslog (3).
+#
+#ENABLE_LOG_FAILED_LOGINS="1"
 
 #########################################################################
 # Restriction directives
@@ -407,6 +416,13 @@
 #
 #ENABLE_SAMBA_PRELOAD="0"
 
+# FreeNX with ENABLE_SOURCE_BASH_PROFILE="1" will source the users ~/.bash_profile
+# before application startup as we are kind of a login shell.
+#
+# With this key this behaviour can be enabled (default) or disabled.
+# 
+#ENABLE_SOURCE_BASH_PROFILE="1"
+
 #########################################################################
 # Path directives
 #########################################################################
@@ -460,7 +476,7 @@
 
 # The key that contains the name of the complete path of command name
 # 'xauth'.
-#COMMAND_XAUTH=/usr/X11R6/bin/xauth
+#COMMAND_XAUTH=/usr/bin/xauth
 
 # The key that contains the name of the complete path of command name
 # 'smbmount'.

@@ -3,7 +3,7 @@
  *
  * License: GPL, v2
  *
- * SVN: $Id: nxserver-helper.c 533 2008-03-14 21:47:47Z fabianx $
+ * SVN: $Id: nxserver-helper.c 519 2008-03-11 07:06:43Z fabianx $
  *
  */
 

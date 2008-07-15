@@ -5,7 +5,7 @@
 #
 # License: GPL, version 2
 #
-# SVN: $Id: nxloadconfig 533 2008-03-14 21:47:47Z fabianx $
+# SVN: $Id: nxloadconfig 544 2008-05-22 18:43:26Z fabianx $
 #
 # ========================================================================
 
@@ -52,7 +52,7 @@ fi
 # DO NOT TOUCH unless you REALLY know what you are doing
 #########################################################################
 
-NX_VERSION=2.1.0-72
+NX_VERSION=2.1.0-73-SVN
 NX_LICENSE="OS (GPL, using backend: %BACKEND%)"
 
 # Where can different nx components be found
@@ -99,6 +99,8 @@ ENABLE_FORCE_ENCRYPTION="0"
 SSHD_CHECK_IP="0"
 
 ENABLE_SLAVE_MODE="0"
+
+ENABLE_LOG_FAILED_LOGINS="1"
 
 # Restriction directives
 
@@ -170,6 +172,7 @@ CUPS_ETC="/etc/cups/"
 
 SAMBA_MOUNT_SHARE_PROTOCOL="both"
 ENABLE_SAMBA_PRELOAD="0"
+ENABLE_SOURCE_BASH_PROFILE="1"
 
 # Path directives
 
@@ -184,7 +187,7 @@ COMMAND_START_KDE=startkde
 COMMAND_START_GNOME=gnome-session
 COMMAND_START_CDE=cdwm
 COMMAND_XTERM=xterm
-COMMAND_XAUTH=/usr/X11R6/bin/xauth
+COMMAND_XAUTH=/usr/bin/xauth
 COMMAND_SMBMOUNT=smbmount
 COMMAND_SMBUMOUNT=smbumount
 COMMAND_SMBMOUNT_CIFS=/sbin/mount.cifs
@@ -274,6 +277,8 @@ function mywhich()
 if [ "$NXCONFIG_RETEST" = "1" ]
 then
 	{ ! mywhich "$COMMAND_XAUTH" && which xauth; } >/dev/null 2>&1 && COMMAND_XAUTH=$(which xauth)
+	# fallback to X11R6 path
+	{ ! mywhich "$COMMAND_XAUTH" && test -f /usr/X11R6/bin/xauth; } >/dev/null 2>&1 && COMMAND_XAUTH=/usr/X11R6/bin/xauth
 	{ ! mywhich "$COMMAND_NETCAT" && which nc; } >/dev/null 2>&1 && COMMAND_NETCAT=$(which nc)
 	{ ! mywhich "$COMMAND_FOOMATIC" && which foomatic-ppdfile; } >/dev/null 2>&1 && COMMAND_FOOMATIC=$(which foomatic-ppdfile)
 	{ ! mywhich "$PATH_BIN/nxdesktop"; } >/dev/null 2>&1 && ENABLE_EXTERNAL_NXDESKTOP="1"
@@ -598,8 +603,8 @@ then
 	[ -z $(echo "$ENABLE_ROOTLESS_MODE" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_ROOTLESS_MODE=$ENABLE_ROOTLESS_MODE\""
 
-	[ -z "$(strings $PATH_BIN/nxagent | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[01].0')" ] && \
-		ERROR="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[01].0 version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[01].0 backend is needed for this version of FreeNX."
+	[ -z "$(strings $PATH_BIN/nxagent | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[012].0')" ] && \
+		WARNING="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[01].0 version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[012].0 backend is needed for this version of FreeNX."
 		
 	[ -z $(echo "$ENABLE_USESSION" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_USESSION=$ENABLE_USESSION\""

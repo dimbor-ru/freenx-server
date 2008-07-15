@@ -13,7 +13,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxnode 533 2008-03-14 21:47:47Z fabianx $
+# SVN: $Id: nxnode 543 2008-05-06 14:40:24Z fabianx $
 #
 # 21.06.2004: - Full reconnection support
 
@@ -154,8 +154,8 @@ node_terminate_session()
 	
 	[ "$SESSION_LOG_CLEAN" = "1" ] && rm -rf "$USER_FAKE_HOME/.nx/C-$1/"
 	
-	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/F-C-$1/"
-	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/T-C-$1/"
+	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/F-C-$1"
+	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/T-C-$1"
 }
 
 #
@@ -251,7 +251,7 @@ node_start_applications()
 	#
 	
 	. /etc/profile
-	[ -f ~/.bash_profile ] && . ~/.bash_profile
+	[ "$ENABLE_SOURCE_BASH_PROFILE" = "1" -a -f ~/.bash_profile ] && . ~/.bash_profile
 
 	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/apps/"
 
@@ -525,7 +525,7 @@ node_start_agent()
 		
 		# Start the agent
 		
-		PATH="$PATH_BIN:$PATH" $PATH_BIN/nxagent $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
+		PATH="$PATH_BIN:$PATH" $PATH_BIN/nxagent $P $R -nolisten tcp -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 	fi
 	
 	#

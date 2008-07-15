@@ -34,7 +34,7 @@ You must apply the gentoo-nomachine.diff and then copy the files to /usr/NX/bin 
 
 Here is a howto:
 
-Get all sources from www.nomachine.com/sources.php
+Get all sources except nx-X11-compat.tar.gz from www.nomachine.com/sources.php
 
 Untar all sources, install all dependencies then do:
 
@@ -120,4 +120,4 @@ Old way without Makefile (instead of make; make install):
 
   $ cp -a freenx*/node.conf.sample ${NXPREFIX}/etc/
 
-SVN: $Id: INSTALL 533 2008-03-14 21:47:47Z fabianx $
+SVN: $Id: INSTALL 536 2008-03-27 18:54:08Z fabianx $

@@ -1,0 +1,85 @@
+8
+
+dir
+546
+http://svn.berlios.de/svnroot/repos/freenx/trunk/freenx-server/nxviewer-passwd
+http://svn.berlios.de/svnroot/repos/freenx
+
+
+
+2008-03-14T17:54:12.169166Z
+528
+fabianx
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+80778403-ebee-0310-8e0a-e86a689f3fff
+
+libvncauth
+dir
+
+include
+dir
+
+Imakefile
+file
+
+
+
+
+2008-07-15T13:46:50.793120Z
+6ceff94542aefd874dd9bb138604e703
+2008-03-14T17:54:12.169166Z
+528
+fabianx
+
+nxpasswd
+dir
+
+COPYING
+file
+
+
+
+
+2008-07-15T13:46:50.805119Z
+75b02c2872421380bbd47781d2bd75d3
+2008-03-14T17:54:12.169166Z
+528
+fabianx
+
+WhatsNew.TIGHTVNC.original
+file
+
+
+
+
+2008-07-15T13:46:50.813119Z
+9e2ff85af386179815cc906471da267c
+2008-03-14T17:54:12.169166Z
+528
+fabianx
+
+README
+file
+
+
+
+
+2008-07-15T13:46:50.829118Z
+0bb0ab1e6c37a11e62a6c08a0a019b55
+2008-03-14T17:54:12.169166Z
+528
+fabianx
+
