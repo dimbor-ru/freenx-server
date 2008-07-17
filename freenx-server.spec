@@ -21,6 +21,7 @@ Patch13: freenx-alt-foomatic-ppdfile.patch
 Patch16: freenx-alt-ld_library_path.patch
 Patch18: freenx-centos-dbus.patch
 Patch19: freenx-alt-Xsession.patch
+Patch20: freenx-alt-nxnode.patch
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -44,12 +45,13 @@ of the nxserver component.
 %setup -q
 
 %patch10 -p1
-%patch11 -p1
+%patch11 -p0
 %patch12 -p0
 %patch13 -p1
 %patch16 -p0
 %patch18 -p1
 %patch19 -p0
+%patch20 -p0
 
 %build
 %make
