@@ -31,7 +31,7 @@ Requires: openssl
 Requires: netcat
 Requires: foomatic-db-engine
 
-# Automatically added by buildreq on Fri Jun 13 2008
+BuildPreReq: rpm-build-compat
 BuildRequires: imake xorg-cf-files
 
 %description
