@@ -68,8 +68,8 @@ sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxredir
 sed -i "s|/usr/lib|%_libdir|" %buildroot%_libdir/cups/backend/nxsmb
 
 %pre
-%_sbindir/groupadd -r -f nx 2> /dev/null ||:
-%_sbindir/useradd -r -g nx -G utmp -d /var/lib/nxserver/home/ -s %_bindir/nxserver \
+%groupadd nx 2> /dev/null ||:
+%useradd -g nx -G utmp -d /var/lib/nxserver/home/ -s %_bindir/nxserver \
         -c "NX System User" nx 2> /dev/null ||:
 if [ ! -h %_datadir/fonts/misc ]
 then
