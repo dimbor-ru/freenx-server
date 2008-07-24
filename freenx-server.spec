@@ -29,6 +29,7 @@ Provides: freenx = %version
 Requires: nx
 Requires: openssl
 Requires: netcat
+Requires: expect
 Requires: foomatic-db-engine
 
 BuildPreReq: rpm-build-compat
