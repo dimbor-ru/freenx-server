@@ -13,7 +13,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxnode 543 2008-05-06 14:40:24Z fabianx $
+# SVN: $Id: nxnode 550 2008-08-05 12:45:54Z fabianx $
 #
 # 21.06.2004: - Full reconnection support
 
@@ -218,11 +218,16 @@ node_find_application()
 			[ "$application" = "xterm" ] && application=$COMMAND_XTERM
 			NODE_STARTX=$application
 		;;
-		unix-default)
+		unix-console)
+			NODE_STARTX=$COMMAND_XTERM
+		;;
+		unix-default|*)
 			if [ -x "$HOME/$USER_X_STARTUP_SCRIPT" ]; then
 				NODE_STARTX="$HOME/$USER_X_STARTUP_SCRIPT"
 			elif which "$DEFAULT_X_SESSION" >/dev/null 2>&1 ; then
 				NODE_STARTX="$DEFAULT_X_SESSION"
+			else
+				NODE_STARTX=$COMMAND_XTERM
 			fi
 		;;
 	esac
