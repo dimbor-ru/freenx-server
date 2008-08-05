@@ -13,7 +13,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxnode 551 2008-08-05 12:50:28Z fabianx $
+# SVN: $Id: nxnode 555 2008-08-05 14:41:22Z fabianx $
 #
 # 21.06.2004: - Full reconnection support
 
@@ -1128,6 +1128,7 @@ startsession()
 		export agent_password
 		export agent_server
 		export agent_domain
+		export windows_app=$application
 		agent_keyboard=""
 		[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && agent_keyboard=$(echo "$keyboard" | cut -d'/' -f2)
 		export agent_keyboard
