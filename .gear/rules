@@ -1,4 +1,4 @@
 copy: *.patch
 copy: *.init
 copy: *.outformat
-tar.gz: freenx-server
+tar.bz2: freenx-server

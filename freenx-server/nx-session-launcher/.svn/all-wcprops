@@ -1,0 +1,35 @@
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/repos/freenx/!svn/ver/562/trunk/freenx-server/nx-session-launcher
+END
+ConsoleKit-NX.conf
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svnroot/repos/freenx/!svn/ver/557/trunk/freenx-server/nx-session-launcher/ConsoleKit-NX.conf
+END
+nx-session-launcher
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svnroot/repos/freenx/!svn/ver/557/trunk/freenx-server/nx-session-launcher/nx-session-launcher
+END
+nx-session-launcher-suid.c
+K 25
+svn:wc:ra_dav:version-url
+V 101
+/svnroot/repos/freenx/!svn/ver/557/trunk/freenx-server/nx-session-launcher/nx-session-launcher-suid.c
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/repos/freenx/!svn/ver/557/trunk/freenx-server/nx-session-launcher/Makefile
+END
+README
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/repos/freenx/!svn/ver/562/trunk/freenx-server/nx-session-launcher/README
+END
