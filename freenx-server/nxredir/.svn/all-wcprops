@@ -1,7 +1,7 @@
 K 25
 svn:wc:ra_dav:version-url
 V 62
-/svnroot/repos/freenx/!svn/ver/529/trunk/freenx-server/nxredir
+/svnroot/repos/freenx/!svn/ver/547/trunk/freenx-server/nxredir
 END
 nxsmb
 K 25
@@ -25,5 +25,5 @@ Makefile
 K 25
 svn:wc:ra_dav:version-url
 V 71
-/svnroot/repos/freenx/!svn/ver/529/trunk/freenx-server/nxredir/Makefile
+/svnroot/repos/freenx/!svn/ver/547/trunk/freenx-server/nxredir/Makefile
 END

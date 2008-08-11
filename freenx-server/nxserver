@@ -11,7 +11,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxserver 541 2008-05-06 13:29:58Z fabianx $
+# SVN: $Id: nxserver 565 2008-08-05 23:32:01Z fabianx $
 #
 
 # Read the config file
@@ -30,6 +30,62 @@ stringinstring "&$1=" "$CMDLINE" || return 1
 echo "$CMDLINE" |  tr "&" "\n" | egrep "^"$1"=" | awk -F= '{ VAL=$2 } END { print VAL }'
 return 0
 }
+
+############### PACKAGE log.bm #######################
+#
+# Library of log functions (outsource)
+#
+
+# Loglevels:
+# 1: Errors
+# 2: Warnings
+# 3: Important information
+# 4: Server - Client communication
+# 5: Information
+# 6: Debugging information
+# 7: stderror-channel of some applications
+
+log()
+{
+	[ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ] && shift && echo "$@" >> "$NX_LOGFILE"
+}
+
+# Log in a way that is secure for passwords / cookies / ...
+
+echo_secure()
+{
+	echo "$@ " | $COMMAND_PERL -pi -e 's/--cookie=".+?"/--cookie="******"/g; s/--agent_password=".+?"/agent_password="******"/g; s/--password=".+?"/password="******"/g; s/cookie=.+?&/cookie=******&/g; s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;'
+}
+
+log_secure()
+{
+	if [ "$NX_LOG_SECURE" = "0" ]
+	then
+		log "$@"
+	else
+		[ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ] && shift && echo_secure "$@" >> "$NX_LOGFILE"
+	fi
+}
+
+log_tee()
+{
+	[ "$NX_LOG_LEVEL" -ge "4" -a -w "$NX_LOGFILE" ] && exec tee -a "$NX_LOGFILE"
+	[ "$NX_LOG_LEVEL" -ge "4" -a -w "$NX_LOGFILE" ] || exec cat -
+}
+
+log_error()
+{
+	[ "$NX_LOG_LEVEL" -ge "7" -a -w "$NX_LOGFILE" ] && exec tee -a "$NX_LOGFILE"
+	[ "$NX_LOG_LEVEL" -ge "7" -a -w "$NX_LOGFILE" ] || exec cat - 
+}
+
+echo_x()
+{
+	log "4" "$@"
+	echo "$@"
+}
+
+
 
 
 ############### PACKAGE passdb.bm #######################
@@ -446,56 +502,6 @@ setup_usermode_auth()
 
 setup_usermode_auth
 
-# Loglevels:
-# 1: Errors
-# 2: Warnings
-# 3: Important information
-# 4: Server - Client communication
-# 5: Information
-# 6: Debugging information
-# 7: stderror-channel of some applications
-
-log()
-{
-	[ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ] && shift && echo "$@" >> "$NX_LOGFILE"
-}
-
-# Log in a way that is secure for passwords / cookies / ...
-
-echo_secure()
-{
-	echo "$@ " | $COMMAND_PERL -pi -e 's/--cookie=".+?"/--cookie="******"/g; s/--agent_password=".+?"/agent_password="******"/g; s/--password=".+?"/password="******"/g; s/cookie=.+?&/cookie=******&/g; s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;'
-}
-
-log_secure()
-{
-	if [ "$NX_LOG_SECURE" = "0" ]
-	then
-		log "$@"
-	else
-		[ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ] && shift && echo_secure "$@" >> "$NX_LOGFILE"
-	fi
-}
-
-log_tee()
-{
-	[ "$NX_LOG_LEVEL" -ge "4" -a -w "$NX_LOGFILE" ] && exec tee -a "$NX_LOGFILE"
-	[ "$NX_LOG_LEVEL" -ge "4" -a -w "$NX_LOGFILE" ] || exec cat -
-}
-
-log_error()
-{
-	[ "$NX_LOG_LEVEL" -ge "7" -a -w "$NX_LOGFILE" ] && exec tee -a "$NX_LOGFILE"
-	[ "$NX_LOG_LEVEL" -ge "7" -a -w "$NX_LOGFILE" ] || exec cat - 
-}
-
-echo_x()
-{
-	log "4" "$@"
-	echo "$@"
-}
-
-
 #
 # needed for slave mode
 #
@@ -721,7 +727,7 @@ do
 			echo_x -n "NX> 102 Password: "
 			old_ifs="$IFS"
 			export IFS=$'\n'
-			read -s PASS
+			read -r -s PASS
 			export IFS="$old_ifs"
 			echo_x ""
 			log 6 -n "Info: Auth method: "
@@ -956,6 +962,7 @@ server_nxnode_start_wait()
 						# closed his side of the channel and this will lead to not 
 						# closed sessions.
 						SERVER_CHANNEL=0
+					;;
 				esac
 			;;
 			"NX> 1004"*)
@@ -986,8 +993,9 @@ server_nxnode_start_wait()
 	[ -e "/tmp/.nX$SESS_DISPLAY-lock" ] && rm -f /tmp/.nX$SESS_DISPLAY-lock
 
 	nxnode_login_stop_slave
-
-	else # $1 = restore
+	
+	# $1 = restore
+	else
 	
 	KILL_WAIT_PID=1
 	SERVER_CHANNEL=1
@@ -1028,7 +1036,8 @@ server_nxnode_start_wait()
 	
 	nxnode_login_stop_slave
 	
-	fi # $1 = start
+	# $1 = start
+	fi
 }
 
 server_check_session_count()
@@ -1426,7 +1435,11 @@ do
 			if [ "$ENCRYPTION" = "1" ] 
 			then 
 				let PROXY_DISPLAY=$SESS_DISPLAY+4000
-				exec $COMMAND_NETCAT $SERVER_HOST $PROXY_DISPLAY
+				$COMMAND_NETCAT $SERVER_HOST $PROXY_DISPLAY
+				RC=$?
+				# kill our parent sshd process
+				kill $PPID
+				exit $RC
 			else
 				echo_x "NX> 1001 Bye."
 			fi
@@ -1486,14 +1499,14 @@ do
 		passwd)
 			echo_x "NX> 113 Changing password of user '$USER'"
 			echo_x -n "NX> 102 Current password:"
-			read -s PASS
+			read -r -s PASS
 			ENC_PASS=$(passdb_get_crypt_pass "$PASS")
 			REAL_PASS=$(passdb_get_pass "$USER")
 			echo_x
 			if [ "$ENC_PASS" = "$REAL_PASS" ]
 			then
 				echo_x -n "NX> 102 Password:"
-				read -s NEW_PASS1
+				read -r -s NEW_PASS1
 				
 				if [ ${#NEW_PASS1} -lt 5 ]
 				then
@@ -1503,7 +1516,7 @@ do
 
 				echo_x
 				echo_x -n "NX> 102 Confirm password:"
-				read -s NEW_PASS1
+				read -r -s NEW_PASS1
 				echo_x
 				if [ "$NEW_PASS1" = "$NEW_PASS2" ]
 				then
@@ -1595,9 +1608,16 @@ cmd_usage()
 
 cmd_abort()
 {
-	echo "NX> 500" "$@" 1>&2
+	echo -e "NX> 500" "$@" 1>&2
 	echo "NX> 999 Bye" 1>&2
 	exit 1
+}
+
+cmd_abort_success()
+{
+	echo "NX> 500" "$@" 1>&2
+	echo "NX> 999 Bye" 1>&2
+	exit 0
 }
 
 cmd_user_passwd()
@@ -1621,11 +1641,21 @@ cmd_passwd()
 	CMD_CHUSER=$2
 	egrep -q "^$CMD_CHUSER:" $NX_ETC_DIR/passwords || cmd_abort "Error: User $CMD_CHUSER not found in database."
 	echo -n "New password: "
-	read -s CMD_NEWPASS
+	read -r -s CMD_NEWPASS
 	echo
 	CMD_ENC_PASS=$(passdb_get_crypt_pass "$CMD_NEWPASS")
 	passdb_chpass "$CMD_CHUSER" "$CMD_ENC_PASS"
 	echo "Password changed."
+}
+
+cmd_checkpassdb()
+{
+	if [ "$ENABLE_PASSDB_AUTHENTICATION" != "1" ]
+	then
+		cmd_abort "Error: The passdb function is not activated in node.conf.\n\nMost probably your FreeNX setup will work out of the box without this\nfunctionality and you've been misleaded by an old tutorial or old\ndocumentation to do this step.\n\nIf however you really need this functionality, just set\nENABLE_PASSDB_AUTHENTICATION=\"1\" in node.conf.\n"
+	fi
+
+	return 0
 }
 
 cmd_adduser()
@@ -1659,14 +1689,14 @@ cmd_listuser()
 cmd_start()
 {
 	
-	[ -f $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS ] && cmd_abort "ERROR: Service already running"
+	[ -f $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS ] && cmd_abort_success "ERROR: Service already running"
 	mv $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS.disabled $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS
 	echo "NX> 122 Service started"
 }
 
 cmd_stop()
 {
-	[ -f $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS ] || cmd_abort "Service was already stopped"
+	[ -f $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS ] || cmd_abort_success "Service was already stopped"
 	mv $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS.disabled
 	echo "NX> 123 Service stopped"
 }
@@ -1880,15 +1910,19 @@ case $CMD in
 	# User functions ...
 	# 
 	--passwd)
+		cmd_checkpassdb
 		cmd_passwd "$@"
 	;;
 	--adduser|--useradd)
+		cmd_checkpassdb
 		cmd_adduser "$@"
 	;;
 	--deluser|--userdel)
+		cmd_checkpassdb
 		cmd_deluser "$@"
 	;;
 	--listuser|--userlist)
+		cmd_checkpassdb
 		cmd_listuser
 	;;
 	--start)

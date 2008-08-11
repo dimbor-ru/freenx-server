@@ -23,6 +23,55 @@ XX.06.2008 FreeNX 0.7.3
 	* Added /usr/bin/xauth as default key and used /usr/X11R6/bin/xauth as
 	  fallback.
 	  (fabianx@bat.berlios.de)
+	* Fixed Makefile to stop on all errors.
+	  (Idea by Hai Zaar <haizaar@gmail.com>, fabianx@bat.berlios.de)
+	* Changed the default for ENABLE_PASSDB_AUTHENTICATION. If you had
+	  added a user with different password via --adduser consider
+	  re-activating this option in node.conf.
+	  (fabianx@bat.berlios.de)
+	* Added constraints for passdb based commands. They are only available
+	  when ENABLE_PASSDB_AUTHENTICATION="1" else a friendly error message
+	  is shown. This should help with users using old tutorials.
+	  (fabianx@bat.berlios.de)
+	* Added unix-console patch. Added default handler as unix-default with
+	  a fallback to xterm,
+	  (Idea by Jens Hatlak <jh@junetz.de>, fabianx@bat.berlios.de)
+	* Fixed external rdesktop keyboards: A "$" was missing.
+	  (Bug by Phil Stricker <stril@gmx.de>, fabianx@bat.berlios.de)
+	* Added workaround for "ch" keyboard layout to nxdesktop_helper, 
+	  which NXClient 3.2.0 means as de-ch.
+	  (Bug by Phil Stricker <stril@gmx.de>, fabianx@bat.berlios.de)
+	* Added clean target to Makefile.
+	  (Based on patch by Ubuntu FreeNX-Team, fabianx@bat.berlios.de)
+	* Use :0.0 if mirrorhost is 127.0.0.1 and add -localhost for 
+	  enhanced security. Also increase sleep timeout for slow machines.
+	  (Based on Patch by Jeremy Wilkins <wjeremy@shaw.ca>, fabianx@bat.berlios.de)
+	* Allow RDP "Run application" sessions to work correctly.
+	  (David Corral < davefury@gmail.com > & the Silice Telecom staff,
+	   fabianx@bat.berlios.de)
+	* Merge Xresources on startup of session.
+	  (Jeremy Wilkins <wjeremy@shaw.ca>)
+	* Added nx-session-launcher from Ubuntu FreeNX-Team to use FreeNX with
+	  ConsoleKit.
+	  (marceloshima@gmail.com, fabianx@bat.berlios.de)
+	* Moved logging functions to a more appropriate place.
+	  (fabianx@bat.berlios.de)
+	* Finally fixed the bug when NX Client was stopped on "Negotiating
+	  link parameters" and failed session after first session suspend.
+	  (fabianx@bat.berlios.de)
+	* Fixed missing "fi" statement. In fact it was a missing ";;".
+	  (fabianx@bat.berlios.de)
+	* Used source instead of "." for Makefile. (Closes: #13954)
+	  (fabianx@bat.berlios.de)
+	* Allow passwords with '\' by changing read -s to read -r -s.
+	  (Closes: #10699)
+	  (Patch by rpfuller@bat.berlios.de, fabianx@bat.berlios.de)
+	* Allow passwords with special chars by using new url_decode on
+	  agent_password. (Closes: #10248)
+	  (fabianx@bat.berlios.de)
+	* Fixed start/stop exit codes.
+	  (Patch by Gentoo Portage, fabianx@bat.berlios.de)
+	  
 
 14.03.2008 FreeNX 0.7.2 "Priscilla Edition"
 	* Opened the 0.7.2 development.
