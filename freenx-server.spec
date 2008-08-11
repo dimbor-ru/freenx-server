@@ -1,6 +1,6 @@
 Name: freenx-server
-Version: 0.7.2
-Release: alt2
+Version: 0.7.3
+Release: alt1
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -9,7 +9,7 @@ Url: http://freenx.berlios.de
 
 Packager: Boris Savelev <boris@altlinux.org>
 
-Source: %name-%version.tar.gz
+Source: %name-%version.tar.bz2
 Source1: %name.init
 Source2: %name.outformat
 
@@ -33,7 +33,7 @@ Requires: expect
 Requires: foomatic-db-engine
 
 BuildPreReq: rpm-build-compat
-BuildRequires: imake xorg-cf-files
+BuildRequires: imake xorg-cf-files gccmakedep
 
 %description
 Freenx is an application/thin-client server based on nx technology.
@@ -55,18 +55,22 @@ of the nxserver component.
 %patch20 -p0
 
 %build
-%make
+%make_build
 
 %install
+# wrong install path
+sed -i "s|/usr/lib|%_libdir|g" nxredir/Makefile
+# install use nxloadconfig
+sed -i "s|/usr/lib|%_libdir|g" nxloadconfig
+sed -i "s|\$NX_DIR/lib|%_libdir|g" nxloadconfig
+export NX_ETC_DIR=%_initdir/%name
 %makeinstall_std
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
 mkdir -p %buildroot%_initdir
 install -m 755 %SOURCE1 %buildroot%_initdir/%name
 install -m 755 %SOURCE2 %buildroot%_initdir
-sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxloadconfig
-sed -i "s|PATH_LIB=$NX_DIR/lib|%_libdir|" %buildroot%_bindir/nxloadconfig
-sed -i "s|/usr/lib|%_libdir|" %buildroot%_bindir/nxredir
-sed -i "s|/usr/lib|%_libdir|" %buildroot%_libdir/cups/backend/nxsmb
+sed -i "s|/usr/lib|%_libdir|g" %buildroot%_bindir/nxredir
+sed -i "s|/usr/lib|%_libdir|g" %buildroot%_libdir/cups/backend/nxsmb
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -92,6 +96,10 @@ fi
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
 %changelog
+* Mon Aug 11 2008 Boris Savelev <boris@altlinux.org> 0.7.3-alt1
+- svn update to r565
+- fix x86_64 build
+
 * Tue Jul 15 2008 Boris Savelev <boris@altlinux.org> 0.7.2-alt2
 - svn update to r546
 
