@@ -68,7 +68,10 @@ export NX_ETC_DIR=%_initdir/%name
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
 mkdir -p %buildroot%_initdir
 install -m 755 %SOURCE1 %buildroot%_initdir/%name
+%if %_vendor == "alt"
+%else
 install -m 755 %SOURCE2 %buildroot%_initdir
+%endif
 sed -i "s|/usr/lib|%_libdir|g" %buildroot%_bindir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" %buildroot%_libdir/cups/backend/nxsmb
 
@@ -76,7 +79,7 @@ sed -i "s|/usr/lib|%_libdir|g" %buildroot%_libdir/cups/backend/nxsmb
 %groupadd nx 2> /dev/null ||:
 %useradd -g nx -G utmp -d /var/lib/nxserver/home/ -s %_bindir/nxserver \
         -c "NX System User" nx 2> /dev/null ||:
-if [ ! -h %_datadir/fonts/misc ]
+if [ ! -d %_datadir/fonts/misc ] && [ ! -e %_datadir/fonts/misc ] && [ -d %_datadir/fonts/bitmap/misc ]
 then
     ln -s %_datadir/fonts/bitmap/misc %_datadir/fonts/misc
 fi
@@ -91,7 +94,10 @@ fi
 %dir %_sysconfdir/nxserver
 %config(noreplace) %_sysconfdir/nxserver/node.conf
 %_initdir/%name
+%if %_vendor == "alt"
+%else
 %_initdir/%name.outformat
+%endif
 %_bindir/nx*
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
