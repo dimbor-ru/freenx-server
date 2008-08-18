@@ -3,17 +3,17 @@ svn:wc:ra_dav:version-url
 V 54
 /svnroot/repos/freenx/!svn/ver/570/trunk/freenx-server
 END
-nxacl.sample
-K 25
-svn:wc:ra_dav:version-url
-V 67
-/svnroot/repos/freenx/!svn/ver/538/trunk/freenx-server/nxacl.sample
-END
 AUTHORS
 K 25
 svn:wc:ra_dav:version-url
 V 62
 /svnroot/repos/freenx/!svn/ver/512/trunk/freenx-server/AUTHORS
+END
+nxacl.sample
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svnroot/repos/freenx/!svn/ver/538/trunk/freenx-server/nxacl.sample
 END
 ChangeLog
 K 25
@@ -33,17 +33,17 @@ svn:wc:ra_dav:version-url
 V 71
 /svnroot/repos/freenx/!svn/ver/570/trunk/freenx-server/node.conf.sample
 END
-nxcups-gethost
-K 25
-svn:wc:ra_dav:version-url
-V 69
-/svnroot/repos/freenx/!svn/ver/538/trunk/freenx-server/nxcups-gethost
-END
 nxnode
 K 25
 svn:wc:ra_dav:version-url
 V 61
 /svnroot/repos/freenx/!svn/ver/567/trunk/freenx-server/nxnode
+END
+nxcups-gethost
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svnroot/repos/freenx/!svn/ver/538/trunk/freenx-server/nxcups-gethost
 END
 nxserver-usermode
 K 25
@@ -57,17 +57,17 @@ svn:wc:ra_dav:version-url
 V 62
 /svnroot/repos/freenx/!svn/ver/512/trunk/freenx-server/CONTRIB
 END
-gentoo-nomachine.diff
-K 25
-svn:wc:ra_dav:version-url
-V 76
-/svnroot/repos/freenx/!svn/ver/521/trunk/freenx-server/gentoo-nomachine.diff
-END
 nxnode-login
 K 25
 svn:wc:ra_dav:version-url
 V 67
 /svnroot/repos/freenx/!svn/ver/512/trunk/freenx-server/nxnode-login
+END
+gentoo-nomachine.diff
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/repos/freenx/!svn/ver/521/trunk/freenx-server/gentoo-nomachine.diff
 END
 nxprint
 K 25
