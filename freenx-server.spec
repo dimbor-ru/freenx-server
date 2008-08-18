@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.3
-Release: alt1
+Release: alt2
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -12,16 +12,6 @@ Packager: Boris Savelev <boris@altlinux.org>
 Source: %name-%version.tar.bz2
 Source1: %name.init
 Source2: %name.outformat
-
-# ALT
-Patch10: freenx-alt-luser.patch
-Patch11: freenx-alt-openssh.patch
-Patch12: freenx-alt-disable-adduser-and-group.patch
-Patch13: freenx-alt-foomatic-ppdfile.patch
-Patch16: freenx-alt-ld_library_path.patch
-Patch18: freenx-centos-dbus.patch
-Patch19: freenx-alt-Xsession.patch
-Patch20: freenx-alt-nxnode.patch
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -44,15 +34,6 @@ of the nxserver component.
 
 %prep
 %setup -q
-
-%patch10 -p1
-%patch11 -p0
-%patch12 -p0
-%patch13 -p1
-%patch16 -p0
-%patch18 -p1
-%patch19 -p0
-%patch20 -p0
 
 %build
 %make_build
@@ -102,6 +83,24 @@ fi
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
 %changelog
+* Mon Aug 18 2008 Boris Savelev <boris@altlinux.org> 0.7.3-alt2
+- Build from git
+- Finally checked for all service ports. (cups, media, samba) and also checked it on the host where the load balancing actually leads to.
+- Fixed broken fallback logic if SSH_CLIENT variables cannot be read correctly.
+- Overhauled the usermode:
+    There are now two modes of operation.
+                - One statically setting the ENABLE_USERMODE_AUTHENTICATION key in node.conf. (old behavior)
+                - Or using nxserver-usermode as startup binary, which directly goes into the 103 stage.
+    Fixed using commandline parameters like --cleanup for static usermode.
+                - Enabled the root commandline parameters in usermode.
+                - Fixed usage of "nx" user as normal user in usermode.
+                - Disabled slave mode and load balancing for usermode.
+                - Fixed creation of the logfile directory.
+                - Fixed nxnode usage of SSH_CLIENT using fallback mechanism.
+- Added disabled nxserver-suid wrapper with help from Google. To enable it uncomment the suid_install target in Makefile.
+- Automatically disabled slave mode, when load balancing is activated.
+- Made ENABLE_SLAVE_MODE="1" the new default as its faster and more reliable. If you encounter any problems with it, disable it in node.conf.
+
 * Mon Aug 11 2008 Boris Savelev <boris@altlinux.org> 0.7.3-alt1
 - svn update to r565
 - fix x86_64 build
