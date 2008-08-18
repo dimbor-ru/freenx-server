@@ -6,7 +6,7 @@ SUBDIRS=nxredir nxviewer-passwd nxserver-helper nx-session-launcher
 PROGRAMS=nxacl.sample nxcheckload.sample nxcups-gethost nxdesktop_helper nxdialog nxkeygen nxloadconfig nxnode nxnode-login nxprint nxserver nxserver-helper/nxserver-helper nxsetup nxviewer_helper nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher nx-session-launcher/nx-session-launcher-suid
 
 all:
-	cd nxviewer-passwd && xmkmf && make Makefiles && make depend
+	cd nxviewer-passwd && /usr/bin/xmkmf && make Makefiles && make depend
 	source nxloadconfig &&\
 	export PATH_BIN PATH_LIB CUPS_BACKEND NX_VERSION &&\
 	for i in $(SUBDIRS) ; \
