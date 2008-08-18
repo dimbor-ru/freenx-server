@@ -386,7 +386,7 @@
 # of available ppd drivers via the $COMMAND_FOOMATIC command.
 
 #ENABLE_FOOMATIC="1"
-#COMMAND_FOOMATIC="/usr/lib/cups/driver/foomatic-ppdfile"
+#COMMAND_FOOMATIC="/usr/bin/foomatic-ppdfile"
 
 # CUPS_BACKEND and CUPS_ETC are the corresponding paths of your CUPS 
 # installation.
