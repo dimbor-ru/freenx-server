@@ -153,16 +153,18 @@ install_nx()
 {
 	set -e
 	
-	if [ "$(pidof sshd 2>/dev/null)" = "" ]
-	then 
-		echo -n "Starting ssh service ..."
-		# Generate Host keys if they are not available, yet
-		[ -e /etc/ssh/ssh_host_rsa_key ] || $COMMAND_SSH_KEYGEN -q -t rsa -f /etc/ssh/ssh_host_rsa_key -C '' -N ''
-		[ -e /etc/ssh/ssh_host_dsa_key ] || $COMMAND_SSH_KEYGEN -q -t dsa -f /etc/ssh/ssh_host_dsa_key -C '' -N ''
-		[ -x /etc/init.d/sshd ] && /etc/init.d/sshd start
-		[ -x /etc/init.d/ssh ] && /etc/init.d/ssh start
-		echo "done"
-	fi
+
+# FIXME!!!
+#	if [ "$(pidof sshd 2>/dev/null)" = "" ]
+#	then 
+#		echo -n "Starting ssh service ..."
+#		# Generate Host keys if they are not available, yet
+#		[ -e /etc/ssh/ssh_host_rsa_key ] || $COMMAND_SSH_KEYGEN -q -t rsa -f /etc/ssh/ssh_host_rsa_key -C '' -N ''
+#		[ -e /etc/ssh/ssh_host_dsa_key ] || $COMMAND_SSH_KEYGEN -q -t dsa -f /etc/ssh/ssh_host_dsa_key -C '' -N ''
+#		[ -x /etc/init.d/sshd ] && /etc/init.d/sshd start
+#		[ -x /etc/init.d/ssh ] && /etc/init.d/ssh start
+#		echo "done"
+#	fi
 	
 	echo -n "Setting up $NX_ETC_DIR ..."
 	mkdir -p $NX_ETC_DIR
@@ -256,7 +258,11 @@ EOF
 	if [ ! -f $NX_HOME_DIR/.ssh/known_hosts -a "$BUILD_KNOWN_HOSTS" = "yes" ]
 	then
 		echo -n "127.0.0.1 " > $NX_HOME_DIR/.ssh/known_hosts
-		cat /etc/ssh/ssh_host_rsa_key.pub >> $NX_HOME_DIR/.ssh/known_hosts
+		if [ -e "/etc/openssh/ssh_host_rsa_key.pub" ] ; then
+		    cat /etc/openssh/ssh_host_rsa_key.pub >> $NX_HOME_DIR/.ssh/known_hosts
+		else
+		    [ -e "/etc/ssh/ssh_host_rsa_key.pub" ] && cat /etc/ssh/ssh_host_rsa_key.pub >> $NX_HOME_DIR/.ssh/known_hosts
+		fi
 	fi
 	
 	echo "done"
