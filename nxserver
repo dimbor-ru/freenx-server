@@ -11,7 +11,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxserver 570 2008-08-18 02:26:05Z fabianx $
+# SVN: $Id: nxserver 571 2008-08-18 16:29:17Z fabianx $
 #
 
 # Read the config file
@@ -1259,7 +1259,7 @@ server_startrestore_session()
 
 		if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" -a "$(getparam type)" = "windows" ]
 		then
-			type="unix-application"
+			type="windows-helper"
 			application="$PATH_BIN/nxdesktop_helper"
 			PARAMS="$PARAMS&type=$type&application=$application&freenx_export_agents=1"
 			CMDLINE=$PARAMS
@@ -1267,7 +1267,7 @@ server_startrestore_session()
 		 
 		if [ "$ENABLE_EXTERNAL_NXVIEWER" = "1" -a "$(getparam type)" = "vnc" ]
 		then
-			type="unix-application"
+			type="vnc-helper"
 			application="$PATH_BIN/nxviewer_helper"
 			PARAMS="$PARAMS&type=$type&application=$application&freenx_export_agents=1"
 			CMDLINE=$PARAMS
