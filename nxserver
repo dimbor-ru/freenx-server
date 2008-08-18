@@ -11,7 +11,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxserver 575 2008-08-18 18:20:18Z fabianx $
+# SVN: $Id: nxserver 576 2008-08-18 18:34:55Z fabianx $
 #
 
 # Read the config file
@@ -1278,7 +1278,7 @@ server_startrestore_session()
 			return 1
 		fi
 
-		PARAMS="$PARAMS&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost"
+		PARAMS="$PARAMS&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost&shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 		CMDLINE=$PARAMS
 	fi
 	
