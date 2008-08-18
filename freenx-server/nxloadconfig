@@ -163,7 +163,7 @@ ENABLE_CUPS_SERVER_EXPORT="1"
 ENABLE_CUPS_SEAMLESS="0"
 CUPS_SEAMLESS_DELAY="10"
 ENABLE_FOOMATIC="1"
-COMMAND_FOOMATIC="/usr/lib/cups/driver/foomatic-ppdfile"
+COMMAND_FOOMATIC="/usr/bin/foomatic-ppdfile"
 
 CUPS_BACKEND="/usr/lib/cups/backend"
 CUPS_IPP_BACKEND="$CUPS_BACKEND/nxipp"
@@ -311,10 +311,11 @@ fi
 
 [ -z "$AGENT_LIBRARY_PATH" ] && AGENT_LIBRARY_PATH=$PATH_LIB
 [ -z "$PROXY_LIBRARY_PATH" ] && PROXY_LIBRARY_PATH=$PATH_LIB
-[ -z "$APPLICATION_LIBRARY_PATH" ] && APPLICATION_LIBRARY_PATH=$PATH_LIB
-[ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/libX11.so.6.2:$APPLICATION_LIBRARY_PATH/libXext.so.6.4:$APPLICATION_LIBRARY_PATH/libXcomp.so:$APPLICATION_LIBRARY_PATH/libXcompext.so:$APPLICATION_LIBRARY_PATH/libXrender.so.1.2"
 
-NX_BACKEND_VERSION=$(strings $PATH_BIN/nxagent 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
+[ -z "$APPLICATION_LIBRARY_PATH" ] && APPLICATION_LIBRARY_PATH=$PATH_LIB
+[ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/NX/libX11.so.6.2:$APPLICATION_LIBRARY_PATH/NX/libXext.so.6.4:$APPLICATION_LIBRARY_PATH/libXcomp.so:$APPLICATION_LIBRARY_PATH/libXcompext.so:$APPLICATION_LIBRARY_PATH/NX/libXrender.so.1.2.2"
+
+NX_BACKEND_VERSION=$(strings $PATH_LIB/nxagent 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
 
 [ "$ENABLE_1_5_0_BACKEND" = "1" ] && NX_BACKEND_VERSION="1.5.0" # forced the backend
 
@@ -603,8 +604,8 @@ then
 	[ -z $(echo "$ENABLE_ROOTLESS_MODE" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_ROOTLESS_MODE=$ENABLE_ROOTLESS_MODE\""
 
-	[ -z "$(strings $PATH_BIN/nxagent | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[012].0')" ] && \
-		WARNING="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[01].0 version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[012].0 backend is needed for this version of FreeNX."
+	[ -z "$(strings $PATH_LIB/nxagent | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[012].0')" ] && \
+		WARNING="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[012].0 version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[012].0 backend is needed for this version of FreeNX."
 		
 	[ -z $(echo "$ENABLE_USESSION" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_USESSION=$ENABLE_USESSION\""

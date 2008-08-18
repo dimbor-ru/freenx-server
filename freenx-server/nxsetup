@@ -16,6 +16,8 @@ SETUP_GID=""
 LOCAL_USER_OPTION=""
 # luseradd / luserdel are only available on RedHat
 [ -f /etc/redhat-release ] && LOCAL_USER_OPTION="yes"
+# altlinux have /etc/redhat-release file but don't have luseradd / luserdel commands
+[ -f /etc/altlinux-release ] && LOCAL_USER_OPTION="no"
 SETUP_LOCAL_USER="no"
 CLEAN="no"
 UNINSTALL="no"
@@ -147,98 +149,22 @@ run_nscd()
 	fi
 }
 
-nx_user_exists()
-{
-	if [ "$SETUP_LOCAL_USER" = "yes" ]
-	then
-		egrep "^nx:" /etc/passwd >/dev/null
-	else
-		getent passwd nx >/dev/null
-	fi
-}	
-nx_group_exists()
-{
-	# useradd/adduser need a valid group to add the user to
-	if [ "$SETUP_LOCAL_USER" = "yes" ]
-	then
-		egrep "^nx:" /etc/group >/dev/null
-	else
-		getent group nx >/dev/null
-	fi
-}	
-
-# Tries to add a system user
-useradd_nx()
-{
-	# In any case create the basedir of the HOME directory before, 
-	# because useradd will fail to make more than one directory
-	mkdir -p $(dirname "$NX_HOME_DIR")
-
-	# Is it a debian?
-	if [ -f /etc/debian_version -a -z "$SETUP_UID" ]
-	then
-		USERADD_OPTIONS="--ingroup nx --system --home $NX_HOME_DIR --shell $PATH_BIN/nxserver"
-		[ -n "$SETUP_GID" ] && GROUPADD_OPTIONS="--gid $SETUP_GID"
-
-		# adduser needs a valid group to add the user to
-		! nx_group_exists && addgroup --system --quiet $GROUPADD_OPTIONS nx
-		[ -f /etc/nscd.conf ] && { run_nscd --invalidate group; }
-
-		adduser $USERADD_OPTIONS nx
-		[ -f /etc/nscd.conf ] && { run_nscd --invalidate passwd; }
-		
-	# no, its a "normal" useradd
-	else
-		USERADD_OPTIONS="-g nx -d $NX_HOME_DIR -s $PATH_BIN/nxserver"
-		[ -n "$SETUP_GID" ] && GROUPADD_OPTIONS="-g $SETUP_GID"
-
-		# uid specified?
-		if [ -n "$SETUP_UID" ]
-		then
-			USERADD_OPTIONS="-u $SETUP_UID $USERADD_OPTIONS"
-		
-		# Is it a SuSE?
-		elif [ -f /etc/SuSE-release ]
-		then
-			USERADD_OPTIONS="-r $USERADD_OPTIONS"
-		fi
-		
-		if [ "$SETUP_LOCAL_USER" = "yes" ]
-		then
-			! nx_group_exists && lgroupadd $GROUPADD_OPTIONS nx 
-			[ -f /etc/nscd.conf ] && { run_nscd --invalidate group; }
-
-			luseradd $USERADD_OPTIONS nx
-			[ -f /etc/nscd.conf ] && { run_nscd --invalidate passwd; }
-		else
-			! nx_group_exists && groupadd $GROUPADD_OPTIONS nx
-			[ -f /etc/nscd.conf ] && { run_nscd --invalidate group; }
-
-			useradd $USERADD_OPTIONS nx
-			[ -f /etc/nscd.conf ] && { run_nscd --invalidate passwd; }
-		fi
-
-		
-	fi
-
-	# the nx user account might be locked, so unlock it.
-	passwd -u nx
-}
-
 install_nx()
 {
 	set -e
 	
-	if [ "$(pidof sshd 2>/dev/null)" = "" ]
-	then 
-		echo -n "Starting ssh service ..."
-		# Generate Host keys if they are not available, yet
-		[ -e /etc/ssh/ssh_host_rsa_key ] || $COMMAND_SSH_KEYGEN -q -t rsa -f /etc/ssh/ssh_host_rsa_key -C '' -N ''
-		[ -e /etc/ssh/ssh_host_dsa_key ] || $COMMAND_SSH_KEYGEN -q -t dsa -f /etc/ssh/ssh_host_dsa_key -C '' -N ''
-		[ -x /etc/init.d/sshd ] && /etc/init.d/sshd start
-		[ -x /etc/init.d/ssh ] && /etc/init.d/ssh start
-		echo "done"
-	fi
+
+# FIXME!!!
+#	if [ "$(pidof sshd 2>/dev/null)" = "" ]
+#	then 
+#		echo -n "Starting ssh service ..."
+#		# Generate Host keys if they are not available, yet
+#		[ -e /etc/ssh/ssh_host_rsa_key ] || $COMMAND_SSH_KEYGEN -q -t rsa -f /etc/ssh/ssh_host_rsa_key -C '' -N ''
+#		[ -e /etc/ssh/ssh_host_dsa_key ] || $COMMAND_SSH_KEYGEN -q -t dsa -f /etc/ssh/ssh_host_dsa_key -C '' -N ''
+#		[ -x /etc/init.d/sshd ] && /etc/init.d/sshd start
+#		[ -x /etc/init.d/ssh ] && /etc/init.d/ssh start
+#		echo "done"
+#	fi
 	
 	echo -n "Setting up $NX_ETC_DIR ..."
 	mkdir -p $NX_ETC_DIR
@@ -261,27 +187,6 @@ install_nx()
 	touch "$NX_LOGFILE"
 	chmod 600 "$NX_LOGFILE"
 	echo "done"
-	
-	if ! nx_user_exists
-	then
-		echo -n "Setting up special user \"nx\" ..."
-		useradd_nx
-		echo "done"
-	fi
-	
-	if [ "$ENABLE_USESSION" = "1" ]
-	then
-		echo -n "Adding user \"nx\" to group \"utmp\" ..."
-		usermod -G utmp nx
-		echo "done"
-	fi
-	
-	if [ "$ENABLE_NOMACHINE_FORWARD_PORT" = "1" -a -x "$NOMACHINE_SERVER" ]
-	then
-		echo -n "Setting up NoMachine forwarding ..."
-		usermod -s "$PATH_BIN/nxserver" -d "$NOMACHINE_NX_HOME_DIR" nx
-		echo "done"
-	fi
 	
 	echo -n "Setting up known_hosts and $SSH_AUTHORIZED_KEYS ..."
 	
@@ -353,7 +258,11 @@ EOF
 	if [ ! -f $NX_HOME_DIR/.ssh/known_hosts -a "$BUILD_KNOWN_HOSTS" = "yes" ]
 	then
 		echo -n "127.0.0.1 " > $NX_HOME_DIR/.ssh/known_hosts
-		cat /etc/ssh/ssh_host_rsa_key.pub >> $NX_HOME_DIR/.ssh/known_hosts
+		if [ -e "/etc/openssh/ssh_host_rsa_key.pub" ] ; then
+		    cat /etc/openssh/ssh_host_rsa_key.pub >> $NX_HOME_DIR/.ssh/known_hosts
+		else
+		    [ -e "/etc/ssh/ssh_host_rsa_key.pub" ] && cat /etc/ssh/ssh_host_rsa_key.pub >> $NX_HOME_DIR/.ssh/known_hosts
+		fi
 	fi
 	
 	echo "done"
@@ -435,20 +344,6 @@ test_nx()
 
 uninstall_nx() 
 {
-	if nx_user_exists
-	then
-		echo -n "Removing special user \"nx\" ..."
-		
-		if [ "$SETUP_LOCAL_USER" = "yes" ]
-		then
-			luserdel nx
-		else
-			userdel nx
-		fi
-			
-		echo "done"
-	fi
-	
 	if [ -e "$NX_SESS_DIR" ]
 	then
 		echo -n "Removing session database ..."
