@@ -11,7 +11,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxserver 565 2008-08-05 23:32:01Z fabianx $
+# SVN: $Id: nxserver 570 2008-08-18 02:26:05Z fabianx $
 #
 
 # Read the config file
@@ -484,23 +484,48 @@ session_suspend()
 # Main nxserver <-> nxclient communication module
 #
 
-if [ "$USER" = "nxfree" -o "$USER" = "nx" -o "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]
+# do not run in server mode loop
+SERVER_MODE="0"
+
+# For users nxfree and nx run in SERVER MODE
+[ "$USER" = "nxfree" -o "$USER" = "nx" ] && SERVER_MODE="1"
+
+# We can override usermode via environment var
+[ "$NX_USERMODE" = "1" ] && ENABLE_USERMODE_AUTHENTICATION="1"
+
+# When usermode is 1, we only run in server loop
+# if nxserver was run without any arguments or just with -c nxserver.
+if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]
+then 
+	# do not run in server mode loop regardless of username
+	SERVER_MODE="0"
+
+	[ -z "$*" -o "$*" = "-c $PATH_BIN/nxserver" ] && SERVER_MODE="1"
+	
+	# Reread the config files (so that $USER.node.conf get sourced)
+	. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
+	
+	# We might need to reactivate this now
+	ENABLE_USERMODE_AUTHENTICATION="1"
+	
+	# export the necessary variables
+	export NX_SESS_DIR="$USER_FAKE_HOME/.nx/db/"
+	export NX_LOGFILE="$USER_FAKE_HOME/.nx/temp/nxserver.log"
+	mkdir -p $(dirname $NX_LOGFILE)
+	mkdir -p $NX_SESS_DIR/{closed,running,failed}
+	
+	# we are logged in already 
+	LOGIN_SUCCESS="1"
+	LOGIN_METHOD="USERMODE"
+
+	# we do not use SLAVE mode for usermode
+	ENABLE_SLAVE_MODE="0"
+	# we do not use loadbalancing mode for usermode
+	LOAD_BALANCE_SERVERS=""
+fi
+
+if [ "$SERVER_MODE" = "1" ]
 then
-
-setup_usermode_auth()
-{
-
-	[ $USER = "nxfree" -o "$USER" = "nx" ] && ENABLE_USERMODE_AUTHENTICATION="0"
-
-	if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]
-	then
-		export NX_SESS_DIR="$USER_FAKE_HOME/.nx/db/"
-		export NX_LOGFILE="$USER_FAKE_HOME/.nx/temp/nxserver.log"
-		mkdir -p $NX_SESS_DIR/{closed,running,failed}
-	fi
-}
-
-setup_usermode_auth
 
 #
 # needed for slave mode
@@ -633,6 +658,13 @@ fi
 NXNODE_LOGIN_SLAVE_ENABLED="0"
 NXNODE_LOGIN_SLAVE=""
 
+# slave mode does not work with load balancing
+if [ -n "$LOAD_BALANCE_SERVERS" -a "$ENABLE_SLAVE_MODE" = "1" ]
+then
+	log 2 "Warning: Disabled slave mode. It does not work together with load balancing."
+	ENABLE_SLAVE_MODE="0"
+fi
+
 if [ "$ENABLE_SLAVE_MODE" = "1" -a "$NXSERVER_HELPER_ACTIVE" != "1" -a -z "$NX_TRUSTED_USER" ]
 then
 	export SSH_ORIGINAL_COMMAND
@@ -671,7 +703,9 @@ then
 	
 	# Reread the config files (so that $USER.node.conf get sourced)
 	. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
-	echo_x "NX> 103 Welcome to: $SERVER_NAME user: $USER"
+elif [ "$NX_USERMODE" = "1" ]
+then
+	log 3 "Info: Usermode authentication: Logged in as $USER."
 else
 
 echo_x "HELLO NXSERVER - Version $NX_VERSION $NX_LICENSE"
@@ -721,8 +755,8 @@ do
 			LOGIN_SUCCESS="0"
 			
 			echo_x -n "NX> 101 User: "
-			read USER
-			echo_x $USER
+			read USER2
+			echo_x $USER2
 			
 			echo_x -n "NX> 102 Password: "
 			old_ifs="$IFS"
@@ -736,9 +770,12 @@ do
 			if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]
 			then
 				LOGIN_SUCCESS="1"
-				LOGIN_METHOD="USERMODE"
-				USER=$(whoami)
+				# we have read the user config already above,
+				# so we don't get any new information here
+				break
 			fi
+
+			USER=$USER2
 
 			# PASSDB based auth
 			if [ "$ENABLE_PASSDB_AUTHENTICATION" = "1" -a "$LOGIN_SUCCESS" = "0" ]
@@ -788,9 +825,6 @@ do
 			then
 				# Reread the config files (so that $USER.node.conf get sourced)
 				. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
-				setup_usermode_auth
-
-				echo_x "NX> 103 Welcome to: $SERVER_NAME user: $USER"
 				break
 			else
 				echo_x "NX> 404 ERROR: wrong password or login"
@@ -806,6 +840,8 @@ do
 done
 
 fi
+
+echo_x "NX> 103 Welcome to: $SERVER_NAME user: $USER"
 
 # Add the slave mode shutdown trap (just in case)
 [ -n "$NXNODE_LOGIN_SLAVE" ] && trap nxnode_login_stop_slave EXIT
@@ -870,6 +906,9 @@ server_nxnode_start()
 	    NXNODE_TOSEND="$@" nxnode_login "$PASS" -- su "$USER" "" "$PATH_BIN/nxnode" "$CMD" 2>&1 | log_tee
 	elif [ "$LOGIN_METHOD" = "USERMODE" ]
 	then
+	    # we need to unset SSH_* variables so that nxnode 
+	    # chooses the right accept= value.
+	    unset SSH_CLIENT SSH_CLIENT2
 	    echo "$@" | $PATH_BIN/nxnode "$CMD" 2>&1 | log_tee
 	else
 	    echo "$@" | $COMMAND_SSH -l "$USER" "$NODE_HOSTNAME" -p $SSHD_PORT -x -2 -i $NX_ETC_DIR/users.id_dsa -o 'PubkeyAuthentication yes' -o 'RSAAuthentication yes' -o 'RhostsAuthentication no' -o 'PasswordAuthentication no' -o 'RhostsRSAAuthentication no' -o 'StrictHostKeyChecking no' $PATH_BIN/nxnode "$CMD" | log_tee
@@ -1295,13 +1334,15 @@ server_startrestore_session()
 	then
 		server_check_session_count || return 1
 		
+		# Possibly do loadbalancing
+		
+		SERVER_HOST=$(server_loadbalance)
+		
 		# start nxnode
 		SESS_DISPLAY=$DISPLAY_BASE
 		let SESS_DISPLAY_LIMIT=$DISPLAY_BASE+$DISPLAY_LIMIT
 	
 		# stupid but working algo ...
-			
-		# TODO: need to check for _all_ offset and ports :-/
 			
 		while true
 		do
@@ -1310,17 +1351,44 @@ server_startrestore_session()
 				let SESS_DISPLAY=$SESS_DISPLAY+1
 			done
 
-			# Check if there is already an agent running on that display
+			# Check if there is already an agent running on that display on that host
 			let AGENT_DISPLAY=$SESS_DISPLAY+6000
-			if $COMMAND_NETCAT -z 127.0.0.1 $AGENT_DISPLAY 2>/dev/null
+			if $COMMAND_NETCAT -z "$SERVER_HOST" $AGENT_DISPLAY 2>/dev/null
 			then
-				log 2 "Warning: Stray nxagent without .X$SESS_DISPLAY-lock found on port $AGENT_DISPLAY."
+				log 2 "Warning: Stray nxagent without .nX$SESS_DISPLAY-lock found on host:port $SERVER_HOST:$AGENT_DISPLAY."
+				let SESS_DISPLAY=$SESS_DISPLAY+1
+				continue
+			fi
+
+			# Now check for the other enabled services
+			
+			let SAMBA_DISPLAY=$SESS_DISPLAY+3000
+			if [ "$(getparam 'samba')" = 1 ] && $COMMAND_NETCAT -z "$SERVER_HOST" $SAMBA_DISPLAY
+			then
+				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as samba port is not free."
 				let SESS_DISPLAY=$SESS_DISPLAY+1
 				continue
 			fi
 			
+			let MEDIA_DISPLAY=$SESS_DISPLAY+7000
+			if [ "$(getparam 'media')" = 1 ] && $COMMAND_NETCAT -z "$SERVER_HOST" $MEDIA_DISPLAY
+			then
+				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as media port is not free."
+				let SESS_DISPLAY=$SESS_DISPLAY+1
+				continue
+			fi
+
+			
+			let CUPS_DISPLAY=$SESS_DISPLAY+9000
+			if [ "$(getparam 'cups')" = 1 ] && $COMMAND_NETCAT -z "$SERVER_HOST" $CUPS_DISPLAY
+			then
+				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as cups port is not free."
+				let SESS_DISPLAY=$SESS_DISPLAY+1
+				continue
+			fi
 
 			SESS_LOCKFILE=$(mktemp "/tmp/.nX$SESS_DISPLAY-lock.XXXXXXXXX")
+			
 			# ln is an atomic operation
 			ln "$SESS_LOCKFILE" "/tmp/.nX$SESS_DISPLAY-lock" 2>/dev/null && break
 		done
@@ -1336,10 +1404,6 @@ server_startrestore_session()
 	
 		uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM | cut -d" " -f1 | tr "[a-z]" "[A-Z]")
 
-		# Possibly do loadbalancing
-		
-		SERVER_HOST=$(server_loadbalance)
-		
 		FULL_PARAMS="$PARAMS&user=$USER&userip=$USERIP&uniqueid=$uniqueid&display=$SESS_DISPLAY&host=$SERVER_HOST"
 		log_secure "6" "$FULL_PARAMS"
 
@@ -1877,10 +1941,10 @@ cmd_send()
 }
 
 #
-# user mode available functions
+# normal user available functions
 #
 
-if [ $UID -ne 0 ]
+if [ $UID -ne 0 -a "$ENABLE_USERMODE_AUTHENTICATION" != "1" ]
 then
 	[ "$1" = "--agent" ] && exec $PATH_BIN/nxnode "$@"
 	[ "$1" != "--passwd" ] && cmd_usage
