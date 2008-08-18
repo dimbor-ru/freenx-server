@@ -16,6 +16,8 @@ SETUP_GID=""
 LOCAL_USER_OPTION=""
 # luseradd / luserdel are only available on RedHat
 [ -f /etc/redhat-release ] && LOCAL_USER_OPTION="yes"
+# altlinux have /etc/redhat-release file but don't have luseradd / luserdel commands
+[ -f /etc/altlinux-release ] && LOCAL_USER_OPTION="no"
 SETUP_LOCAL_USER="no"
 CLEAN="no"
 UNINSTALL="no"
