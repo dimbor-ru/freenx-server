@@ -5,7 +5,7 @@
 #
 # License: GPL, version 2
 #
-# SVN: $Id: nxloadconfig 579 2008-08-18 19:19:20Z fabianx $
+# SVN: $Id: nxloadconfig 580 2008-08-22 00:44:43Z fabianx $
 #
 # ========================================================================
 
@@ -220,7 +220,7 @@ ENABLE_USESSION="1"
 COMMAND_SESSREG="sessreg"
 AGENT_EXTRA_OPTIONS_RFB=""
 AGENT_EXTRA_OPTIONS_RDP=""
-AGENT_EXTRA_OPTIONS_X=""
+AGENT_EXTRA_OPTIONS_X="-nolisten tcp"
 AGENT_STARTUP_TIMEOUT="60"
 AGENT_FONT_SERVER=""
 PROXY_TCP_NODELAY=""
