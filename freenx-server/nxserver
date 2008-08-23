@@ -11,7 +11,7 @@
 #
 # License: GNU GPL, version 2
 #
-# SVN: $Id: nxserver 570 2008-08-18 02:26:05Z fabianx $
+# SVN: $Id: nxserver 580 2008-08-22 00:44:43Z fabianx $
 #
 
 # Read the config file
@@ -288,6 +288,20 @@ session_list_user_suspended()
 		if egrep -q "^userName=$1$" $i && egrep -q "^status=$2$" $i #&& grep -q "screeninfo=$3" $i
 		then
 			CMDLINE=$(session_get_cmdline $i)
+			
+			if [ "$4" = "shadow" ]
+			then
+				if [ "$(getparam userName)" != "$USER" ]
+				then 
+					[ -z "$(getparam shadowcookie)" ] && continue
+					
+					if [ -x "$PATH_BIN/nxshadowacl" ]
+					then
+						$PATH_BIN/nxshadowacl "$(getparam userName)" "$USER" || continue
+					fi
+				fi
+			fi
+	
 			depth=$(getparam screeninfo | cut -d "x" -f3 | cut -d "+" -f1 )
 			[ "$depth" = "32" ] && depth=24
 			geom=$(getparam screeninfo | cut -d "x" -f1,2) 
@@ -312,10 +326,15 @@ session_list_user_suspended()
 				available="Yes"
 			fi
 			
-			# We automatically offer VNC mirrored sessions for "remote" support
+			# We automatically offer VNC shadowed sessions for "remote" support
 			if [ "$4" = "vnc" -a "$ENABLE_MIRROR_VIA_VNC" = "1" ] && stringinstring "unix-" "$(getparam type)"
 			then
-				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "vnc-mirrored" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) (Mirrored)" >> $TMPFILE
+				available=$(getparam status)
+				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "vnc-shadowed" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) (Mirrored)" >> $TMPFILE
+			elif [ "$4" = "shadow" ]
+			then
+				available=$(getparam status)
+				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "$(getparam type)" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) (Shadowed)" >> $TMPFILE
 			else
 				# only unix-* sessions can be resumed, but other session types can still be terminated
 				stringinstring "unix-" "$4" || available="N/A"
@@ -967,6 +986,19 @@ server_nxnode_start_wait()
 	server_nxnode_start "$@" | while read CMD
 	do
 		case "$CMD" in 
+			"NX> 706"*)
+				if [ -x "$PATH_BIN/nxshadowacl" ]
+				then
+					# check if we should save the cookie
+					$PATH_BIN/nxshadowacl "$USER"
+					
+					if [ $? -eq 0 ]
+					then
+						SHADOW_COOKIE=$(echo $CMD | cut -d: -f2 | sed 's/ //g')
+						session_change "$uniqueid" "shadowcookie" "$SHADOW_COOKIE"
+					fi
+				fi
+			;;
 			"NX> 1006"*|"NX> 1005"*|"NX> 1009"*)
 				case "$CMD" in 
 					*running*)
@@ -1041,6 +1073,19 @@ server_nxnode_start_wait()
 	server_nxnode_start "$@" | while read CMD
 	do
 		case "$CMD" in 
+			"NX> 706"*)
+				if [ -x "$PATH_BIN/nxshadowacl" ]
+				then
+					# check if we should save the cookie
+					$PATH_BIN/nxshadowacl "$USER"
+					
+					if [ $? -eq 0 ]
+					then
+						SHADOW_COOKIE=$(echo $CMD | cut -d: -f2 | sed 's/ //g')
+						session_change "$uniqueid" "shadowcookie" "$SHADOW_COOKIE"
+					fi
+				fi
+			;;
 			"NX> 1006"*|"NX> 1005"*|"NX> 1009"*)
 				case "$CMD" in 
 					*running*)
@@ -1221,34 +1266,73 @@ server_startrestore_session()
 	CMDLINE=$PARAMS
 	echo_x
 
-	# special mirrored type
-	[ "$ACTION" != "start" -a "$(getparam type)" = "vnc" ] && ACTION="mirror"
+	# special shadowed type
+	[ "$ACTION" != "start" -a "$(getparam type)" = "vnc" ] && ACTION="shadow"
 
-	if [ "$ACTION" = "mirror" ]
+	if [ "$ACTION" = "shadow" ]
 	then
 		ACTION="start"
 		uniqueid=$(getparam restore)
 		[ -z "$uniqueid" ] && uniqueid=$(getparam id) # 1.4.0-5 compatibility
 		CMDLINE=$(session_get "$uniqueid" 2>/dev/null)
 
-		mirrordisplay=$(getparam display)
-		mirrorhost=$(getparam host)
+		shadowdisplay=$(getparam display)
+		shadowhost=$(getparam host)
+		shadowcookie=$(getparam shadowcookie)
+		shadowuser=$(getparam userName)
 
-		if [ -z "$mirrordisplay"  ]
+		[ "$shadowcookie" = "none" ] && shadowcookie=""
+
+		if [ -z "$shadowdisplay"  ]
 		then
 			# check for DESKTOP_SHARING_IDS
-			mirrordisplay=$(echo $DESKTOP_SHARING_IDS | tr ' ' '\n' | egrep "^$uniqueid=" | cut -d'=' -f2)
-			mirrorhost="127.0.0.1"
+			shadowdisplay=$(echo $DESKTOP_SHARING_IDS | tr ' ' '\n' | egrep "^$uniqueid=" | cut -d'=' -f2)
+			shadowhost="127.0.0.1"
 		fi
 
-		if [ -z "$mirrordisplay" ]
+		if [ -z "$shadowdisplay" ]
 		then
-			echo_x "NX> 596 Could not find mirrored session $uniqueid. Session failed."
+			echo_x "NX> 596 Could not find shadowed session $uniqueid. Session failed."
 			echo_x "NX> 596 Sharing: $DESKTOP_SHARING_IDS"
 			return 1
 		fi
 
-		PARAMS="$PARAMS&mirrordisplay=$mirrordisplay&mirrorhost=$mirrorhost"
+		[ "$shadowhost" = "127.0.0.1" ] && shadowhost=""
+
+		# not the same user? So we have a shadow cookie, we add to xauth
+		if [ -n "$shadowcookie" -a "$ENABLE_SESSION_SHADOWING_AUTHORIZATION" = "1" ]
+		then
+			# Ask for permission first:
+			echo_x "NX> 726 Asking user for authorization to attach to session"
+			export XAUTHORITY=".Xauthority-$RANDOM-$$"
+	               	$COMMAND_XAUTH add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 "$shadowcookie" >/dev/null 2>&1
+			PERMISSION=$(
+				$PATH_BIN/nxdialog -display $shadowhost:$shadowdisplay -dialog yesno -caption "Authorization Request" -message "Do you want to allow $USER to shadow your session?" 2>/dev/null &
+				SHADOW_DIALOG_PID=$!
+				
+				I=0
+				while kill -0 $SHADOW_DIALOG_PID 2>/dev/null
+				do
+					let I=I+1
+					[ $I -gt "$AGENT_STARTUP_TIMEOUT" ] && kill $SHADOW_DIALOG_PID 2>/dev/null
+					sleep 1
+				done
+				
+				echo "no"
+				)
+				
+			$COMMAND_XAUTH remove "$shadowhost:$shadowdisplay"
+			rm -f "$XAUTHORITY"
+
+			if [ "$PERMISSION" = "no" ]
+			then
+				# User answered NO
+				echo_x "NX> 596 Error: Authorization refused by user: $shadowuser."
+				return 1
+			fi
+		fi
+
+		PARAMS="$PARAMS&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost&shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 		CMDLINE=$PARAMS
 	fi
 	
@@ -1259,7 +1343,7 @@ server_startrestore_session()
 
 		if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" -a "$(getparam type)" = "windows" ]
 		then
-			type="unix-application"
+			type="windows-helper"
 			application="$PATH_BIN/nxdesktop_helper"
 			PARAMS="$PARAMS&type=$type&application=$application&freenx_export_agents=1"
 			CMDLINE=$PARAMS
@@ -1267,7 +1351,7 @@ server_startrestore_session()
 		 
 		if [ "$ENABLE_EXTERNAL_NXVIEWER" = "1" -a "$(getparam type)" = "vnc" ]
 		then
-			type="unix-application"
+			type="vnc-helper"
 			application="$PATH_BIN/nxviewer_helper"
 			PARAMS="$PARAMS&type=$type&application=$application&freenx_export_agents=1"
 			CMDLINE=$PARAMS
@@ -1330,7 +1414,7 @@ server_startrestore_session()
 	# as only $SSH_CLIENT or $SSH2_CLIENT will be set, this should work
 	USERIP=$(echo $SSH_CLIENT $SSH2_CLIENT | cut -d" " -f1 | sed 's/::ffff://g')
 	[ -z "$USERIP" ] && USERIP="*"
-	if [ "$ACTION" = "start" -o "$ACTION" = "mirror" ]
+	if [ "$ACTION" = "start" -o "$ACTION" = "shadow" ]
 	then
 		server_check_session_count || return 1
 		
@@ -1411,7 +1495,7 @@ server_startrestore_session()
 		sessionRootlessMode=0
 		[ "$(getparam rootless)" = "1" ] && sessionRootlessMode=1
 		CMDLINE="a=b&$FULL_PARAMS"
-		session_add $uniqueid "sessionName=$(getparam session)&display=$(getparam display)&status=Running&startTime=$(date +%s)&foreignAddress=$(getparam userip)&sessionRootlessMode=$sessionRootlessMode&type=$(getparam type)&sessionId=$uniqueid&creationTime=$(date +%s)&userName=$USER&serverPid=$SERVER_PID&screeninfo=$(getparam screeninfo)&geometry=$(getparam geometry)&host=$SERVER_HOST"
+		session_add $uniqueid "sessionName=$(getparam session)&display=$(getparam display)&status=Running&startTime=$(date +%s)&foreignAddress=$(getparam userip)&sessionRootlessMode=$sessionRootlessMode&type=$(getparam type)&sessionId=$uniqueid&creationTime=$(date +%s)&userName=$USER&serverPid=$SERVER_PID&screeninfo=$(getparam screeninfo)&geometry=$(getparam geometry)&host=$SERVER_HOST&shadowcookie=none"
 	else
 		uniqueid=$(getparam restore)
 		[ -z "$uniqueid" ] && uniqueid=$(getparam id) # 1.4.0-5 compatibility
@@ -1515,7 +1599,8 @@ do
 			server_get_params $CMD
 			PARAMS=$SERVER_PARAMS
 			CMDLINE=$PARAMS
-			
+
+		
 			status=$(getparam status)
 
 			if [ "$status" = "Suspended" -a -n "$(getparam screeninfo)" ]
@@ -1531,6 +1616,9 @@ do
 				status=$(echo $status | sed 's/,/$|^status=/g; s/suspended/Suspended/g; s/running/Running/g')
 				[ "$ENABLE_SHOW_RUNNING_SESSIONS" = "0" ] && status="Suspended"
 				session_list_user_suspended "$USER" "$status" "$(getparam geometry)" "$(getparam type)"
+			elif [ "$(getparam type)" = "shadow" ]
+			then
+				session_list_user_suspended ".*" "Running" "" "shadow"
 			else
 				session_list_user "$USER" | log_tee
 			fi
@@ -1556,8 +1644,8 @@ do
 		restoresession*)
 			server_startrestore_session "resume"
 		;;
-		mirrorsession*)
-			server_startrestore_session "mirror"
+		attachsession*)
+			server_startrestore_session "shadow"
 		;;
 
 		passwd)

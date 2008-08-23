@@ -205,6 +205,9 @@ node_find_application()
 	NODE_STARTX=""
 
 	case $1 in
+		shadow|windows|vnc)
+			:
+		;;
 		unix-kde)
 			NODE_STARTX=$COMMAND_START_KDE
 		;;
@@ -214,7 +217,7 @@ node_find_application()
 		unix-cde)
 			NODE_STARTX=$COMMAND_START_CDE
 		;;
-		unix-application)
+		unix-application|windows-helper|vnc-helper)
 			[ "$application" = "xterm" ] && application=$COMMAND_XTERM
 			NODE_STARTX=$application
 		;;
@@ -493,15 +496,15 @@ node_start_agent()
 		echo "$agent_password" | $PATH_BIN/nxpasswd "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.passwd" doit
 
 		# Start x11vnc
-		if [ -n "$mirrordisplay" ]
+		if [ -n "$shadowdisplay" ]
 		then
 			(
-				unset XAUTHORITY
-				# Note: No "-accept popup" as its the same user and with that password
-				#       he could do already more than -accept popup would allow.
-				DISPLAY="$mirrorhost:$mirrordisplay.0" x11vnc -timeout 120 -rfbauth "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.passwd" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port" 2>&3 &
+				viewonly=""
+				[ "$ENABLE_INTERACTIVE_SESSION_SHADOWING" != "1" ] && viewonly="-viewonly"
+				
+				DISPLAY="$shadowhost:$shadowdisplay" x11vnc -localhost $viewonly -timeout 120 -rfbauth "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.passwd" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port" 2>&3 &
 			)
-			sleep 1
+			sleep 2
 			agent_port=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port" | egrep "^PORT=" | cut -d'=' -f 2)
 			[ -z "agent_port" ] && agent_port="0"
 			# note the :: is not a mistake, but rather a hint for nxviewer to use this as a port and not 
@@ -529,9 +532,15 @@ node_start_agent()
 		FP=""
 		[ -n "$AGENT_FONT_SERVER" ] && FP="-fp $AGENT_FONT_SERVER"
 		
+		if [ "$type" = "shadow" ]
+		then
+			R="-S -shadow $shadowhost:$shadowdisplay -shadowmode $ENABLE_INTERACTIVE_SESSION_SHADOWING"
+			P="-nopersistent"
+		fi
+		
 		# Start the agent
 		
-		PATH="$PATH_BIN:$PATH" $PATH_BIN/nxagent $P $R -nolisten tcp -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
+		PATH="$PATH_BIN:$PATH" $PATH_BIN/nxagent $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 	fi
 	
 	#
@@ -1116,8 +1125,13 @@ startsession()
 	clientproto=$(getparam clientproto)
 	status=$(getparam status)
 	host=$(getparam host)
-	mirrordisplay=$(getparam mirrordisplay)
-	mirrorhost=$(getparam mirrorhost)
+	
+	# New NX 3.0 shadow mode related variables
+	shadowusername=$(getparam shadowusername)
+	shadowcookie=$(getparam shadowcookie)
+	shadowdisplay=$(getparam shadowdisplay)
+	shadowhost=$(getparam shadowhost)
+
 	
 	sess_id="$SERVER_NAME-$display-$uniqueid"
 	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"
@@ -1141,8 +1155,14 @@ startsession()
 		export COMMAND_VNCPASSWD
 		export COMMAND_X11VNC
 		export PATH_BIN
-		export mirrordisplay
-		export mirrorhost
+		export shadowdisplay
+		export shadowhost
+		export shadowuser
+		export shadowcookie
+
+		export ENABLE_SESSION_SHADOWING_AUTHORIZATION
+		export ENABLE_INTERACTIVE_SESSION_SHADOWING
+
 		# We do not want to suspend such a session
 		# as RDP/RFB are both suspendable as well
 		ENABLE_PERSISTENT_SESSION=""
@@ -1253,6 +1273,18 @@ remove localhost:$display
 remove :$display
 exit
 EOF
+
+	export SHADOW_XAUTHORITY="$USER_FAKE_HOME/.nx/C-$sess_id/authority"
+
+	# If we have a shadow cookie, we add it to xauth session authority file as well
+	if [ -n "$shadowcookie" ]
+	then
+		$COMMAND_XAUTH -f "$SHADOW_XAUTHORITY" add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 "$shadowcookie"
+	elif [ -n "$shadowdisplay" ]
+	then
+		# we need to merge in the normal .Xauthority file
+		$COMMAND_XAUTH -f "$SHADOW_XAUTHORITY" merge "$HOME/.Xauthority"
+	fi
 
 if [ "$1" = "restore" ]
 then
