@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.3
-Release: alt2
+Release: alt3
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -82,7 +82,16 @@ fi
 %_bindir/nx*
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
+
 %changelog
+* Sat Aug 23 2008 Boris Savelev <boris@altlinux.org> 0.7.3-alt3
+- Changed type for external agents to windows-helper or vnc-helper so that those sessions can be mirrored / shadowed as well.
+- Added nxshadowacl.sample component to be able to shadow foreign sessions.
+- Prepared shadowing foreign users for VNC-shadowing.
+- Added shadow support to --listsession command.
+- Added shadow mode as nxagent target.
+- Fixed shadow mode and made it usable.
+
 * Mon Aug 18 2008 Boris Savelev <boris@altlinux.org> 0.7.3-alt2
 - Build from git
 - Finally checked for all service ports. (cups, media, samba) and also checked it on the host where the load balancing actually leads to.
