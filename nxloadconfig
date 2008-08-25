@@ -5,7 +5,7 @@
 #
 # License: GPL, version 2
 #
-# SVN: $Id: nxloadconfig 580 2008-08-22 00:44:43Z fabianx $
+# SVN: $Id: nxloadconfig 609 2008-08-25 02:40:22Z fabianx $
 #
 # ========================================================================
 
@@ -52,7 +52,7 @@ fi
 # DO NOT TOUCH unless you REALLY know what you are doing
 #########################################################################
 
-NX_VERSION=3.2.0-73
+NX_VERSION=3.2.0-74-SVN
 NX_LICENSE="OS (GPL, using backend: %BACKEND%)"
 
 # Where can different nx components be found
