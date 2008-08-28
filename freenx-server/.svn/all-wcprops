@@ -1,13 +1,7 @@
 K 25
 svn:wc:ra_dav:version-url
 V 54
-/svnroot/repos/freenx/!svn/ver/580/trunk/freenx-server
-END
-nxacl.sample
-K 25
-svn:wc:ra_dav:version-url
-V 67
-/svnroot/repos/freenx/!svn/ver/538/trunk/freenx-server/nxacl.sample
+/svnroot/repos/freenx/!svn/ver/612/trunk/freenx-server
 END
 AUTHORS
 K 25
@@ -15,11 +9,17 @@ svn:wc:ra_dav:version-url
 V 62
 /svnroot/repos/freenx/!svn/ver/512/trunk/freenx-server/AUTHORS
 END
+nxacl.sample
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svnroot/repos/freenx/!svn/ver/538/trunk/freenx-server/nxacl.sample
+END
 ChangeLog
 K 25
 svn:wc:ra_dav:version-url
 V 64
-/svnroot/repos/freenx/!svn/ver/580/trunk/freenx-server/ChangeLog
+/svnroot/repos/freenx/!svn/ver/612/trunk/freenx-server/ChangeLog
 END
 nxkeygen
 K 25
@@ -33,11 +33,11 @@ svn:wc:ra_dav:version-url
 V 71
 /svnroot/repos/freenx/!svn/ver/580/trunk/freenx-server/node.conf.sample
 END
-nxcups-gethost
+nxshadowacl.sample
 K 25
 svn:wc:ra_dav:version-url
-V 69
-/svnroot/repos/freenx/!svn/ver/538/trunk/freenx-server/nxcups-gethost
+V 73
+/svnroot/repos/freenx/!svn/ver/572/trunk/freenx-server/nxshadowacl.sample
 END
 nxnode
 K 25
@@ -45,11 +45,11 @@ svn:wc:ra_dav:version-url
 V 61
 /svnroot/repos/freenx/!svn/ver/580/trunk/freenx-server/nxnode
 END
-nxshadowacl.sample
+nxcups-gethost
 K 25
 svn:wc:ra_dav:version-url
-V 73
-/svnroot/repos/freenx/!svn/ver/572/trunk/freenx-server/nxshadowacl.sample
+V 69
+/svnroot/repos/freenx/!svn/ver/538/trunk/freenx-server/nxcups-gethost
 END
 nxserver-usermode
 K 25
@@ -63,17 +63,17 @@ svn:wc:ra_dav:version-url
 V 62
 /svnroot/repos/freenx/!svn/ver/512/trunk/freenx-server/CONTRIB
 END
-gentoo-nomachine.diff
-K 25
-svn:wc:ra_dav:version-url
-V 76
-/svnroot/repos/freenx/!svn/ver/521/trunk/freenx-server/gentoo-nomachine.diff
-END
 nxnode-login
 K 25
 svn:wc:ra_dav:version-url
 V 67
 /svnroot/repos/freenx/!svn/ver/512/trunk/freenx-server/nxnode-login
+END
+gentoo-nomachine.diff
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/repos/freenx/!svn/ver/521/trunk/freenx-server/gentoo-nomachine.diff
 END
 nxprint
 K 25
@@ -121,19 +121,19 @@ nxloadconfig
 K 25
 svn:wc:ra_dav:version-url
 V 67
-/svnroot/repos/freenx/!svn/ver/580/trunk/freenx-server/nxloadconfig
+/svnroot/repos/freenx/!svn/ver/609/trunk/freenx-server/nxloadconfig
 END
 nxserver
 K 25
 svn:wc:ra_dav:version-url
 V 63
-/svnroot/repos/freenx/!svn/ver/580/trunk/freenx-server/nxserver
+/svnroot/repos/freenx/!svn/ver/612/trunk/freenx-server/nxserver
 END
 Makefile
 K 25
 svn:wc:ra_dav:version-url
 V 63
-/svnroot/repos/freenx/!svn/ver/569/trunk/freenx-server/Makefile
+/svnroot/repos/freenx/!svn/ver/610/trunk/freenx-server/Makefile
 END
 nxdesktop_helper
 K 25
