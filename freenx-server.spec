@@ -1,6 +1,6 @@
 Name: freenx-server
-Version: 0.7.3
-Release: alt3
+Version: 0.7.4
+Release: alt1
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -84,6 +84,13 @@ fi
 %_libdir/cups/backend/nx*
 
 %changelog
+* Thu Aug 28 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt1
+- Opened the 0.7.4 development.
+- Fixed missing export of NX_ETC_DIR in Makefile, so node.conf.sample is installed correctly.
+- Fixed broken round-robin load balance algorithm.
+- Fixed --terminate|--suspend|--force-terminate for load balancing case.
+- Fixed --terminate|--suspend|--force-terminate for usermode case.
+
 * Sat Aug 23 2008 Boris Savelev <boris@altlinux.org> 0.7.3-alt3
 - Changed type for external agents to windows-helper or vnc-helper so that those sessions can be mirrored / shadowed as well.
 - Added nxshadowacl.sample component to be able to shadow foreign sessions.
@@ -97,15 +104,15 @@ fi
 - Finally checked for all service ports. (cups, media, samba) and also checked it on the host where the load balancing actually leads to.
 - Fixed broken fallback logic if SSH_CLIENT variables cannot be read correctly.
 - Overhauled the usermode:
-    There are now two modes of operation.
-                - One statically setting the ENABLE_USERMODE_AUTHENTICATION key in node.conf. (old behavior)
-                - Or using nxserver-usermode as startup binary, which directly goes into the 103 stage.
-    Fixed using commandline parameters like --cleanup for static usermode.
-                - Enabled the root commandline parameters in usermode.
-                - Fixed usage of "nx" user as normal user in usermode.
-                - Disabled slave mode and load balancing for usermode.
-                - Fixed creation of the logfile directory.
-                - Fixed nxnode usage of SSH_CLIENT using fallback mechanism.
+- There are now two modes of operation.
+- One statically setting the ENABLE_USERMODE_AUTHENTICATION key in node.conf. (old behavior)
+- Or using nxserver-usermode as startup binary, which directly goes into the 103 stage.
+- Fixed using commandline parameters like --cleanup for static usermode.
+- Enabled the root commandline parameters in usermode.
+- Fixed usage of "nx" user as normal user in usermode.
+- Disabled slave mode and load balancing for usermode.
+- Fixed creation of the logfile directory.
+- Fixed nxnode usage of SSH_CLIENT using fallback mechanism.
 - Added disabled nxserver-suid wrapper with help from Google. To enable it uncomment the suid_install target in Makefile.
 - Automatically disabled slave mode, when load balancing is activated.
 - Made ENABLE_SLAVE_MODE="1" the new default as its faster and more reliable. If you encounter any problems with it, disable it in node.conf.
