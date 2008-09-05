@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.4
-Release: alt1
+Release: alt2
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -84,6 +84,9 @@ fi
 %_libdir/cups/backend/nx*
 
 %changelog
+* Fri Sep 05 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt2
+- Fixed non-encrypted session mode. You might need to set EXTERNAL_PROXY_IP in node.conf.
+
 * Thu Aug 28 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt1
 - Opened the 0.7.4 development.
 - Fixed missing export of NX_ETC_DIR in Makefile, so node.conf.sample is installed correctly.
