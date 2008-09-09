@@ -21,7 +21,10 @@ Requires: openssl
 Requires: netcat
 Requires: expect
 Requires: foomatic-db-engine
-
+%if %_vendor == "alt"
+Requires: dbus-tools-gui
+Requires: binutils
+%endif
 BuildPreReq: rpm-build-compat
 BuildRequires: imake xorg-cf-files gccmakedep
 
