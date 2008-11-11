@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.4
-Release: alt2
+Release: alt3
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -59,6 +59,8 @@ install -m 755 %SOURCE2 %buildroot%_initdir
 sed -i "s|/usr/lib|%_libdir|g" %buildroot%_bindir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" %buildroot%_libdir/cups/backend/nxsmb
 
+mkdir -p %_var/lib/nxserver
+
 %pre
 %groupadd nx 2> /dev/null ||:
 %useradd -g nx -G utmp -d /var/lib/nxserver/home/ -s %_bindir/nxserver \
@@ -85,8 +87,12 @@ fi
 %_bindir/nx*
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
+%_var/lib/nxserver
 
 %changelog
+* Tue Nov 11 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt3
+- add /var/lib/nxserver
+
 * Fri Sep 05 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt2
 - Fixed non-encrypted session mode. You might need to set EXTERNAL_PROXY_IP in node.conf.
 
