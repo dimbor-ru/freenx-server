@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.4
-Release: alt3
+Release: alt4
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -90,6 +90,9 @@ fi
 %_var/lib/nxserver
 
 %changelog
+* Sat Nov 22 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt4
+- add support nx 3.3
+
 * Tue Nov 11 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt3
 - add /var/lib/nxserver
 
