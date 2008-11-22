@@ -59,7 +59,8 @@ install -m 755 %SOURCE2 %buildroot%_initdir
 sed -i "s|/usr/lib|%_libdir|g" %buildroot%_bindir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" %buildroot%_libdir/cups/backend/nxsmb
 
-mkdir -p %_var/lib/nxserver
+mkdir -p %buildroot%_var/lib/nxserver/home
+mkdir -p %buildroot%_var/lib/nxserver/db
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -87,7 +88,8 @@ fi
 %_bindir/nx*
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
-%_var/lib/nxserver
+%attr(2770,root,nx) %_var/lib/nxserver/home
+%attr(2770,root,nx) %_var/lib/nxserver/db
 
 %changelog
 * Sat Nov 22 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt4
