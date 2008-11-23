@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.4
-Release: alt4
+Release: alt5
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -88,8 +88,8 @@ fi
 %_bindir/nx*
 %_libdir/*.so.*
 %_libdir/cups/backend/nx*
-%attr(2770,root,nx) %_var/lib/nxserver/home
-%attr(2770,root,nx) %_var/lib/nxserver/db
+%attr(2750,nx,nx) %_var/lib/nxserver/home
+%attr(2750,root,nx) %_var/lib/nxserver/db
 
 %changelog
 * Sat Nov 22 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt4
