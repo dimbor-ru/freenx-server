@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.4
-Release: alt5
+Release: alt6
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -100,6 +100,10 @@ fi
 %attr(2750,root,nx) %_var/lib/nxserver/db
 
 %changelog
+* Tue Dec 16 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt6
+- fix path to cups
+- run "numlockx on" on session start
+
 * Sun Nov 23 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt5
 - fix permission on nx homedir
 
