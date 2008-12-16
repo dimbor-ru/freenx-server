@@ -42,6 +42,14 @@ of the nxserver component.
 %make_build
 
 %install
+
+# Debian based distr haven't /var/lock/subsys
+if [ -d %_var/lock/subsys ] ; then
+    LOCKDIR=%_var/lock/subsys
+else
+    LOCKDIR=%_var/lock
+fi
+
 # wrong install path
 sed -i "s|/usr/lib|%_libdir|g" nxredir/Makefile
 # install use nxloadconfig
@@ -92,6 +100,9 @@ fi
 %attr(2750,root,nx) %_var/lib/nxserver/db
 
 %changelog
+* Sun Nov 23 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt5
+- fix permission on nx homedir
+
 * Sat Nov 22 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt4
 - add support nx 3.3
 
