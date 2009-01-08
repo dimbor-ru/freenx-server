@@ -1,3 +1,4 @@
+%define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
 Release: alt7
@@ -52,15 +53,15 @@ fi
 
 # wrong install path
 sed -i "s|/usr/lib|%_libdir|g" nxredir/Makefile
-sed -i "s|%_libdir/cups|%_libexecdir/cups|g" Makefile
+sed -i "s|%_libdir/cups|%cups_root/cups|g" Makefile
 # install use nxloadconfig
 sed -i "s|/usr/lib|%_libdir|g" nxloadconfig
-sed -i "s|%_libdir/cups|%_libexecdir/cups|g" nxloadconfig
+sed -i "s|%_libdir/cups|%cups_root/cups|g" nxloadconfig
 sed -i "s|\$NX_DIR/lib|%_libdir|g" nxloadconfig
 # nxredir nxsmb
 sed -i "s|/usr/lib|%_libdir|g" nxredir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
-sed -i "s|%_libdir/cups|%_libexecdir/cups|g" nxredir/nxsmb
+sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
 export NX_ETC_DIR=%_initdir/%name
 %makeinstall_std
@@ -101,7 +102,7 @@ fi
 %endif
 %_bindir/nx*
 %_libdir/*.so.*
-%_libexecdir/cups/backend/nx*
+%cups_root/cups/backend/nx*
 %attr(2750,nx,nx) %_var/lib/nxserver/home
 %attr(2750,root,nx) %_var/lib/nxserver/db
 
