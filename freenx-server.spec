@@ -1,6 +1,6 @@
 Name: freenx-server
 Version: 0.7.4
-Release: alt6
+Release: alt7
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -52,20 +52,26 @@ fi
 
 # wrong install path
 sed -i "s|/usr/lib|%_libdir|g" nxredir/Makefile
+sed -i "s|%_libdir/cups|%_libexecdir/cups|g" Makefile
 # install use nxloadconfig
 sed -i "s|/usr/lib|%_libdir|g" nxloadconfig
+sed -i "s|%_libdir/cups|%_libexecdir/cups|g" nxloadconfig
 sed -i "s|\$NX_DIR/lib|%_libdir|g" nxloadconfig
+# nxredir nxsmb
+sed -i "s|/usr/lib|%_libdir|g" nxredir/nxredir
+sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
+sed -i "s|%_libdir/cups|%_libexecdir/cups|g" nxredir/nxsmb
+
 export NX_ETC_DIR=%_initdir/%name
 %makeinstall_std
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
 mkdir -p %buildroot%_initdir
 install -m 755 %SOURCE1 %buildroot%_initdir/%name
+sed -i "s|~LOCKDIR~|$LOCKDIR|g" %buildroot%_initdir/%name
 %if %_vendor == "alt"
 %else
 install -m 755 %SOURCE2 %buildroot%_initdir
 %endif
-sed -i "s|/usr/lib|%_libdir|g" %buildroot%_bindir/nxredir
-sed -i "s|/usr/lib|%_libdir|g" %buildroot%_libdir/cups/backend/nxsmb
 
 mkdir -p %buildroot%_var/lib/nxserver/home
 mkdir -p %buildroot%_var/lib/nxserver/db
@@ -95,11 +101,15 @@ fi
 %endif
 %_bindir/nx*
 %_libdir/*.so.*
-%_libdir/cups/backend/nx*
+%_libexecdir/cups/backend/nx*
 %attr(2750,nx,nx) %_var/lib/nxserver/home
 %attr(2750,root,nx) %_var/lib/nxserver/db
 
 %changelog
+* Thu Jan 08 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt7
+- fix path to cups backends on x86_64 (alt bug #18462)
+- fix path to LOCKDIR on Debian (eter bug #3094)
+
 * Tue Dec 16 2008 Boris Savelev <boris@altlinux.org> 0.7.4-alt6
 - fix path to cups
 - run "numlockx on" on session start
