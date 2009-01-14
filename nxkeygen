@@ -18,7 +18,7 @@
 # Read the config file
 . $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
 
-NX_KEY_DIR="$NX_HOME_DIR/.ssh"
+[ -z "$NX_KEY_DIR" ] && NX_KEY_DIR="$NX_HOME_DIR/.ssh"
 DATE="`date '+%Y%m%d-%H%M%S'`"
 NX_CLIENT_KEY="${NX_KEY_DIR}/client.id_dsa.key"
 NX_SERVER_KEY="${NX_KEY_DIR}/server.id_dsa.pub.key"
@@ -68,6 +68,11 @@ main ()
 	echo
 	echo "on their computers."
 }
+
+if [ -f "${NX_SERVER_KEY}" -a -f "${NX_CLIENT_KEY}" -a ! -z "$NX_DONT_OVERRIDE" ]; then
+	echo "Not overriding the existing key"
+	exit
+fi
 
 main "$@"
 
