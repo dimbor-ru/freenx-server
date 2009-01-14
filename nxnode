@@ -540,7 +540,7 @@ node_start_agent()
 		
 		# Start the agent
 		
-		PATH="$PATH_BIN:$PATH" $PATH_BIN/nxagent $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
+		PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 	fi
 	
 	#
@@ -1520,7 +1520,7 @@ case "$1" in
 		echo "NX> 716 Starting NX Agent ..."
 		shift
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
-		PATH="$PATH:$PATH_BIN" $PATH_BIN/nxagent -name "NX Agent Test - Args: $@" $@
+		PATH="$PATH:$PATH_BIN" $COMMAND_NXAGENT -name "NX Agent Test - Args: $@" $@
 		echo "NX> 716 NX Agent exited with status: $?"
 	;;
 	--setkey)

@@ -295,9 +295,9 @@ session_list_user_suspended()
 				then 
 					[ -z "$(getparam shadowcookie)" ] && continue
 					
-					if [ -x "$PATH_BIN/nxshadowacl" ]
+					if [ -x "$COMMAND_NXSHADOWACL" ]
 					then
-						$PATH_BIN/nxshadowacl "$(getparam userName)" "$USER" || continue
+						$COMMAND_NXSHADOWACL "$(getparam userName)" "$USER" || continue
 					fi
 				fi
 			fi
@@ -987,10 +987,10 @@ server_nxnode_start_wait()
 	do
 		case "$CMD" in 
 			"NX> 706"*)
-				if [ -x "$PATH_BIN/nxshadowacl" ]
+				if [ -x "$COMMAND_NXSHADOWACL" ]
 				then
 					# check if we should save the cookie
-					$PATH_BIN/nxshadowacl "$USER"
+					$COMMAND_NXSHADOWACL "$USER"
 					
 					if [ $? -eq 0 ]
 					then
@@ -1074,10 +1074,10 @@ server_nxnode_start_wait()
 	do
 		case "$CMD" in 
 			"NX> 706"*)
-				if [ -x "$PATH_BIN/nxshadowacl" ]
+				if [ -x "$COMMAND_NXSHADOWACL" ]
 				then
 					# check if we should save the cookie
-					$PATH_BIN/nxshadowacl "$USER"
+					$COMMAND_NXSHADOWACL "$USER"
 					
 					if [ $? -eq 0 ]
 					then
@@ -1211,7 +1211,7 @@ server_loadbalance_load()
 	
 	for i in $LOAD_BALANCE_SERVERS
 	do
-		SERVER_LB_LOAD=$($NX_DIR/bin/nxcheckload $i)
+		SERVER_LB_LOAD=$($COMMAND_NXCHECKLOAD $i)
 		[ -z "$SERVER_LB_LOAD" ] && continue
 		
 		if [ $SERVER_LB_LOAD -gt $SERVER_LB_MAX ]
@@ -1381,10 +1381,10 @@ server_startrestore_session()
 			return 1
 	fi
 
-	if [ -x "$PATH_BIN/nxacl" ]
+	if [ -x "$COMMAND_NXACL" ]
 	then
-			log 3 "Info: Using $PATH_BIN/nxacl to change session parameters or deny session."
-			NEW_PARAMS=$($PATH_BIN/nxacl "$CMDLINE")
+			log 3 "Info: Using $COMMAND_NXACL to change session parameters or deny session."
+			NEW_PARAMS=$($COMMAND_NXACL "$CMDLINE")
 			if [ $? -ne 0 ]
 			then
 				echo_x "NX> 596 The session failed due to a nxacl policy setting: $NEW_PARAMS"

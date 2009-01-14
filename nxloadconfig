@@ -208,6 +208,11 @@ COMMAND_VNCPASSWD="$PATH_BIN/nxpasswd"
 COMMAND_X11VNC="x11vnc"
 COMMAND_TASKSET="taskset"
 
+COMMAND_NXSHADOWACL="$PATH_BIN/nxshadowacl"
+COMMAND_NXACL="$PATH_BIN/nxacl"
+COMMAND_NXCHECKLOAD="$PATH_BIN/nxcheckload"
+COMMAND_NXAGENT="$PATH_BIN/nxagent"
+
 # Misc directives
 
 ENABLE_1_5_0_BACKEND=""
@@ -288,6 +293,10 @@ then
 	{ ! mywhich "$PATH_BIN/nxdesktop"; } >/dev/null 2>&1 && ENABLE_EXTERNAL_NXDESKTOP="1"
 	{ ! mywhich "$PATH_BIN/nxviewer"; } >/dev/null 2>&1 && ENABLE_EXTERNAL_NXVIEWER="1"
 	{ ! mywhich "$COMMAND_VNCPASSWD" && which vncpasswd; } >/dev/null 2>&1 && COMMAND_VNCPASSWD=$(which vncpasswd)
+	{ ! mywhich "$COMMAND_NXSHADOWACL" && test -f /etc/nxserver/nxshadowacl; } >/dev/null 2>&1 && COMMAND_NXSHADOWACL=/etc/nxserver/nxshadowacl
+	{ ! mywhich "$COMMAND_NXACL" && test -f /etc/nxserver/nxacl; } >/dev/null 2>&1 && COMMAND_NXACL=/etc/nxserver/nxacl
+	{ ! mywhich "$COMMAND_NXCHECKLOAD" && test -f /etc/nxserver/nxcheckload; } >/dev/null 2>&1 && COMMAND_NXCHECKLOAD=/etc/nxserver/nxcheckload
+	{ ! mywhich "$COMMAND_NXAGENT" && which nxagent; } >/dev/null 2>&1 && COMMAND_NXAGENT=$(which nxagent)
 fi
 
 #########################################################################
@@ -318,7 +327,7 @@ fi
 [ -z "$APPLICATION_LIBRARY_PATH" ] && APPLICATION_LIBRARY_PATH=$PATH_LIB
 [ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/libX11.so.6.2:$APPLICATION_LIBRARY_PATH/libXext.so.6.4:$APPLICATION_LIBRARY_PATH/libXcomp.so:$APPLICATION_LIBRARY_PATH/libXcompext.so:$APPLICATION_LIBRARY_PATH/libXrender.so.1.2"
 
-NX_BACKEND_VERSION=$(strings $PATH_BIN/nxagent 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
+NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
 
 [ "$ENABLE_1_5_0_BACKEND" = "1" ] && NX_BACKEND_VERSION="1.5.0" # forced the backend
 
@@ -355,7 +364,7 @@ then
 		ERROR="yes" && echo "Error: Invalid value \"PATH_BIN=$PATH_BIN\""
 	# Check for NX agents ...
 	
-	[ ! -x "$PATH_BIN/nxagent" ] && \
+	[ ! -x "$COMMAND_NXAGENT" ] && \
 		ERROR="yes" && echo "Error: Could not find nxagent in $PATH_BIN. Please install some OSS components."
 	
 	if [ "ENABLE_EXTERNAL_NXDESKTOP" = "1" ]
@@ -607,7 +616,7 @@ then
 	[ -z $(echo "$ENABLE_ROOTLESS_MODE" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_ROOTLESS_MODE=$ENABLE_ROOTLESS_MODE\""
 
-	[ -z "$(strings $PATH_BIN/nxagent | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[012].0')" ] && \
+	[ -z "$(strings $COMMAND_NXAGENT | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[012].0')" ] && \
 		WARNING="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[01].0 version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[012].0 backend is needed for this version of FreeNX."
 		
 	[ -z $(echo "$ENABLE_USESSION" | egrep "^[0|1]$") ] && \
