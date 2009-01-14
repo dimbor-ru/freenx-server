@@ -367,16 +367,16 @@ then
 	[ ! -x "$COMMAND_NXAGENT" ] && \
 		ERROR="yes" && echo "Error: Could not find nxagent in $PATH_BIN. Please install some OSS components."
 	
-	if [ "ENABLE_EXTERNAL_NXDESKTOP" = "1" ]
+	if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" ]
 	then
 		[ ! mywhich "$COMMAND_RDESKTOP" >/dev/null 2>&1 ] && \
 			WARNING="yes" && echo "Warning: Could not find COMMAND_RDESKTOP=$COMMAND_RDESKTOP. RDP sessions won't work."
 	else
 		[ ! -x "$PATH_BIN/nxdesktop" ] && \
-			WARNING="yes" && echo "Warning: Could not find nxdesktop in $PATH_BIN. RDP sessions won't work."
+			WARNING="yes" && echo "Warning: Could not find nxdesktop in $PATH_BIN. RDP sessions won't work. Ignore if you use NX > 3.2"
 	fi
 		
-	if [ "ENABLE_EXTERNAL_NXVIEWER" = "1" ]
+	if [ "$ENABLE_EXTERNAL_NXVIEWER" = "1" ]
 	then
 		[ ! mywhich "$COMMAND_VNCVIEWER" >/dev/null 2>&1 ] && \
 			WARNING="yes" && echo "Warning: Could not find COMMAND_VNCVIEWER=$COMMAND_VNCVIEWER. VNC sessions won't work."
@@ -384,7 +384,7 @@ then
 			WARNING="yes" && echo "Warning: Could not find COMMAND_VNCPASSWD=$COMMAND_VNCPASSWD. VNC sessions won't work."
 	else
 		[ ! -x "$PATH_BIN/nxviewer" ] && \
-			WARNING="yes" && echo "Warning: Could not find nxviewer in $PATH_BIN. VNC sessions won't work."
+			WARNING="yes" && echo "Warning: Could not find nxviewer in $PATH_BIN. VNC sessions won't work. Ignore if you use NX > 3.2"
 	fi
 	
 	[ ! mywhich "$COMMAND_X11VNC" >/dev/null 2>&1 ] && \
@@ -410,10 +410,12 @@ then
 	
 	OLD_IFS=$IFS
 	IFS=":"
-	for LIBRARY in $APPLICATION_LIBRARY_PRELOAD; do
-		[ ! -e $LIBRARY ] && \
-			WARNING="yes" && echo "Warning: Invalid value \"APPLICATION_LIBRARY_PRELOAD=$APPLICATION_LIBRARY_PRELOAD\". $LIBRARY could not be found. Users will not be able to run a single application in non-rootless mode." && break ;
-	done
+	if [ "$SET_LD_LIBRARY_PATH" = "1" ]; then
+		for LIBRARY in $APPLICATION_LIBRARY_PRELOAD; do
+			[ ! -e $LIBRARY ] && \
+				WARNING="yes" && echo "Warning: Invalid value \"APPLICATION_LIBRARY_PRELOAD=$APPLICATION_LIBRARY_PRELOAD\". $LIBRARY could not be found. Users will not be able to run a single application in non-rootless mode." && break ;
+		done
+	fi
 	IFS=$OLD_IFS
 	
 	[ -z "$SSH_AUTHORIZED_KEYS" ] && \
@@ -589,7 +591,7 @@ then
 					  && echo "         Users will not be able to enable printing."
 	[ -z "$(strings $COMMAND_CUPSD | egrep 'CUPS\/1.2')" ] && \
 		WARNING="yes" && echo "Warning: Invalid cupsd version of \"$COMMAND_CUPSD\". Need version 1.2." \
-					  && echo "         Users will not be able to enable printing."
+					  && echo "         Users will not be able to enable printing. Ignore if you use cups > 1.2"
 	! mywhich "$COMMAND_MD5SUM" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_MD5SUM=$COMMAND_MD5SUM\""
 
