@@ -1344,8 +1344,7 @@ server_startrestore_session()
 		if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" -a "$(getparam type)" = "windows" ]
 		then
 			type="windows-helper"
-			application="$PATH_BIN/nxdesktop_helper"
-			PARAMS="$PARAMS&type=$type&application=$application&freenx_export_agents=1"
+			PARAMS="$PARAMS&type=$type&freenx_export_agents=1"
 			CMDLINE=$PARAMS
 		fi
 		 
