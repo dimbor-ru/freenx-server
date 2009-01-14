@@ -304,6 +304,15 @@ fi
 # node.conf file evaluation
 #########################################################################
 
+SHARED_CONFS="/usr/share/freenx-server"
+if [ -d $SHARED_CONFS/node.conf.d ]
+then
+	for i in $SHARED_CONFS/node.conf.d/*
+	do
+		[ -e $i ] && . $i
+	done
+fi
+
 if [ -d $NX_ETC_DIR/node.conf.d ]
 then
 	for i in $NX_ETC_DIR/node.conf.d/*
