@@ -332,6 +332,17 @@ node_start_applications()
 	[ -d /etc/X11/Xresources ] && xrdb -display :$display -merge /etc/X11/Xresources/* >>"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1
 
 	#
+	# Use Xsession to execute the Desktop session
+	#
+
+	case $type in
+	    unix-gnome|unix-kde|unix-cde)
+		export STARTUP="$NODE_APPLICATION"
+		NODE_APPLICATION=$DEFAULT_X_SESSION
+		;;
+	esac
+
+	#
 	# Startup the application
 	#
 	
