@@ -1,28 +1,41 @@
 #!/bin/bash
-#
-# Sample startup script for FreeNX server
-#
-# Coypright (c) 2007 by Fabian Franz <freenx@fabian-franz.de>.
-#
-# License: GNU GPL, version 2
-#
-# SVN: $Id: freenx-server 485 2008-03-02 10:29:52Z fabianx $
-#
 
-# Read the config file
-. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
+### BEGIN INIT INFO
+# Provides:          freenx_server
+# Required-Start:    $sshd
+# Required-Stop:     $sshd
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Cleanup FreeNX Server session database at boot time
+# Description:       Cleanup FreeNX Server session database at boot time
+### END INIT INFO
 
 case "$1" in
 	start)
-		[ ! -d "/tmp/.X11-unix" ] && mkdir -m1755 /tmp/.X11-unix/
+		if [ ! -e "/var/run/freenx-server" ]; then
+			[ ! -d "/tmp/.X11-unix" ] && mkdir -m1755 /tmp/.X11-unix/
+			$PATH_BIN/nxserver --cleanup
+			$PATH_BIN/nxserver --start
+			touch "/var/run/freenx-server";
+		else
+			echo "Not starting freenx-server, it's already started."
+		fi
+	;;
+	restart|force-reload)
 		$PATH_BIN/nxserver --cleanup
 		$PATH_BIN/nxserver --start
+		touch "/var/run/freenx-server";
 	;;
 	stop)
 		$PATH_BIN/nxserver --stop
 		$PATH_BIN/nxserver --cleanup
-	;;	
+		rm -f /var/run/freenx-server
+	;;
+	status)
+		[ ! -e "/var/run/freenx-server" ] || exit 3
+		exit 0;
+	;;
 	*)
-		echo "Usage: $0 <start|stop>"
+		echo "Usage: $0 <start|restart|stop|force-reload|status>"
 	;;
 esac
