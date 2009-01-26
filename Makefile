@@ -35,12 +35,18 @@ nxenv_install:
 	#$(MAKE) suid_install
 
 clean:
-	make -C nxviewer-passwd clean
 	for i in $(SUBDIRS) ; \
 	do\
 		echo "making" clean "in $$i..."; \
-	        $(MAKE) -C $$i clean || exit 1;\
+		if test -e "$$i/Makefile"; \
+		then $(MAKE) -C $$i clean || exit 1;\
+		else echo ignoring $$i;\
+		fi;\
 	done
+	rm -f nxviewer-passwd/Makefile.back
+	rm -f nxviewer-passwd/Makefile
+	rm -f nxviewer-passwd/nxpasswd/Makefile
+	rm -f nxviewer-passwd/libvncauth/Makefile
 
 install:
 	source nxloadconfig &&\

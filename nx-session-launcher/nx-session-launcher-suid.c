@@ -23,8 +23,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifndef NXSERVER_COMMAND
-#define NXSERVER_COMMAND "/usr/bin/nx-session-launcher"
+#ifndef SESSION_LAUNCHER_COMMAND
+#define SESSION_LAUNCHER_COMMAND "/usr/bin/nx-session-launcher"
 #endif
 
 #define CK_LAUNCH_SESSION_COMMAND "/usr/bin/ck-launch-session"
@@ -47,7 +47,7 @@ int main(int argc, char ** argv)
         new_argv[0] = CK_LAUNCH_SESSION_COMMAND;
 
     }else{
-        new_argv[0] = NXSERVER_COMMAND;
+        new_argv[0] = SESSION_LAUNCHER_COMMAND;
     }
 
     return execv(new_argv[0], new_argv);

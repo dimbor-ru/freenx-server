@@ -295,9 +295,9 @@ session_list_user_suspended()
 				then 
 					[ -z "$(getparam shadowcookie)" ] && continue
 					
-					if [ -x "$PATH_BIN/nxshadowacl" ]
+					if [ -x "$COMMAND_NXSHADOWACL" ]
 					then
-						$PATH_BIN/nxshadowacl "$(getparam userName)" "$USER" || continue
+						$COMMAND_NXSHADOWACL "$(getparam userName)" "$USER" || continue
 					fi
 				fi
 			fi
@@ -344,14 +344,14 @@ session_list_user_suspended()
 		egrep -q "^userName=$1$" $i && let SESSION_COUNT_USER=$SESSION_COUNT_USER+1
 	done
 	
-	if [ "$4" = "vnc" -a "$ENABLE_DESKTOP_SHARING" = "1" ]
+	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]
 	then
 		export DESKTOP_SHARING_IDS=""
 		for i in $(LC_ALL=C netstat -ln --protocol=unix | egrep 'X11-unix/X[0-9]$' | sed 's/.*X\(.*\)/\1/g')
 		do
 			uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM | cut -d" " -f1 | tr "[a-z]" "[A-Z]")
 			DESKTOP_SHARING_IDS="$DESKTOP_SHARING_IDS $uniqueid=$i"
-			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "vnc-local" "$uniqueid" "--------" "$udepth" "$(echo $3 | cut -d'x' -f1,2)" "Running" "X$i (Local)" >> $TMPFILE
+			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$uniqueid" "--------" "$udepth" "$(echo $3 | cut -d'x' -f1,2)" "Running" "X$i (Local)" >> $TMPFILE
 		done
 	fi
 	
@@ -987,10 +987,10 @@ server_nxnode_start_wait()
 	do
 		case "$CMD" in 
 			"NX> 706"*)
-				if [ -x "$PATH_BIN/nxshadowacl" ]
+				if [ -x "$COMMAND_NXSHADOWACL" ]
 				then
 					# check if we should save the cookie
-					$PATH_BIN/nxshadowacl "$USER"
+					$COMMAND_NXSHADOWACL "$USER"
 					
 					if [ $? -eq 0 ]
 					then
@@ -1074,10 +1074,10 @@ server_nxnode_start_wait()
 	do
 		case "$CMD" in 
 			"NX> 706"*)
-				if [ -x "$PATH_BIN/nxshadowacl" ]
+				if [ -x "$COMMAND_NXSHADOWACL" ]
 				then
 					# check if we should save the cookie
-					$PATH_BIN/nxshadowacl "$USER"
+					$COMMAND_NXSHADOWACL "$USER"
 					
 					if [ $? -eq 0 ]
 					then
@@ -1211,7 +1211,7 @@ server_loadbalance_load()
 	
 	for i in $LOAD_BALANCE_SERVERS
 	do
-		SERVER_LB_LOAD=$($NX_DIR/bin/nxcheckload $i)
+		SERVER_LB_LOAD=$($COMMAND_NXCHECKLOAD $i)
 		[ -z "$SERVER_LB_LOAD" ] && continue
 		
 		if [ $SERVER_LB_LOAD -gt $SERVER_LB_MAX ]
@@ -1344,8 +1344,7 @@ server_startrestore_session()
 		if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" -a "$(getparam type)" = "windows" ]
 		then
 			type="windows-helper"
-			application="$PATH_BIN/nxdesktop_helper"
-			PARAMS="$PARAMS&type=$type&application=$application&freenx_export_agents=1"
+			PARAMS="$PARAMS&type=$type&freenx_export_agents=1"
 			CMDLINE=$PARAMS
 		fi
 		 
@@ -1381,10 +1380,10 @@ server_startrestore_session()
 			return 1
 	fi
 
-	if [ -x "$PATH_BIN/nxacl" ]
+	if [ -x "$COMMAND_NXACL" ]
 	then
-			log 3 "Info: Using $PATH_BIN/nxacl to change session parameters or deny session."
-			NEW_PARAMS=$($PATH_BIN/nxacl "$CMDLINE")
+			log 3 "Info: Using $COMMAND_NXACL to change session parameters or deny session."
+			NEW_PARAMS=$($COMMAND_NXACL "$CMDLINE")
 			if [ $? -ne 0 ]
 			then
 				echo_x "NX> 596 The session failed due to a nxacl policy setting: $NEW_PARAMS"
@@ -1443,6 +1442,14 @@ server_startrestore_session()
 				let SESS_DISPLAY=$SESS_DISPLAY+1
 				continue
 			fi
+
+                        let PROXY_DISPLAY=$SESS_DISPLAY+4000
+                        if [ $COMMAND_NETCAT -z "$SERVER_HOST" $PROXY_DISPLAY ]
+                        then
+                                log 2 "Warning: nxagent proxy without .nX$SESS_DISPLAY-lock found on host:port $SERVER_HOST:$AGENT_DISPLAY."
+                                let SESS_DISPLAY=$SESS_DISPLAY+1
+                                continue
+                        fi
 
 			# Now check for the other enabled services
 			
