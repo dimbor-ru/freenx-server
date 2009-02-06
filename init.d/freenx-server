@@ -10,6 +10,8 @@
 # Description:       Cleanup FreeNX Server session database at boot time
 ### END INIT INFO
 
+PATH_BIN=/usr/lib/nx
+
 case "$1" in
 	start)
 		if [ ! -e "/var/run/freenx-server" ]; then
