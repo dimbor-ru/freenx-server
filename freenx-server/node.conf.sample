@@ -445,18 +445,6 @@
 #CUPS_DEFAULT_SOCK="/var/run/cups/cups.sock"
 #CUPS_ETC="/etc/cups"
 
-# SAMBA_MOUNT_SHARE_PROTOCOL is a key to configure the supported 
-# protocols for mounting shares.
-#
-# This key can be set to the following values:
-#
-# both, either SMB and CIFS protocol are supported, this is the default value.
-# smbfs, only SMB protocol is supported.
-# cifs, only CIFS protocol is supported.
-# none, no network file-sharing protocol is supported.
-
-#SAMBA_MOUNT_SHARE_PROTOCOL="both"
-
 # FreeNX with ENABLE_SAMBA_PRELOAD="1" will automatically setup
 # port 445 and 139 and forward them to the used samba port.
 #

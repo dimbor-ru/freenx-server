@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 
 # Free implementation of nxserver components
 #
@@ -118,7 +118,7 @@ node_terminate_session()
 	[ -d "$USER_FAKE_HOME/.nx/C-$1/" ] || return
 
 	# Kill nxagent
-	
+
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
 	
 	if [ -n "$NODE_AGENT_PID" ]
@@ -710,7 +710,7 @@ node_umount_smb()
 	[ -e "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" ] || return
 	cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" | while read mpoint
 	do
-		$COMMAND_SMBUMOUNT "$mpoint" >/dev/null 2>/dev/null
+		$COMMAND_SMBUMOUNT_CIFS "$mpoint" >/dev/null 2>/dev/null
 	done
 }
 
@@ -1097,39 +1097,7 @@ startsession()
 
 	if [ "$samba" = "1" ]
 	then
-		# We know from protocol traces that client=linux,winnt,macosx are valid values.
-		# I hope with smbclientproto=smb on default and smbclientproto=cifs on all valid
-		# values we get support for all those systems.
-
-		smbproto="$SAMBA_MOUNT_SHARE_PROTOCOL"
-
-		if [ "$smbproto" = "both" ]
-		then
-			smbproto="smbfs"
-
-			[ "$client" = "linux" ] && smbproto="cifs"
-			[ "$client" = "winnt" ] && smbproto="cifs"
-			[ "$client" = "macosx" ] && smbproto="cifs"
-
-			# FIXME: This is a rather wild guess
-			[ "$client" = "win9x" ] && smbproto="smbfs"
-		fi
-
-		if [ "$smbproto" = "cifs" ]
-		then
 			smbport=445
-			COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS
-			COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
-		elif [ "$smbproto" = "none" ] # none
-		then
-			# we set this to true so that the 
-			# SMB mount does not give an error message.
-
-			COMMAND_SMBMOUNT=/bin/true
-			COMMAND_SMBUMOUNT=/bin/true
-		else # smbfs
-			smbport=139
-		fi
 	fi
 	
 	# FreeNX specific variables
@@ -1408,7 +1376,10 @@ cmd_node_smbmount()
 	# sometimes the samba port we get from nxserver is not the right one, so let's get it from nxagent
 	realport=$(cat "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mport")
 	[ -n "$realport" ] && port=$realport
-	error=$(PASSWD="$password" $COMMAND_SMBMOUNT "//$computername/$share" "$HOME/$dir" -o username="$username",ip=127.0.0.1,port=$port 2>&1)
+
+	error=$(PASSWD="$password" $COMMAND_SMBMOUNT_CIFS "//$computername/$share" "$HOME/$dir" -o username="$username",ip=127.0.0.1,port=$port 2>&1)
+	
+	
 	if [ $? -eq 0 ]
 	then
 		$PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' mounted on: '$HOME/$dir'" -display :$display &
@@ -1519,7 +1490,12 @@ case "$1" in
 		cmd_node_suspend
 	;;
 	--smbmount)
-		cmd_node_smbmount &>/dev/null </dev/null &
+		if [ "$SHARE_FAST_MOUNT" = "1" ]
+		then 
+			cmd_node_smbmount &>/dev/null </dev/null 
+		else 
+			cmd_node_smbmount &>/dev/null </dev/null &
+		fi
 	;;
 	--addprinter)
 		cmd_node_addprinter &>/dev/null </dev/null &
