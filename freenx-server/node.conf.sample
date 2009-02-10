@@ -648,3 +648,11 @@ COMMAND_START_GNOME="/usr/bin/ssh-agent /usr/bin/dbus-launch --exit-with-session
 # 
 # If nxviewer cannot be found this is set automatically to "1".
 #ENABLE_EXTERNAL_NXVIEWER="0"
+
+
+###############################################################
+#### If you want mount in background, set "1"
+################################################################
+#
+#SHARE_FAST_MOUNT="0"
+#
