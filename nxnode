@@ -340,9 +340,13 @@ node_start_applications()
 	#
 
 	case $type in
-	    unix-gnome|unix-kde|unix-cde)
-		export STARTUP="$NODE_APPLICATION"
-		NODE_APPLICATION=$DEFAULT_X_SESSION
+		unix-gnome)
+			export STARTUP="$NODE_APPLICATION"
+			NODE_APPLICATION=$COMMAND_GDM_X_SESSION
+		;;
+		unix-kde|unix-cde)
+			export STARTUP="$NODE_APPLICATION"
+			NODE_APPLICATION=$DEFAULT_X_SESSION
 		;;
 	esac
 
