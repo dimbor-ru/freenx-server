@@ -342,7 +342,12 @@ node_start_applications()
 	case $type in
 		unix-gnome)
 			export STARTUP="$NODE_APPLICATION"
-			NODE_APPLICATION=$COMMAND_GDM_X_SESSION
+			if [ "$login_method" = "GUEST" ]
+			then
+				NODE_APPLICATION=$COMMAND_GUEST_X_SESSION
+			else
+				NODE_APPLICATION=$COMMAND_GDM_X_SESSION
+			fi
 		;;
 		unix-kde|unix-cde)
 			export STARTUP="$NODE_APPLICATION"
@@ -389,6 +394,12 @@ node_start_applications()
 node_agent_persistent_session()
 {
 	P="-nopersistent"
+	# Guest sessions are always nonpersistent
+	if [ "$login_method" = "GUEST" ]
+	then
+		echo "$P"
+		return
+	fi
 	OLD_IFS=$IFS
 	IFS=","
 	[ "$ENABLE_PERSISTENT_SESSION" = "all" ] && P="-persistent"
@@ -1155,6 +1166,8 @@ startsession()
 	shadowdisplay=$(getparam shadowdisplay)
 	shadowhost=$(getparam shadowhost)
 
+	# Authentication method needed by guest mode.
+	login_method=$(getparam login_method)
 	
 	sess_id="$SERVER_NAME-$display-$uniqueid"
 	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"

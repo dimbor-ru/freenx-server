@@ -63,6 +63,8 @@ if { "$auth_method"=="ssh" } {
 } elseif { "$auth_method"=="su" } {
         set env(LANG) "C"
 	set pid [spawn -noecho su - "$user" -c "$executable $command" ]
+} elseif { "$auth_method"=="guest" } {
+	set pid [spawn -noecho $executable $command ]
 } else {
 	exit 1
 }

@@ -215,6 +215,16 @@ COMMAND_NXACL="$PATH_BIN/nxacl"
 COMMAND_NXCHECKLOAD="$PATH_BIN/nxcheckload"
 COMMAND_NXAGENT="$PATH_BIN/nxagent"
 
+# Guest directives
+ENABLE_GUEST_LOGIN="0"
+COMMAND_GUEST_LOGIN="/usr/lib/nx/guest/nxnode"
+# Try to use protected enviroment for guest sessions
+COMMAND_GUEST_X_SESSION="/usr/share/gdm/guest-session/Xsession custom"
+if [ ! -x "/usr/share/gdm/guest-session/Xsession" ]
+then
+	COMMAND_GUEST_X_SESSION=$COMMAND_GDM_X_SESSION
+fi
+
 # Misc directives
 
 ENABLE_1_5_0_BACKEND=""
