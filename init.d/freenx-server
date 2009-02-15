@@ -3,10 +3,10 @@
 ### BEGIN INIT INFO
 # Provides:          freenx_server
 # Required-Start:    $sshd
-# Required-Stop:     $sshd
+# Required-Stop:     
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Cleanup FreeNX Server session database at boot time
+# Short-Description: FreeNX Server
 # Description:       Cleanup FreeNX Server session database at boot time
 ### END INIT INFO
 
