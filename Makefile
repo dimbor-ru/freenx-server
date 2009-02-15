@@ -4,6 +4,7 @@ SHELL = /bin/bash
 
 SUBDIRS=nxredir nxviewer-passwd nxserver-helper nxserver-suid nx-session-launcher
 PROGRAMS=nxacl.sample nxcheckload.sample nxcups-gethost nxdesktop_helper nxdialog nxkeygen nxloadconfig nxnode nxnode-login nxprint nxserver nxserver-helper/nxserver-helper nxsetup nxviewer_helper nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher nx-session-launcher/nx-session-launcher-suid nxserver-usermode nxserver-suid/nxserver-suid
+REVNO=`bzr revno`
 
 all:
 	cd nxviewer-passwd && xmkmf && make Makefiles && make depend
@@ -52,3 +53,11 @@ install:
 	source nxloadconfig &&\
 	export PATH_BIN PATH_LIB CUPS_BACKEND NX_VERSION NX_ETC_DIR &&\
 	$(MAKE) nxenv_install
+
+debian-tarball:
+	mkdir freenx-server
+	cp -r * freenx-server || echo 0
+	rm -rf freenx-server/.bzr*
+	rm -rf freenx-server/freenx-server
+	[ -d ".bzr" ] && tar -czf ../freenx-server_0.7.3+teambzr$(REVNO).orig.tar.gz freenx-server
+	rm -rf freenx-server
