@@ -334,7 +334,7 @@ session_list_user_suspended()
 			elif [ "$4" = "shadow" ]
 			then
 				available=$(getparam status)
-				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "$(getparam type)" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) (Shadowed)" >> $TMPFILE
+				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "$(getparam type)" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) ($(getparam userName)) (Shadowed)" >> $TMPFILE
 			else
 				# only unix-* sessions can be resumed, but other session types can still be terminated
 				stringinstring "unix-" "$4" || available="N/A"
