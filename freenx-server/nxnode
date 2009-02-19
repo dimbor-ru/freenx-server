@@ -261,8 +261,12 @@ node_start_applications()
 	. /etc/profile
 	[ "$ENABLE_SOURCE_BASH_PROFILE" = "1" -a -f ~/.bash_profile ] && . ~/.bash_profile
 
-	#fixkeyboard
-	export DISPLAY=:$display
+        #fixkeyboard
+        export DISPLAY=:$display
+        while [ -z "`xdpyinfo | head 2> /dev/null`" ]; do
+            sleep 2
+            echo "sleep while get a valid DISPLAY"
+        done
 	FIXKBD="/etc/X11/xinit/fixkeyboard
 		/etc/X11/xinit/xinitrc-common"
 	for file in $FIXKBD ; do
