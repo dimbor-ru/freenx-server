@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt7
+Release: alt8
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -107,6 +107,10 @@ fi
 %attr(2750,root,nx) %_var/lib/nxserver/db
 
 %changelog
+* Thu Feb 19 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt8
+- fix eterbug #3226 (patch from horch)
+- add sleeping wait for valid display (fixkeyboard fails)
+
 * Thu Jan 08 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt7
 - fix path to cups backends on x86_64 (alt bug #18462)
 - fix path to LOCKDIR on Debian (eter bug #3094)
