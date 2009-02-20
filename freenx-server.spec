@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt8
+Release: alt9
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -107,6 +107,9 @@ fi
 %attr(2750,root,nx) %_var/lib/nxserver/db
 
 %changelog
+* Fri Feb 20 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt9
+- fix nxloadconfig for Etersoft SHARE_FAST_MOUNT
+
 * Thu Feb 19 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt8
 - fix eterbug #3226 (patch from horch)
 - add sleeping wait for valid display (fixkeyboard fails)
