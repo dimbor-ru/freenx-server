@@ -229,6 +229,7 @@ PROXY_EXTRA_OPTIONS=""
 ENABLE_EXTERNAL_NXDESKTOP="0"
 ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD="1"
 ENABLE_EXTERNAL_NXVIEWER="0"
+SHARE_FAST_MOUNT="0"
 
 ############################################################################
 # OS specific directives
@@ -340,6 +341,17 @@ fi
 
 # Load balance to some other core if specified
 [ -n "$USE_PROCESSOR_TASKSET" ] && $COMMAND_TASKSET -cp "$USE_PROCESSOR_TASKSET" $$
+
+########################################################################
+# The Etersoft addition
+########################################################################
+if [ "$SHARE_FAST_MOUNT" = "1" ]
+then 
+	SHARE_FAST_MOUNT="1"
+else
+	SHARE_FAST_MOUNT="0"
+fi
+
 
 #########################################################################
 # Support for --check
