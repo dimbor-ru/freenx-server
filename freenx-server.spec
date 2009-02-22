@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt9
+Release: alt10
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -76,6 +76,13 @@ install -m 755 %SOURCE2 %buildroot%_initdir
 
 mkdir -p %buildroot%_var/lib/nxserver/home
 mkdir -p %buildroot%_var/lib/nxserver/db
+mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
+mkdir -p %buildroot%_datadir/%name/node.conf.d
+mkdir -p %buildroot%_sysconfdir/logrotate.d
+mkdir -p %buildroot%_sysconfdir/dbus-1/system.d/
+cp -p data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
+cp -p nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/system.d/
+mv nx-session-launcher/README nx-session-launcher/README.suid
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -92,21 +99,36 @@ fi
 %preun
 %preun_service %name
 %files
-%doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample
+%doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample nx-session-launcher/README.suid
 %dir %_sysconfdir/nxserver
+%dir %_sysconfdir/nxserver/node.conf.d
 %config(noreplace) %_sysconfdir/nxserver/node.conf
+%config %_sysconfdir/logrotate.d/freenx-server
+%config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
 %_initdir/%name
 %if %_vendor == "alt"
 %else
 %_initdir/%name.outformat
 %endif
+%attr(4755,nx,root) %_bindir/nx-session-launcher-suid
 %_bindir/nx*
 %_libdir/*.so.*
 %cups_root/cups/backend/nx*
 %attr(2750,nx,nx) %_var/lib/nxserver/home
 %attr(2750,root,nx) %_var/lib/nxserver/db
+%dir %_datadir/%name/node.conf.d
 
 %changelog
+* Sun Feb 22 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt10
+- logrotate rule.
+- add LSB header.
+- patches from Ubuntu.
+- implementation of guest login.
+- nx-session-launcher:
+    + add DBUS rules
+    + fix permission on nx-session-launcher-suid
+    + add README for nx-session-launcher
+
 * Fri Feb 20 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt9
 - fix nxloadconfig for Etersoft SHARE_FAST_MOUNT
 
