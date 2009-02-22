@@ -347,6 +347,26 @@ node_start_applications()
 	[ -d /etc/X11/Xresources ] && xrdb -display :$display -merge /etc/X11/Xresources/* >>"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1
 
 	#
+	# Use Xsession to execute the Desktop session
+	#
+
+	case $type in
+		unix-gnome)
+			export STARTUP="$NODE_APPLICATION"
+			if [ "$login_method" = "GUEST" ]
+			then
+				NODE_APPLICATION=$COMMAND_GUEST_X_SESSION
+			else
+				NODE_APPLICATION=$COMMAND_GDM_X_SESSION
+			fi
+		;;
+		unix-kde|unix-cde)
+			export STARTUP="$NODE_APPLICATION"
+			NODE_APPLICATION=$DEFAULT_X_SESSION
+		;;
+	esac
+
+	#
 	# Startup the application
 	#
 	
@@ -385,6 +405,12 @@ node_start_applications()
 node_agent_persistent_session()
 {
 	P="-nopersistent"
+	# Guest sessions are always nonpersistent
+	if [ "$login_method" = "GUEST" ]
+	then
+		echo "$P"
+		return
+	fi
 	OLD_IFS=$IFS
 	IFS=","
 	[ "$ENABLE_PERSISTENT_SESSION" = "all" ] && P="-persistent"
@@ -1115,6 +1141,8 @@ startsession()
 	shadowdisplay=$(getparam shadowdisplay)
 	shadowhost=$(getparam shadowhost)
 
+	# Authentication method needed by guest mode.
+	login_method=$(getparam login_method)
 	
 	sess_id="$SERVER_NAME-$display-$uniqueid"
 	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"
@@ -1511,7 +1539,7 @@ case "$1" in
 		echo "NX> 716 Starting NX Agent ..."
 		shift
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
-		PATH="$PATH:$PATH_BIN" $PATH_BIN/nxagent -name "NX Agent Test - Args: $@" $@
+		PATH="$PATH:$PATH_BIN" $COMMAND_NXAGENT -name "NX Agent Test - Args: $@" $@
 		echo "NX> 716 NX Agent exited with status: $?"
 	;;
 	--setkey)

@@ -61,7 +61,10 @@ set stty_init "raw icrnl -echo"
 if { "$auth_method"=="ssh" } { 
 	set pid [spawn -noecho $command_ssh -2 -x -l "$user" "$host" -o "NumberOfPasswordPrompts 1" -p "$port" "$executable $command" ]
 } elseif { "$auth_method"=="su" } {
+        set env(LANG) "C"
 	set pid [spawn -noecho su - "$user" -c "$executable $command" ]
+} elseif { "$auth_method"=="guest" } {
+	set pid [spawn -noecho $executable $command ]
 } else {
 	exit 1
 }
