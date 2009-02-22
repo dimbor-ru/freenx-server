@@ -1474,6 +1474,14 @@ server_startrestore_session()
 				continue
 			fi
 
+                        let PROXY_DISPLAY=$SESS_DISPLAY+4000
+                        if [ $COMMAND_NETCAT -z "$SERVER_HOST" $PROXY_DISPLAY ]
+                        then
+                                log 2 "Warning: nxagent proxy without .nX$SESS_DISPLAY-lock found on host:port $SERVER_HOST:$AGENT_DISPLAY."
+                                let SESS_DISPLAY=$SESS_DISPLAY+1
+                                continue
+                        fi
+
 			# Now check for the other enabled services
 			
 			let SAMBA_DISPLAY=$SESS_DISPLAY+3000
