@@ -344,14 +344,14 @@ session_list_user_suspended()
 		egrep -q "^userName=$1$" $i && let SESSION_COUNT_USER=$SESSION_COUNT_USER+1
 	done
 	
-	if [ "$4" = "vnc" -a "$ENABLE_DESKTOP_SHARING" = "1" ]
+	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]
 	then
 		export DESKTOP_SHARING_IDS=""
 		for i in $(LC_ALL=C netstat -ln --protocol=unix | egrep 'X11-unix/X[0-9]$' | sed 's/.*X\(.*\)/\1/g')
 		do
 			uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM | cut -d" " -f1 | tr "[a-z]" "[A-Z]")
 			DESKTOP_SHARING_IDS="$DESKTOP_SHARING_IDS $uniqueid=$i"
-			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "vnc-local" "$uniqueid" "--------" "$udepth" "$(echo $3 | cut -d'x' -f1,2)" "Running" "X$i (Local)" >> $TMPFILE
+			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$uniqueid" "--------" "$udepth" "$(echo $3 | cut -d'x' -f1,2)" "Running" "X$i (Local)" >> $TMPFILE
 		done
 	fi
 	
