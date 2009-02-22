@@ -217,7 +217,11 @@ node_find_application()
 		unix-cde)
 			NODE_STARTX=$COMMAND_START_CDE
 		;;
-		unix-application|windows-helper|vnc-helper)
+		windows-helper)
+			application="$PATH_BIN/nxdesktop_helper"
+			NODE_STARTX=$application
+		;;
+		unix-application|vnc-helper)
 			[ "$application" = "xterm" ] && application=$COMMAND_XTERM
 			NODE_STARTX=$application
 		;;
@@ -1071,6 +1075,7 @@ startsession()
 	session=$(getparam session)
 	type=$(getparam type | sed 's/%2d/-/g')
 	application=$(getparam application)
+	windows_app=$(getparam application)
 	cache=$(getparam cache)
 	images=$(getparam images)
 	cookie=$(getparam cookie)
@@ -1190,7 +1195,7 @@ startsession()
 		export agent_password
 		export agent_server
 		export agent_domain
-		export windows_app=$application
+		export windows_app
 		agent_keyboard=""
 		[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && agent_keyboard=$(echo "$keyboard" | cut -d'/' -f2)
 		export agent_keyboard
