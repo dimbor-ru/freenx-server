@@ -1119,6 +1119,8 @@ startsession()
 	# Rootless fix from 2x nxserver 1.5.0
 	realtype=$type
 	[ "$type" = "unix-application" -o "$type" = "unix-default" ] && realtype="unix-desktop"
+	[ "$type" = "unix-gnome" ] && realtype="gnome"
+	[ "$type" = "unix-kde" ] && realtype="kde"
 
 	# NX 2.1.0 file-sharing port options
 	client=$(getparam client)
@@ -1127,7 +1129,41 @@ startsession()
 
 	if [ "$samba" = "1" ]
 	then
-			smbport=445
+		# We know from protocol traces that client=linux,winnt,macosx are valid values.
+		# I hope with smbclientproto=smb on default and smbclientproto=cifs on all valid
+		# values we get support for all those systems.
+
+		smbproto="$SAMBA_MOUNT_SHARE_PROTOCOL"
+
+		if [ "$smbproto" = "both" ]
+		then
+			smbproto="smbfs"
+
+			[ "$client" = "linux" ] && smbproto="cifs"
+			[ "$client" = "winnt" ] && smbproto="cifs"
+			[ "$client" = "macosx" ] && smbproto="cifs"
+
+			# FIXME: This is a rather wild guess
+			[ "$client" = "win9x" ] && smbproto="smbfs"
+		fi
+
+		if [ "$smbproto" = "cifs" ]
+		then
+
+			COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS
+			COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
+		elif [ "$smbproto" = "none" ] # none
+		then
+			# we set this to true so that the 
+			# SMB mount does not give an error message.
+
+			COMMAND_SMBMOUNT=/bin/true
+			COMMAND_SMBUMOUNT=/bin/true
+		else # smbfs
+			smbport=139
+		fi
+		#HACK!!!!!
+		smbport=445
 	fi
 	
 	# FreeNX specific variables
