@@ -4,6 +4,16 @@
 # description: Starts and stops the FreeNX service
 # processname: nxserver
 
+### BEGIN INIT INFO
+# Provides:          freenx_server
+# Required-Start:    sshd
+# Required-Stop:     sshd
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: FreeNX Server
+# Description:       Cleanup FreeNX Server session database at boot time
+### END INIT INFO
+
 # Read the config file
 
 . $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
