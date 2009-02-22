@@ -86,7 +86,8 @@ NXCONFIG_RETEST=1
 
 SERVER_NAME="$(hostname)"
 EXTERNAL_PROXY_IP=""
-SSHD_PORT=22
+SSHD_PORT=`grep "Port " -m 1 /etc/ssh/sshd_config | sed "s/Port //"`
+[ -z $(echo "$SSHD_PORT" | egrep "^[1-9][0-9]{0,4}$") ] && SSHD_PORT=22
 
 # Authentication / Security directives
 
