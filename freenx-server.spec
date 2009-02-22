@@ -110,7 +110,7 @@ fi
 %else
 %_initdir/%name.outformat
 %endif
-%attr(4755,nx,root) %_bindir/nx-session-launcher-suid
+%attr(4711,nx,root) %_bindir/nx-session-launcher-suid
 %_bindir/nx*
 %_libdir/*.so.*
 %cups_root/cups/backend/nx*
