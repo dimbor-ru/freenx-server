@@ -27,7 +27,7 @@ fi
 if [ ! -x "$NXREDIR_LIBRARY" ]
 then
 	# repair DEVICE_URI
-	DEVICE_URI=$(echo $DEVICE_URI | sed "s|/$PROTOCOL/|/$PRINTER|g")
+	DEVICE_URI=$(echo $DEVICE_URI | sed "s|/$PROTOCOL||g")
 	echo "Error: Not using nxredir library. $NXREDIR_LIBRARY could not be found or is not executable."
 	exec "$COMMAND_SMB" "$@"
 fi
