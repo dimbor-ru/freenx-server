@@ -411,7 +411,7 @@
 # 
 # $KDE_PRINTRC is automatically calculated if its not set.
 
-#ENABLE_KDE_CUPS="0"
+#ENABLE_KDE_CUPS="1"
 #ENABLE_KDE_CUPS_DYNAMIC="0"
 #KDE_PRINTRC="$KDEHOME/share/config/kdeprintrc"
 
