@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt10
+Release: alt11
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -63,6 +63,9 @@ sed -i "s|/usr/lib|%_libdir|g" nxredir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
 sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
+sed -i "s|%%DATADIR%%|%_datadir/%name|g" nxnode
+sed -i "s|%%DATADIR%%|%_datadir/%name|g" data/fixkeyboard
+
 export NX_ETC_DIR=%_initdir/%name
 %makeinstall_std
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
@@ -83,6 +86,8 @@ mkdir -p %buildroot%_sysconfdir/dbus-1/system.d/
 cp -p data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
 cp -p nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/system.d/
 mv nx-session-launcher/README nx-session-launcher/README.suid
+install -m755 data/fixkeyboard %buildroot%_datadir/%name
+install -m644 data/Xkbmap %buildroot%_datadir/%name
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -112,13 +117,19 @@ fi
 %endif
 %attr(4711,nx,root) %_bindir/nx-session-launcher-suid
 %_bindir/nx*
-%_libdir/*.so.*
+%attr(0755,root,root) %_libdir/libnxredir.so.0
 %cups_root/cups/backend/nx*
 %attr(2750,nx,nx) %_var/lib/nxserver/home
 %attr(2750,root,nx) %_var/lib/nxserver/db
 %dir %_datadir/%name/node.conf.d
+%_datadir/%name/Xkbmap
+%_datadir/%name/fixkeyboard
 
 %changelog
+* Wed Feb 25 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt11
+- add bungle for fixekeyboard
+- fix perm on libnxredir (hack, will be fixed soon)
+
 * Sun Feb 22 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt10
 - logrotate rule.
 - add LSB header.
