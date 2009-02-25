@@ -1,7 +1,7 @@
 #!/bin/sh
 
 PATH_LIB="/usr/lib/"
-NXREDIR_LIBRARY="$PATH_LIB/libnxredir.so.0"
+NXREDIR_LIBRARY="$PATH_LIB/freenx-server/libnxredir.so.0"
 
 if [ -z "$NXCUPS_PORT" -a -z "$NXSAMBA_PORT" ]
 then
