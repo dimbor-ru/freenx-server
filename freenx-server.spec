@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt11
+Release: alt12
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -117,7 +117,8 @@ fi
 %endif
 %attr(4711,nx,root) %_bindir/nx-session-launcher-suid
 %_bindir/nx*
-%attr(0755,root,root) %_libdir/libnxredir.so.0
+%dir %_libdir/%name
+%attr(755,-,-) %_libdir/%name/libnxredir.so.0
 %cups_root/cups/backend/nx*
 %attr(2750,nx,nx) %_var/lib/nxserver/home
 %attr(2750,root,nx) %_var/lib/nxserver/db
@@ -126,8 +127,12 @@ fi
 %_datadir/%name/fixkeyboard
 
 %changelog
+* Wed Feb 25 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt12
+- move libnxredir to %%_libdir/%name
+- check for first run in init-script
+
 * Wed Feb 25 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt11
-- add bungle for fixekeyboard
+- add bungle for fixkeyboard
 - fix perm on libnxredir (hack, will be fixed soon)
 
 * Sun Feb 22 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt10
