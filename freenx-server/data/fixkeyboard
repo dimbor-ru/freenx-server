@@ -1,0 +1,19 @@
+#!/bin/sh
+# Startup script called from /etc/X11/Xsession and /etc/X11/xdm/Xsetup_0
+# to adjust keyboard.
+
+usermodmap="$HOME/.Xmodmap"
+userxkbmap="$HOME/.Xkbmap"
+
+sysmodmap=%DATADIR%Xmodmap
+sysxkbmap=%DATADIR%/Xkbmap
+
+if xdpyinfo |fgrep -qs XKEYBOARD; then
+	[ -s "$sysxkbmap" ] && setxkbmap `cat "$sysxkbmap"`
+	[ -s "$userxkbmap" ] && setxkbmap `cat "$userxkbmap"`
+fi
+
+[ -s $sysmodmap ] && xmodmap "$sysmodmap"
+[ -s $usermodmap ] && xmodmap "$usermodmap"
+
+exit 0
