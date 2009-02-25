@@ -64,6 +64,8 @@ passed()
 
 start()
 {
+	#check for first run
+	[ -e /var/lib/nxserver/home/.ssh/authorized_keys2 -o -e /var/lib/nxserver/home/.ssh/authorized_keys2.disabled ] && $PATH_BIN/nxsetup --install
 	echo -n $"Starting $SERVNAME service: "
 	if [ -e $LOCKFILE ] ; then
 		passed
