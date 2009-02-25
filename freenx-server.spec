@@ -63,15 +63,15 @@ sed -i "s|/usr/lib|%_libdir|g" nxredir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
 sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
-sed -i "s|%%DATADIR%%|%_datadir/%name|g" nxnode
-sed -i "s|%%DATADIR%%|%_datadir/%name|g" data/fixkeyboard
+sed -i "s|@DATADIR@|%_datadir/%name|g" nxnode
+sed -i "s|@DATADIR@|%_datadir/%name|g" data/fixkeyboard
 
 export NX_ETC_DIR=%_initdir/%name
 %makeinstall_std
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
 mkdir -p %buildroot%_initdir
 install -m 755 %SOURCE1 %buildroot%_initdir/%name
-sed -i "s|~LOCKDIR~|$LOCKDIR|g" %buildroot%_initdir/%name
+sed -i "s|@LOCKDIR@|$LOCKDIR|g" %buildroot%_initdir/%name
 %if %_vendor == "alt"
 %else
 install -m 755 %SOURCE2 %buildroot%_initdir

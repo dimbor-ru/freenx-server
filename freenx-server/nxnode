@@ -280,7 +280,7 @@ node_start_applications()
 		FIXKBD_STATUS="1"
 	    fi
 	done
-	[ $FIXKDB_STATUS -eq 0 ] && %DATADIR%/fixkeyboard
+	[ $FIXKDB_STATUS -eq 0 ] && @DATADIR@/fixkeyboard
 
 	#numlockx
 	NUMLOCKX=`which numlockx`
