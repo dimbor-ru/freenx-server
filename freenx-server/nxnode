@@ -366,13 +366,14 @@ node_start_applications()
 			if [ "$login_method" = "GUEST" ]
 			then
 				NODE_APPLICATION=$COMMAND_GUEST_X_SESSION
-			else
-				NODE_APPLICATION=$COMMAND_GDM_X_SESSION
 			fi
 		;;
 		unix-kde|unix-cde)
 			export STARTUP="$NODE_APPLICATION"
-			NODE_APPLICATION=$DEFAULT_X_SESSION
+			if [ "$login_method" = "GUEST" ]
+			then
+				NODE_APPLICATION=$COMMAND_GUEST_X_SESSION
+			fi
 		;;
 	esac
 
