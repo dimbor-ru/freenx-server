@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt12
+Release: alt13
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -127,6 +127,9 @@ fi
 %_datadir/%name/fixkeyboard
 
 %changelog
+* Thu Feb 26 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt13
+- don't use Xsession for start desktop
+
 * Wed Feb 25 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt12
 - move libnxredir to %%_libdir/%name
 - check for first run in init-script
