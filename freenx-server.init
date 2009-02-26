@@ -18,6 +18,7 @@
 
 . $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
 SERVNAME=`basename $0`
+AUTH_NAME=$NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS
 #LOCKFILE=/var/lock/subsys/$SERVNAME
 LOCKFILE=@LOCKDIR@/$SERVNAME
 OUTFORMAT=/etc/init.d/outformat
@@ -65,7 +66,7 @@ passed()
 start()
 {
 	#check for first run
-	[[ ! ( -e /var/lib/nxserver/home/.ssh/authorized_keys2 ) && ! ( -e /var/lib/nxserver/home/.ssh/authorized_keys2.disabled ) ]] && $PATH_BIN/nxsetup --install --setup-nomachine-key --auto
+	[[ ! ( -e "$AUTH_NAME" ) && ! ( -e "$AUTH_NAME.disabled" ) ]] && $PATH_BIN/nxsetup --install --setup-nomachine-key --auto
 	echo -n $"Starting $SERVNAME service: "
 	if [ -e $LOCKFILE ] ; then
 		passed
