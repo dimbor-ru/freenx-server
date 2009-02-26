@@ -873,9 +873,9 @@ node_start_monitor_2_0_0()
 		
 		if stringinstring "Session: Display failure detected at" "$line"
 		then
-			echo "NX> 596 Error: Session $1 failed. Reason was: $line"
 			if [ "$1" = "restore" ]
 			then
+				echo "NX> 596 Error: Session $1 failed. Reason was: $line"
 				kill $NODE_TAIL_PID
 				break
 			fi
