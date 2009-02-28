@@ -37,7 +37,7 @@ windows_app=$(url_decode "$windows_app")
 agent_password=$(url_decode "$agent_password")
 agent_password=$(url_decode "$agent_password")
 
-[ "$agent_domain" = "" ] || DOMAIN="-d \"$agent_domain\""
+[ "$agent_domain" = "" ] || DOMAIN="-d $agent_domain"
 [ "$windows_app" = "$0" ] || [ "$windows_app" = "" ] || APPLICATION="-s \"$windows_app\""
 
 # setup commandline
