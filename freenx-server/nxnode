@@ -754,6 +754,7 @@ node_umount_smb()
 	cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" | while read mpoint
 	do
 		$COMMAND_SMBUMOUNT_CIFS "$mpoint" >/dev/null 2>/dev/null
+		[ $? -ne 0 ] && $COMMAND_SMBUMOUNT_CIFS -f "$mpoint" >/dev/null 2>/dev/null
 	done
 }
 
