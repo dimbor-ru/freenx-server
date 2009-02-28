@@ -753,8 +753,15 @@ node_umount_smb()
 	[ -e "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" ] || return
 	cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" | while read mpoint
 	do
-		$COMMAND_SMBUMOUNT_CIFS "$mpoint" >/dev/null 2>/dev/null
-		[ $? -ne 0 ] && $COMMAND_SMBUMOUNT_CIFS -f "$mpoint" >/dev/null 2>/dev/null
+    	    for i in `seq 1 15` ; do
+        	if [ "$(mount | grep "$mpoint" | wc -l)" -ne 0 ] ; then
+            	    $COMMAND_SMBUMOUNT_CIFS "$mpoint" >/dev/null 2>/dev/null
+                        [ $? -ne 0 ] && $COMMAND_SMBUMOUNT_CIFS -f "$mpoint" >/dev/null 2>/dev/null
+                else
+                    break
+                fi
+        	sleep 0.5s
+            done
 	done
 }
 
