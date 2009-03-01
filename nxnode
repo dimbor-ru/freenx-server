@@ -347,6 +347,7 @@ node_start_applications()
 			then
 				NODE_APPLICATION=$COMMAND_GUEST_X_SESSION
 			elif [ "$BOOTSTRAP_X_SESSION" = "1" ]
+			then
 				NODE_APPLICATION=$COMMAND_GDM_X_SESSION
 			fi
 		;;
@@ -356,6 +357,7 @@ node_start_applications()
 			then
 				NODE_APPLICATION=$COMMAND_GUEST_X_SESSION
 			elif [ "$BOOTSTRAP_X_SESSION" = "1" ]
+			then
 				NODE_APPLICATION=$DEFAULT_X_SESSION
 			fi
 		;;
