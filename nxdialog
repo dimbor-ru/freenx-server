@@ -76,7 +76,10 @@ export DISPLAY
 # This is now fixed in NXClient 3.0.0, but still people sometimes use
 # older clients.
 
-NXCLIENT="/usr/NX/bin/nxclient"
+[ -x "/usr/bin/nxclient" ] && NXCLIENT="/usr/bin/nxclient"
+[ -x "/usr/NX/bin/nxclient" ] && NXCLIENT="/usr/NX/bin/nxclient"
+[ -z "$NXCLIENT" ] && NXCLIENT="/usr/NX/bin/nxclient"
+
 [ -x "$NXCLIENT" -a "$DIALOG_TYPE" != "printer" -a "$(file -bi $NXCLIENT)" != 'application/x-shellscript' ] \
 	&& exec ${NXCLIENT} "${PARAMS[@]}"
 
