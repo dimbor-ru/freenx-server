@@ -307,6 +307,7 @@ node_start_applications()
 	fi
 
 	[ "$cups" = "1" -a "$ENABLE_CUPS_SERVER_EXPORT" = "1" ] && export CUPS_SERVER="$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock"
+	[ "$samba" = "1" -a "$ENABLE_CUPS_SERVER_EXPORT" = "1" ] && [ -d "$USER_FAKE_HOME/.nx/C-$sess_id/cups" ] && export CUPS_SERVER="$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock"
 	
 	if [ "$ENABLE_SAMBA_PRELOAD" = "1" -a -x "$PATH_BIN/nxredir" ]
 	then
