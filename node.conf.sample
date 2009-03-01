@@ -506,6 +506,11 @@
 #USER_X_STARTUP_SCRIPT=.Xclients
 #DEFAULT_X_SESSION=/etc/X11/xdm/Xsession
 
+# When the session is started some distros execute some scripts to get the
+# environment ready. Set 1 if you want DEFAULT_X_SESSION to be called before
+# executing the session.
+#BOOTSTRAP_X_SESSION="0"
+
 # The key that contains the name of the script that starts a KDE session.
 # It's run when a 'unix-kde' session is requested by the client.
 #COMMAND_START_KDE=startkde
