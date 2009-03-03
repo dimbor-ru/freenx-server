@@ -56,6 +56,7 @@ install:
 debian-tarball:
 	mkdir freenx-server
 	cp -r * freenx-server || echo 0
+	sed "s/NX_VERSION=3.2.0-74-SVN/NX_VERSION=3.2.0-74-TEAMBZR`bzr revno`/" nxloadconfig > freenx-server/nxloadconfig
 	rm -rf freenx-server/.bzr*
 	rm -rf freenx-server/freenx-server
 	[ -d ".bzr" ] && tar -czf ../freenx-server_0.7.3+teambzr`bzr revno`.orig.tar.gz freenx-server
