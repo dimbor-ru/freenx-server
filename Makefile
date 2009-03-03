@@ -54,10 +54,9 @@ install:
 	$(MAKE) nxenv_install
 
 debian-tarball:
-	REVNO=`bzr revno`
 	mkdir freenx-server
 	cp -r * freenx-server || echo 0
 	rm -rf freenx-server/.bzr*
 	rm -rf freenx-server/freenx-server
-	[ -d ".bzr" ] && tar -czf ../freenx-server_0.7.3+teambzr$(REVNO).orig.tar.gz freenx-server
+	[ -d ".bzr" ] && tar -czf ../freenx-server_0.7.3+teambzr`bzr revno`.orig.tar.gz freenx-server
 	rm -rf freenx-server
