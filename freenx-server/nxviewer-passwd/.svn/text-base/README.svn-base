@@ -1,8 +1,0 @@
-This is just a fork of the vncpasswd part of TightVNC. This builds nxpasswd, which is needed for FreeNX.
-
-To build:
-
-xmkmf
-make World
-
-- Fabian
