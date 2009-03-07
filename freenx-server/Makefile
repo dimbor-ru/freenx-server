@@ -21,7 +21,7 @@ suid_install:
 
 nxenv_install:
 	install -m755 -d $(DESTDIR)/$$PATH_BIN/
-	install -m755 -d $(DESTDIR)/$$PATH_LIB/
+	install -m755 -d $(DESTDIR)/$$PATH_LIB/freenx-server/
 	install -m755 -d $(DESTDIR)/$$NX_ETC_DIR/
 	install -m755 -d $(DESTDIR)/$$CUPS_BACKEND/
 	for i in $(PROGRAMS) ;\

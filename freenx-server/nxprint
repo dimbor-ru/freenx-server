@@ -51,7 +51,7 @@ then
 	if [ -z "$(find $UTILITY_DRIVERS_CACHE.all -mmin -60 2> /dev/null)" ]
 	then
 		{ 
-		cd /usr/share/ppd/
+		cd /usr/share/cups/
 		awk -F '"' '/\*Manufacturer:/ { a[FILENAME]=$2 }
 			    /\*NickName:/ { b[FILENAME]=$2 } 
 			    END { 

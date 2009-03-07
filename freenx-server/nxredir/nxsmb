@@ -11,7 +11,7 @@
 CUPS_BACKEND="/usr/lib/cups/backend/"
 PATH_LIB="/usr/lib/"
 
-NXREDIR_LIBRARY="$PATH_LIB/libnxredir.so.0"
+NXREDIR_LIBRARY="$PATH_LIB/freenx-server/libnxredir.so.0"
 COMMAND_SMB="$CUPS_BACKEND/smb"
 
 PORT=$(echo $DEVICE_URI | cut -d/ -f3 | cut -d@ -f2 | cut -d: -f2)
@@ -27,7 +27,7 @@ fi
 if [ ! -x "$NXREDIR_LIBRARY" ]
 then
 	# repair DEVICE_URI
-	DEVICE_URI=$(echo $DEVICE_URI | sed "s|/$PROTOCOL/|/$PRINTER|g")
+	DEVICE_URI=$(echo $DEVICE_URI | sed "s|/$PROTOCOL||g")
 	echo "Error: Not using nxredir library. $NXREDIR_LIBRARY could not be found or is not executable."
 	exec "$COMMAND_SMB" "$@"
 fi

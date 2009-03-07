@@ -94,7 +94,6 @@ else
 	SSHD_PORT=22
 fi
 
-
 # Authentication / Security directives
 
 ENABLE_USERMODE_AUTHENTICATION="0"
@@ -166,7 +165,7 @@ ESD_BIN_PRELOAD="esddsp"
 ENABLE_ARTSD_PRELOAD="0"
 ARTSD_BIN_PRELOAD="artsdsp"
 
-ENABLE_KDE_CUPS="0"
+ENABLE_KDE_CUPS="1"
 ENABLE_KDE_CUPS_DYNAMIC="0"
 KDE_PRINTRC="" # Calculated
 
@@ -174,7 +173,7 @@ ENABLE_CUPS_SERVER_EXPORT="1"
 ENABLE_CUPS_SEAMLESS="0"
 CUPS_SEAMLESS_DELAY="10"
 ENABLE_FOOMATIC="1"
-COMMAND_FOOMATIC="/usr/lib/cups/driver/foomatic-ppdfile"
+COMMAND_FOOMATIC="/usr/bin/foomatic-ppdfile"
 
 CUPS_BACKEND="/usr/lib/cups/backend"
 CUPS_IPP_BACKEND="$CUPS_BACKEND/nxipp"
@@ -195,7 +194,7 @@ KILL_DEFAULT_X_WM="1"
 BOOTSTRAP_X_SESSION="0"
 USER_X_STARTUP_SCRIPT=.Xclients
 DEFAULT_X_SESSION=/etc/X11/xdm/Xsession
-COMMAND_GDM_X_SESSION="/etc/gdm/Xsession custom"
+COMMAND_GDM_X_SESSION="/etc/X11/gdm/Xsession custom"
 if [ ! -x "$COMMAND_GDM_X_SESSION" ]
 then
 	COMMAND_GDM_X_SESSION="/etc/X11/Xsession"
@@ -257,6 +256,7 @@ PROXY_EXTRA_OPTIONS=""
 ENABLE_EXTERNAL_NXDESKTOP="0"
 ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD="1"
 ENABLE_EXTERNAL_NXVIEWER="0"
+SHARE_FAST_MOUNT="0"
 
 ############################################################################
 # OS specific directives
@@ -356,10 +356,11 @@ fi
 
 [ -z "$AGENT_LIBRARY_PATH" ] && AGENT_LIBRARY_PATH=$PATH_LIB
 [ -z "$PROXY_LIBRARY_PATH" ] && PROXY_LIBRARY_PATH=$PATH_LIB
-[ -z "$APPLICATION_LIBRARY_PATH" ] && APPLICATION_LIBRARY_PATH=$PATH_LIB
-[ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/libX11.so.6.2:$APPLICATION_LIBRARY_PATH/libXext.so.6.4:$APPLICATION_LIBRARY_PATH/libXcomp.so:$APPLICATION_LIBRARY_PATH/libXcompext.so:$APPLICATION_LIBRARY_PATH/libXrender.so.1.2"
 
-NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
+[ -z "$APPLICATION_LIBRARY_PATH" ] && APPLICATION_LIBRARY_PATH=$PATH_LIB
+[ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/NX/libX11.so.6.2:$APPLICATION_LIBRARY_PATH/NX/libXext.so.6.4:$APPLICATION_LIBRARY_PATH/libXcomp.so:$APPLICATION_LIBRARY_PATH/libXcompext.so:$APPLICATION_LIBRARY_PATH/NX/libXrender.so.1.2.2"
+
+NX_BACKEND_VERSION=$(strings $PATH_LIB/nxagent 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
 
 [ "$ENABLE_1_5_0_BACKEND" = "1" ] && NX_BACKEND_VERSION="1.5.0" # forced the backend
 
@@ -380,6 +381,16 @@ fi
 
 # Load balance to some other core if specified
 [ -n "$USE_PROCESSOR_TASKSET" ] && $COMMAND_TASKSET -cp "$USE_PROCESSOR_TASKSET" $$
+
+########################################################################
+# The Etersoft addition
+########################################################################
+if [ "$SHARE_FAST_MOUNT" = "1" ]
+then 
+	SHARE_FAST_MOUNT="1"
+else
+	SHARE_FAST_MOUNT="0"
+fi
 
 #########################################################################
 # Support for --check
@@ -650,7 +661,7 @@ then
 	[ -z $(echo "$ENABLE_ROOTLESS_MODE" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_ROOTLESS_MODE=$ENABLE_ROOTLESS_MODE\""
 
-	[ -z "$(strings $COMMAND_NXAGENT | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[0123].0')" ] && \
+	[ -z "$(strings $PATH_LIB/nxagent | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[0123].0')" ] && \
 		WARNING="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[0123].0 version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[0123].0 backend is needed for this version of FreeNX."
 		
 	[ -z $(echo "$ENABLE_USESSION" | egrep "^[0|1]$") ] && \
