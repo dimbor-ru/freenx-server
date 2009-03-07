@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt14
+Release: alt15
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -127,6 +127,10 @@ fi
 %_datadir/%name/fixkeyboard
 
 %changelog
+* Sat Mar 07 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt15
+- force umount
+- merge with teambzr upstream
+
 * Fri Feb 27 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt14
 - fix export CUPS_SERVER with Win-client
 
