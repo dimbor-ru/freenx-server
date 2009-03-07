@@ -1,0 +1,43 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          freenx_server
+# Required-Start:    sshd
+# Required-Stop:     sshd
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: FreeNX Server
+# Description:       Cleanup FreeNX Server session database at boot time
+### END INIT INFO
+
+PATH_BIN=/usr/lib/nx
+
+case "$1" in
+	start)
+		if [ ! -e "/var/run/freenx-server" ]; then
+			[ ! -d "/tmp/.X11-unix" ] && mkdir -m1755 /tmp/.X11-unix/
+			$PATH_BIN/nxserver --cleanup
+			$PATH_BIN/nxserver --start
+			touch "/var/run/freenx-server";
+		else
+			echo "Not starting freenx-server, it's already started."
+		fi
+	;;
+	restart|force-reload)
+		$PATH_BIN/nxserver --cleanup
+		$PATH_BIN/nxserver --start
+		touch "/var/run/freenx-server";
+	;;
+	stop)
+		$PATH_BIN/nxserver --stop
+		$PATH_BIN/nxserver --cleanup
+		rm -f /var/run/freenx-server
+	;;
+	status)
+		[ ! -e "/var/run/freenx-server" ] || exit 3
+		exit 0;
+	;;
+	*)
+		echo "Usage: $0 <start|restart|stop|force-reload|status>"
+	;;
+esac
