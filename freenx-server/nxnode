@@ -1458,8 +1458,22 @@ cmd_node_smbmount()
 	share=$(getparam share)
 	computername=$(getparam computername)
 	dir=$(getparam dir | sed 's|$(SHARES)|MyShares|g')
+	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | awk 'BEGIN {FS="-"} {i=NF-1; print $i}')
+	smbport=""
+	smbport=$(cat "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/smbport" 2>/dev/null)
+
+	# this function run dedicated. We must define smbproto and COMMAND_SMBMOUNT here, not in startsession.
+	if [ "$smbport" = "445" ] ; then
+	    COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS
+	    COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
+	elif [ "x$smbport" = "x" ] ; then
+	    COMMAND_SMBMOUNT=/bin/true
+	    COMMAND_SMBUMOUNT=/bin/true
+	else # smbfs
+	    smbport=139
+	fi
+
 	# rdir=$(getparam dir | sed 's|$(SHARES)/||g')
-	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | awk 'BEGIN {FS="-"} {i=NF-1; print $i}') 
 	mkdir -p "$HOME/$dir"
 	# wait up to 30 sec until nxagent has opened the listener port for samba connections
 	for (( i=30; $i; --i ))
