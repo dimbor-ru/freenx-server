@@ -454,9 +454,8 @@
 # smbfs, only SMB protocol is supported.
 # cifs, only CIFS protocol is supported.
 # none, no network file-sharing protocol is supported.
-# in Etersoft version SMBFS is not supported. Always use CIFS
 
-#SAMBA_MOUNT_SHARE_PROTOCOL="cifs"
+#SAMBA_MOUNT_SHARE_PROTOCOL="both"
 
 # FreeNX with ENABLE_SAMBA_PRELOAD="1" will automatically setup
 # port 445 and 139 and forward them to the used samba port.
