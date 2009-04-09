@@ -5,8 +5,8 @@
 usermodmap="$HOME/.Xmodmap"
 userxkbmap="$HOME/.Xkbmap"
 
-sysmodmap=@DATADIR@/Xmodmap
-sysxkbmap=@DATADIR@/Xkbmap
+sysmodmap=/etc/nxserver/Xmodmap
+sysxkbmap=/etc/nxserver/Xkbmap
 
 if xdpyinfo |fgrep -qs XKEYBOARD; then
 	[ -s "$sysxkbmap" ] && setxkbmap `cat "$sysxkbmap"`

@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt16.1
+Release: alt17
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -63,10 +63,6 @@ sed -i "s|/usr/lib|%_libdir|g" nxredir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
 sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
-sed -i "s|@DATADIR@|%_datadir/%name|g" nxnode
-sed -i "s|@DATADIR@|%_datadir/%name|g" data/fixkeyboard
-
-export NX_ETC_DIR=%_initdir/%name
 %makeinstall_std
 mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
 mkdir -p %buildroot%_initdir
@@ -86,8 +82,8 @@ mkdir -p %buildroot%_sysconfdir/dbus-1/system.d/
 cp -p data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
 cp -p nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/system.d/
 mv nx-session-launcher/README nx-session-launcher/README.suid
-install -m755 data/fixkeyboard %buildroot%_datadir/%name
-install -m644 data/Xkbmap %buildroot%_datadir/%name
+install -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver
+install -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -118,8 +114,8 @@ fi
 %attr(2750,nx,nx) %_var/lib/nxserver/home
 %attr(2750,root,nx) %_var/lib/nxserver/db
 %dir %_datadir/%name/node.conf.d
-%_datadir/%name/Xkbmap
-%_datadir/%name/fixkeyboard
+%config(noreplace) %_sysconfdir/nxserver/Xkbmap
+%_sysconfdir/nxserver/fixkeyboard
 
 %changelog
 * Tue Mar 10 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt16.1

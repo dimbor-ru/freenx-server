@@ -273,14 +273,14 @@ node_start_applications()
         done
 	FIXKBD_COMMAND="/etc/X11/xinit/fixkeyboard
 		/etc/X11/xinit/xinitrc-common"
-	FIXKBD_STATUS="0"
+	FIXKBD_STATUS=0
 	for file in $FIXKBD_COMMAND ; do
 	    if [ -x $file ]; then
 		$file
-		FIXKBD_STATUS="1"
+		FIXKBD_STATUS=1
 	    fi
 	done
-	[ $FIXKDB_STATUS -eq 0 ] && @DATADIR@/fixkeyboard
+	[ $FIXKDB_STATUS -eq 0 ] && $NX_ETC_DIR/fixkeyboard
 
 	#numlockx
 	NUMLOCKX=`which numlockx`
