@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt17
+Release: alt16.1
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
