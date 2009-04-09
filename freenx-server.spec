@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt16.1
+Release: alt17
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -118,6 +118,10 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Thu Apr 09 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt17
+- 2 small fixes
+- move fixkeyboard and etc to /etc/nxserver
+
 * Tue Mar 10 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt16.1
 - fix COMMAND_SMBMOUNT redifines
 
