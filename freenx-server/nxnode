@@ -20,6 +20,20 @@
 # Read the config file
 . $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
 
+#JJK: Added	following 'if' stanza as a kluge since the following variables
+#JJK: need to be set in cmd_node_smbmount node_umount_smb 
+#JJK: but they are currently set only in startsession which is called 
+#JJK: separately from nxserver via ssh so environment variables 
+#JJK: aren't preserved.
+if [[ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" || \
+	 ( "$SAMBA_MOUNT_SHARE_PROTOCOL" = "both" && \
+	  `which "$COMMAND_SMBMOUNT_CIFS"` && `which "$COMMAND_SMBUMOUNT_CIFS"` ) \
+			]] > /dev/null 2>&1; then
+	COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS
+	COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
+	SAMBA_MOUNT_SHARE_PROTOCOL="cifs"
+fi
+
 #
 # -----------------------------------------------------------------------------
 # Startup of nxnode
@@ -690,11 +704,27 @@ node_cupsd_setup()
 	touch "$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd"
 	
 	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/cups/spool/tmp" "$USER_FAKE_HOME/.nx/C-$sess_id/cups/spool/certs" "$USER_FAKE_HOME/.nx/C-$sess_id/cups/ppd" "$USER_FAKE_HOME/.nx/C-$sess_id/cups/cache"
+	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/cups/log" #JJK cups log file home
+
+#JJK: Modifications to cupsd.conf
+#JJK:   - Added SystemGroup line in order to add $USER to SystemGroup
+#JJK:   - Moved all the log files to log/<log>
+#JJK:   - Set AccessLog to: log/access_log (was /dev/null)
+#JJK:   - Added listening on $NODE_CUPSD_PORT
+#JJK:	         Listen localhost: $NODE_CUPSD_PORT
+#JJK:   - Removed following line because directive is specific to Debian
+#JJK:       PidFile $USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd
+#JJK:   -  Access restrictions borrowed from /etc/cups/cupsd.conf
+#JJK:   -  Default policy borrowed from /etc/cups/cupsd.conf but modified
+#JJK:        to allow Add, Delete, and Default printer without (password)
+#JJK:        authentication
+#JJK:   - Note for more detailed logging set: LogLevel debug
 
 cat <<EOF > $USER_FAKE_HOME/.nx/C-$sess_id/cups/cupsd.conf
-AccessLog /dev/null
-ErrorLog error_log
-PageLog page_log
+SystemGroup sys root $USER
+AccessLog log/access_log
+ErrorLog log/error_log
+PageLog log/page_log
 LogLevel info
 TempDir $USER_FAKE_HOME/.nx/C-$sess_id/cups/spool/tmp
 RequestRoot $USER_FAKE_HOME/.nx/C-$sess_id/cups/spool
@@ -702,19 +732,60 @@ ServerRoot $USER_FAKE_HOME/.nx/C-$sess_id/cups/
 StateDir $USER_FAKE_HOME/.nx/C-$sess_id/cups/
 CacheDir $USER_FAKE_HOME/.nx/C-$sess_id/cups/cache
 
+Listen localhost:$NODE_CUPSD_PORT
 Listen $NODE_CUPSD_SOCKET
 Browsing Off
 ServerName localhost
-PidFile $USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd
 
+#JJK:  Restrict access to the server...
 <Location />
 Order Deny,Allow
 Deny From All
 Allow from 127.0.0.1
 </Location>
 
+#JJK: Restrict access to the admin pages...
+<Location /admin>
+  Encryption Required
+  Order allow,deny
+  Allow localhost
+</Location>
+
+#JJK: Restrict access to configuration files...
+<Location /admin/conf>
+  AuthType Basic
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+
 # Allow everything for anonymous, because we are protected through UNIX socket
+#JJK: Since allowing access via $NODE_CUPSD_PORT, need to add protection
 <Policy default>
+  #JJK: Job-related operations must be done by the owner or an adminstrator...
+  <Limit Send-Document Send-URI Hold-Job Release-Job Restart-Job Purge-Jobs Set-Job-Attributes Create-Job-Subscription Renew-Subscription Cancel-Subscription Get-Notifications Reprocess-Job Cancel-Current-Job Suspend-Current-Job Resume-Job CUPS-Move-Job>
+    Require user @OWNER @SYSTEM
+    Order deny,allow
+  </Limit>
+
+  #JJK:All administration operations require an adminstrator to authenticate...
+  <Limit Pause-Printer Resume-Printer Set-Printer-Attributes Enable-Printer Disable-Printer Pause-Printer-After-Current-Job Hold-New-Jobs Release-Held-New-Jobs Deactivate-Printer Activate-Printer Restart-Printer Shutdown-Printer Startup-Printer Promote-Job Schedule-Job-After CUPS-Add-Class CUPS-Delete-Class CUPS-Accept-Jobs CUPS-Reject-Jobs>
+    AuthType Basic
+    Require user @SYSTEM
+    Order deny,allow
+  </Limit>
+
+  #JJK: Except need to allow these for nxnode to work
+  <Limit CUPS-Add-Printer CUPS-Delete-Printer CUPS-Set-Default>
+    Order deny,allow
+  </Limit>
+
+  # Only the owner or an administrator can cancel or authenticate a job...
+  <Limit Cancel-Job CUPS-Authenticate-Job>
+    Require user @OWNER @SYSTEM
+    Order deny,allow
+  </Limit>
+
   <Limit All>
     AuthType None
     Order deny,allow
@@ -726,9 +797,17 @@ EOF
 
 	# copy mime.* files
 	cp -af "$CUPS_ETC"/mime.* "$USER_FAKE_HOME/.nx/C-$sess_id/cups/"
+	#JJK: Also copy over pstoraster.convs
+	cp -af "$CUPS_ETC"/mime.* "$CUPS_ETC"/pstoraster.convs "$USER_FAKE_HOME/.nx/C-$sess_id/cups/"
 
 	# start cupsd
-	$COMMAND_CUPSD -c "$USER_FAKE_HOME/.nx/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null
+#JJK: Note the directive PidFile in the original cupsd.conf intended for 
+#JJK: recording the pid is a Debianism. Instead, we will use the non-daemon
+#JJK: form of cupsd and capture the pid directly
+#JJK:	$COMMAND_CUPSD -c "$USER_FAKE_HOME/.nx/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null
+	$COMMAND_CUPSD -F -c "$USER_FAKE_HOME/.nx/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null &
+	NODE_CUPSD_PID=$!
+	echo $NODE_CUPSD_PID >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd"
 
 	# setup KDE
 	if [ "$ENABLE_KDE_CUPS" = "1" -a -e "$KDE_PRINTRC" ]
@@ -778,6 +857,7 @@ node_umount_smb()
 			fi
 			sleep 0.5s
 		done
+		rmdir "$mpoint" >/dev/null 2>/dev/null #JJK:Remove mount point if empty
 	done
 }
 
@@ -1197,6 +1277,7 @@ startsession()
 
 			COMMAND_SMBMOUNT=/bin/true
 			COMMAND_SMBUMOUNT=/bin/true
+			smbport=139    #JJK: still may want to do printer sharing...
 		else # smbfs
 			smbport=139
 		fi
@@ -1501,6 +1582,7 @@ cmd_node_smbmount()
 		echo "$HOME/$dir" >> "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
 	else
 		$PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' failed to mount: $error" -display :$display &
+		rmdir "$HOME/$dir" >/dev/null 2>/dev/null #JJK: Remove mount point if empty
 	fi
 }
 
@@ -1523,6 +1605,12 @@ cmd_node_addprinter()
 	# this will also setup the userspace cupsd
 	export CUPS_SERVER=$(node_cupsd_get_socket)
 	
+#JJK: The following if-stanza kludge added to enable printing when smbport=cifs
+#JJK: since smb printing won't work when forwarded over port 445
+	if [ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] ; then
+		let port=$port+$SMBPORT_OFFSET
+	fi
+
 	if [ "$type" = "smb" ]
 	then
 		if [ -x "$CUPS_BACKEND/nxsmb" ]
@@ -1551,6 +1639,9 @@ cmd_node_addprinter()
 
 	if [ "$ENABLE_CUPS_SEAMLESS" != "1" ]
 	then
+        #JJK: Export the following variables for use by nxdialog/nxprint
+        #JJK: Note they are also exported in nxdialog but doesn't help there
+	    export ENABLE_FOOMATIC COMMAND_FOOMATIC PPD_DIR
 		MODEL=$($PATH_BIN/nxdialog -printer "$NAME" -display :$display)
 		[ -z "$MODEL" -o "$MODEL" = "cancel: aborted" ] && return
 	else
@@ -1558,7 +1649,11 @@ cmd_node_addprinter()
 		MODEL="download_cached"
 	fi
 	
-	PUBLIC="-u allow:$USER"
+#JJK: I like to also allow 'guest' so you can do things like print
+#JJK: testpages from the CUPS web interface. Note this is required
+#JJK: even for the original user to print test pages	
+#JJK:	PUBLIC="-u allow:$USER"
+	PUBLIC="-u allow:$USER,guest"	
 	[ "$public" == "1" ] && PUBLIC=""
 
 	if [ "$MODEL" = "download_new" -o "$MODEL" = "download_cached" ]

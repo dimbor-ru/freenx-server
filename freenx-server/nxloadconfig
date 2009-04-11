@@ -111,11 +111,28 @@ ENABLE_LOG_FAILED_LOGINS="1"
 
 # Restriction directives
 
-DISPLAY_BASE=1000
+#JJK: DISPLAY_BASE=1000
+#JJK: Change DISPLAY_BASE to 2000 to avoid conflict of DISPLAY_BASE+7000 with nasd
+DISPLAY_BASE=2000
 SESSION_LIMIT=200
 SESSION_USER_LIMIT="" #Calculated
 DISPLAY_LIMIT=200
 
+#JJK: Added the following to allow printing when using cifs mount
+#JJK: Note the smb print port (#139) must then be tunnelled manually
+#JJK: from <DISPLAY+3000+SMBPORT_OFFSET> on the server to port 139 on the host
+#JJK: by running on the client: 
+#JJK:   ssh ... -R <DISPLAY+3000+SMBPORT_OFFSET>:<client name>:139
+#JJK: If SAMBA_MOUNT_SHARE_PROTOCOL="smbfs" (technically, if it doesn't equal
+#JJK  'cifs' or in most cases 'both') then the ssh tunnel is automatically
+#JJK: set up from port <DISPLAY+3000> on the server to port 139 
+#JJK: on the remote client.
+#JJK: Note in *all* cases, the cups printer on the client is accessed from 
+#JJK: the server via the command line, using the following -h flag:
+#JJK:   -h localhost:<DISPLAY+9000> [-P <printer name>]
+#JJK: or via the CUPS web browser using:
+#JJK:   http://localhost:<DISPLAY+9000>
+SMBPORT_OFFSET=8000
 ENABLE_PERSISTENT_SESSION="all"
 DISABLE_PERSISTENT_SESSION=""
 
@@ -174,6 +191,8 @@ ENABLE_CUPS_SEAMLESS="0"
 CUPS_SEAMLESS_DELAY="10"
 ENABLE_FOOMATIC="1"
 COMMAND_FOOMATIC="/usr/bin/foomatic-ppdfile"
+#JJK: added the following path referenced in nxprint
+PPD_DIR="/usr/share/cups/model" #JJK: Note /usr/share/ppd on some systems
 
 CUPS_BACKEND="/usr/lib/cups/backend"
 CUPS_IPP_BACKEND="$CUPS_BACKEND/nxipp"
@@ -216,7 +235,8 @@ COMMAND_MD5SUM="openssl md5"
 COMMAND_PERL=perl
 COMMAND_RDESKTOP="rdesktop"
 COMMAND_VNCVIEWER="vncviewer"
-COMMAND_VNCPASSWD="$PATH_BIN/nxpasswd"
+#JJK: COMMAND_VNCPASSWD="$PATH_BIN/nxpasswd"
+COMMAND_VNCPASSWD="vncpasswd"
 COMMAND_X11VNC="x11vnc"
 COMMAND_TASKSET="taskset"
 
@@ -358,7 +378,7 @@ fi
 [ -z "$PROXY_LIBRARY_PATH" ] && PROXY_LIBRARY_PATH=$PATH_LIB
 
 [ -z "$APPLICATION_LIBRARY_PATH" ] && APPLICATION_LIBRARY_PATH=$PATH_LIB
-[ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/libX11-nx.so.6.2:$APPLICATION_LIBRARY_PATH/libXext-nx.so.6.4:$APPLICATION_LIBRARY_PATH/libXcomp.so:$APPLICATION_LIBRARY_PATH/libXcompext.so:$APPLICATION_LIBRARY_PATH/libXrender-nx.so.1.2.2"
+[ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/libX11-nx.so.6.2:$APPLICATION_LIBRARY_PATH/libXext-nx.so.6.4:$APPLICATION_LIBRARY_PATH/libXcomp.so.3:$APPLICATION_LIBRARY_PATH/libXcompext.so.3:$APPLICATION_LIBRARY_PATH/libXrender-nx.so.1.2.2"
 
 NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
 
