@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt17
+Release: alt18
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -118,6 +118,9 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Sat Apr 11 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18
+- include patch from Jeffrey J. Kosowsky for CUPS
+
 * Thu Apr 09 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt17
 - 2 small fixes
 - move fixkeyboard and etc to /etc/nxserver
