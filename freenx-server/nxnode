@@ -278,7 +278,7 @@ node_start_applications()
 	
 	. /etc/profile
 	if [ -d /etc/profile.d ] ; then
-	    for i in * /etc/profile.d
+	    for i in /etc/profile.d/*.sh
 	    do
 		[ -e $i ] && . $i
 	done
