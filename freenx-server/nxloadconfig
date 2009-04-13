@@ -122,21 +122,6 @@ SESSION_LIMIT=200
 SESSION_USER_LIMIT="" #Calculated
 DISPLAY_LIMIT=200
 
-#JJK: Added the following to allow printing when using cifs mount
-#JJK: Note the smb print port (#139) must then be tunnelled manually
-#JJK: from <DISPLAY+3000+SMBPORT_OFFSET> on the server to port 139 on the host
-#JJK: by running on the client: 
-#JJK:   ssh ... -R <DISPLAY+3000+SMBPORT_OFFSET>:<client name>:139
-#JJK: If SAMBA_MOUNT_SHARE_PROTOCOL="smbfs" (technically, if it doesn't equal
-#JJK  'cifs' or in most cases 'both') then the ssh tunnel is automatically
-#JJK: set up from port <DISPLAY+3000> on the server to port 139 
-#JJK: on the remote client.
-#JJK: Note in *all* cases, the cups printer on the client is accessed from 
-#JJK: the server via the command line, using the following -h flag:
-#JJK:   -h localhost:<DISPLAY+9000> [-P <printer name>]
-#JJK: or via the CUPS web browser using:
-#JJK:   http://localhost:<DISPLAY+9000>
-SMBPORT_OFFSET=8000
 ENABLE_PERSISTENT_SESSION="all"
 DISABLE_PERSISTENT_SESSION=""
 

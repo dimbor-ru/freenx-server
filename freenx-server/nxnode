@@ -1604,11 +1604,6 @@ cmd_node_addprinter()
 	# this will also setup the userspace cupsd
 	export CUPS_SERVER=$(node_cupsd_get_socket)
 	
-#JJK: The following if-stanza kludge added to enable printing when smbport=cifs
-#JJK: since smb printing won't work when forwarded over port 445
-	if [ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] ; then
-		let port=$port+$SMBPORT_OFFSET
-	fi
 
 	if [ "$type" = "smb" ]
 	then
