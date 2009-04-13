@@ -1592,7 +1592,7 @@ cmd_node_addprinter()
 	type=$(getparam type)
 	port=$(getparam port)
 	username=$(getparam username)
-	password=$(getparam password)
+    	password=$(getparam password)
 	share=$(getparam share)
 	printer=$(getparam printer)
 	computername=$(getparam computername)
@@ -1636,6 +1636,7 @@ cmd_node_addprinter()
 		NAME="$printer"
 	fi
 	export PATH_BIN
+	mkdir -p "$USER_FAKE_HOME/.nx/config/ppd/"
 
 	if [ "$ENABLE_CUPS_SEAMLESS" != "1" ]
 	then
@@ -1658,7 +1659,6 @@ cmd_node_addprinter()
 
 	if [ "$MODEL" = "download_new" -o "$MODEL" = "download_cached" ]
 	then
-		mkdir -p "$USER_FAKE_HOME/.nx/config/ppd/"
 		if [ "$MODEL" = "download_new" -o ! -r "$USER_FAKE_HOME/.nx/config/ppd/$printer.ppd" ]
 		then
 			curl --proxy "" --digest -o "$USER_FAKE_HOME/.nx/config/ppd/$printer.ppd" "http://$username:$password@127.0.0.1:$port/ppd/${printer}_nxdl.ppd" >>"$USER_FAKE_HOME/.nx/C-$sess_id/cups/curl.log" 2>&1
