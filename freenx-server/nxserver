@@ -1238,7 +1238,8 @@ server_loadbalance_load()
 {
 	SERVER_LB_MAX=0
 	SERVER_LB_HOST=""
-	
+	export PATH_BIN
+
 	for i in $LOAD_BALANCE_SERVERS
 	do
 		SERVER_LB_LOAD=$($COMMAND_NXCHECKLOAD $i)
