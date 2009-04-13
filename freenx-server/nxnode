@@ -684,6 +684,7 @@ node_cupsd_stop()
 	
 	# remove all printers
 	echo >"$USER_FAKE_HOME/.nx/C-$sess_id/cups/printers.conf"
+	[ -z "$KDE_PRINTRC" ] || sed "s|^Host=$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock||" -i "$KDE_PRINTRC"
 }
 
 #
