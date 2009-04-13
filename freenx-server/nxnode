@@ -796,8 +796,6 @@ EOF
 
 	touch "$USER_FAKE_HOME/.nx/C-$sess_id/cups/printers.conf" "$USER_FAKE_HOME/.nx/C-$sess_id/cups/classes.conf"
 
-	# copy mime.* files
-	cp -af "$CUPS_ETC"/mime.* "$USER_FAKE_HOME/.nx/C-$sess_id/cups/"
 	#JJK: Also copy over pstoraster.convs
 	cp -af "$CUPS_ETC"/mime.* "$CUPS_ETC"/pstoraster.convs "$USER_FAKE_HOME/.nx/C-$sess_id/cups/"
 
