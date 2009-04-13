@@ -88,7 +88,7 @@ SERVER_NAME="$(hostname)"
 EXTERNAL_PROXY_IP=""
 if [ -r "/etc/ssh/sshd_config" ]
 then
-	SSHD_PORT=$(grep "^ *Port " -m 1 /etc/ssh/sshd_config | awk '{ print $2 ;}')
+	SSHD_PORT=$(grep "^ *Port " -m 1 /etc/openssh/sshd_config | awk '{ print $2 ;}')
 	[ -z $(echo "$SSHD_PORT" | egrep "^[1-9][0-9]{0,4}$") ] && SSHD_PORT=22
 else
 	SSHD_PORT=22
