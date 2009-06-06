@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18
+Release: alt18.1
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -25,6 +25,7 @@ Requires: foomatic-db-engine
 %if %_vendor == "alt"
 Requires: dbus-tools-gui
 Requires: binutils
+Requires: Xdialog
 %endif
 BuildPreReq: rpm-build-compat
 BuildRequires: imake xorg-cf-files gccmakedep
@@ -118,6 +119,9 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Sat Jun 06 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.1
+- add requires Xdialog (ALT#20325)
+
 * Sat Apr 11 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18
 - include patch from Jeffrey J. Kosowsky for CUPS
 
