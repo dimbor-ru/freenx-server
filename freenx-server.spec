@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.1
+Release: alt18.2
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -26,6 +26,7 @@ Requires: foomatic-db-engine
 Requires: dbus-tools-gui
 Requires: binutils
 Requires: Xdialog
+Requires: /usr/bin/xvt
 %endif
 BuildPreReq: rpm-build-compat
 BuildRequires: imake xorg-cf-files gccmakedep
@@ -119,6 +120,9 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Tue Jun 09 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.2
+- use %_bindir/xvt if possible for ALT (ALT#20381)
+
 * Sat Jun 06 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.1
 - add requires Xdialog (ALT#20325)
 
