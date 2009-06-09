@@ -83,6 +83,12 @@ export DISPLAY
 [ -x "$NXCLIENT" -a "$DIALOG_TYPE" != "printer" -a "$(file -bi $NXCLIENT)" != 'application/x-shellscript' ] \
 	&& exec ${NXCLIENT} "${PARAMS[@]}"
 
+if [ -x "/usr/bin/xvt" ] ; then
+    xterm_command="/usr/bin/xvt"
+else
+    xterm_command=`which xterm`
+fi
+
 # FIXME: This should be COMMAND_XDIALOG, ...
 if [ -x /usr/bin/Xdialog ] 
 then
@@ -103,7 +109,7 @@ then
 		TMPFILE=$(mktemp /tmp/nxclient.XXXXX)
 		export NXCLIENT_FIRST_TIME=1
 
-		xterm -geometry 120x24+100+100 +sb -title "NXclient" -e \
+		$xterm_command -geometry 120x24+100+100 +sb -title "NXclient" -e \
 		       /bin/bash -c "$DIALOG --infobox 'Please wait...' 3 25; $0 $INPUTS | tee $TMPFILE" || exit 1
 
 		#Need to recover the last line output (and not remove non-printing chars, because --stdout is used)
