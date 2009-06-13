@@ -381,6 +381,9 @@ node_start_applications()
 	echo "Xft.dpi: 96" | DISPLAY=:$display xrdb -merge >>"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1
 	[ -d /etc/X11/Xresources ] && xrdb -display :$display -merge /etc/X11/Xresources/* >>"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1
 
+	#http://mail.kde.org/pipermail/freenx-knx/2009-June/008197.html
+	[ -f /etc/X11/Xresources ] && xrdb -display :$display -merge /etc/X11/Xresources >>"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1
+
 	#
 	# Use Xsession to execute the Desktop session
 	#
