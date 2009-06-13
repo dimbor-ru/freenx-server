@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.2
+Release: alt18.3
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -120,6 +120,9 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Sat Jun 13 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.3
+- xrdb merge /etc/X11/Xresources on startup
+
 * Tue Jun 09 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.2
 - use %_bindir/xvt if possible for ALT (ALT#20381)
 
