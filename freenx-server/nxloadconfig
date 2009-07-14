@@ -355,6 +355,22 @@ fi
 [ -e $NX_ETC_DIR/node.conf ] && . $NX_ETC_DIR/node.conf
 [ "$USERCONF" = "yes" -a -e $NX_ETC_DIR/$USER.node.conf ] && . $NX_ETC_DIR/$USER.node.conf
 
+#########################################################################
+# Additional conf options
+#########################################################################
+
+CUPSLogLevel="info"
+case "CUPS_LogLevel" in
+	info)
+	CUPSLogLevel="info"
+	;;
+	debug)
+	CUPSLogLevel="debug"
+	;;
+	*)
+	CUPSLogLevel="info"
+	;;
+esac
 
 #########################################################################
 # Calculated values

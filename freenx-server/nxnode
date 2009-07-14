@@ -724,12 +724,17 @@ node_cupsd_setup()
 #JJK:        authentication
 #JJK:   - Note for more detailed logging set: LogLevel debug
 
+CUPSPidFileString="PidFile $USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd"
+if [ "$CUPS_PidFile" == "0" ] ; then
+    CUPSPidFileString=""
+fi
+
 cat <<EOF > $USER_FAKE_HOME/.nx/C-$sess_id/cups/cupsd.conf
 SystemGroup sys root $USER
 AccessLog log/access_log
 ErrorLog log/error_log
 PageLog log/page_log
-LogLevel info
+LogLevel $CUPSLogLevel
 TempDir $USER_FAKE_HOME/.nx/C-$sess_id/cups/spool/tmp
 RequestRoot $USER_FAKE_HOME/.nx/C-$sess_id/cups/spool
 ServerRoot $USER_FAKE_HOME/.nx/C-$sess_id/cups/
@@ -740,6 +745,7 @@ Listen localhost:$NODE_CUPSD_PORT
 Listen $NODE_CUPSD_SOCKET
 Browsing Off
 ServerName localhost
+$CUPSPidFileString
 
 #JJK:  Restrict access to the server...
 <Location />
