@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.3
+Release: alt18.4
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -13,7 +13,8 @@ Packager: Boris Savelev <boris@altlinux.org>
 Source: %name-%version.tar.bz2
 Source1: %name.init
 Source2: %name.outformat
-
+Source3: cups-additional.conf
+Source4: fast-share-mount.conf
 Obsoletes: freenx
 Provides: freenx = %version
 
@@ -86,6 +87,8 @@ cp -p nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/syste
 mv nx-session-launcher/README nx-session-launcher/README.suid
 install -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver
 install -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver
+install -m644 %SOURCE3 %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m644 %SOURCE4 %buildroot%_sysconfdir/nxserver/node.conf.d
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -101,6 +104,8 @@ fi
 %dir %_sysconfdir/nxserver
 %dir %_sysconfdir/nxserver/node.conf.d
 %config(noreplace) %_sysconfdir/nxserver/node.conf
+%config(noreplace) %_sysconfdir/nxserver/node.conf.d/cups-additional.conf
+%config(noreplace) %_sysconfdir/nxserver/node.conf.d/fast-share-mount.conf
 %config %_sysconfdir/logrotate.d/freenx-server
 %config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
 %_initdir/%name
@@ -120,6 +125,9 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Tue Jul 14 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.4
+- add additional conf for mount share and CUPS
+
 * Sat Jun 13 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.3
 - xrdb merge /etc/X11/Xresources on startup
 
