@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.5
+Release: alt18.6
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -125,6 +125,9 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Tue Jul 21 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.6
+- fix typo in nxnode
+
 * Tue Jul 21 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.5
 - fix typo in nxnode. Affected non-ALT systems
 
