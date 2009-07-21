@@ -304,7 +304,7 @@ node_start_applications()
 		FIXKBD_STATUS="1"
 	    fi
 	done
-	[ "$FIXKDB_STATUS" == "0" ] && $NX_ETC_DIR/fixkeyboard
+	[ "$FIXKBD_STATUS" == "0" ] && $NX_ETC_DIR/fixkeyboard
 
 	#numlockx
 	NUMLOCKX=`which numlockx 2>/dev/null`
