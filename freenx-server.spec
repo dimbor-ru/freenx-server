@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.6
+Release: alt18.7
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -125,6 +125,9 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Mon Jul 27 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.7
+- increase timeout for hangup session
+
 * Tue Jul 21 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.6
 - fix typo in nxnode
 
