@@ -26,9 +26,9 @@ return 1
 
 # Reread boot command line; echo last parameter's argument or return false.
 getparam(){
-stringinstring "&$1=" "$CMDLINE" || return 1
-echo "$CMDLINE" |  tr "&" "\n" | egrep "^"$1"=" | awk -F= '{ VAL=$2 } END { print VAL }'
-return 0
+    [[ "&$CMDLINE" =~ ".*&$1=([^&]*)" ]]
+    echo ${BASH_REMATCH[1]}
+    [ "$BASH_REMATCH" != "" ]
 }
 
 ############### PACKAGE log.bm #######################
@@ -219,7 +219,7 @@ session_find_display()
 
 session_get_cmdline()
 {
-	echo "a=b" | cat - $1 | tr '\n' '&'
+	echo "a=b&$(tr '\n' '&' <"$1")"
 }
 
 # session_get <uniqueid>
@@ -264,7 +264,19 @@ session_count_user()
 
 # List all sessions of a user
 
-session_list_user_suspended()
+# Cache the session list output for up to 30 seconds because nxclient
+# repeatedly queries it very fast, which creates performance problems.
+session_list_user_suspended() {
+       args="$1 $2 $3 $4"
+       if [[ "$args" != "$SESSION_LIST_CACHE_ARGS" || $(($(date +%s) - ${SESSION_LIST_CACHE_TIME:-0})) -gt 30 ]] ; then
+         SESSION_LIST_CACHE_ARGS="$args"
+         SESSION_LIST_CACHE_TIME=$(date +%s)
+         SESSION_LIST_CACHE_DATA=$(_session_list_user_suspended "$@")
+       fi
+       echo "$SESSION_LIST_CACHE_DATA"
+}
+
+_session_list_user_suspended()
 {
 	SESSION_COUNT=0
 	SESSION_COUNT_USER=0
@@ -285,10 +297,9 @@ session_list_user_suspended()
 	do
 		[ -f $i ] || break
 		let SESSION_COUNT=$SESSION_COUNT+1
-		if egrep -q "^userName=$1$" $i && egrep -q "^status=$2$" $i #&& grep -q "screeninfo=$3" $i
+		CMDLINE=$(session_get_cmdline $i)
+		if [[ ( "$1" == ".*" || "$(getparam userName)" == "$1" ) && $(getparam status) =~ "$2" ]]
 		then
-			CMDLINE=$(session_get_cmdline $i)
-			
 			if [ "$4" = "shadow" ]
 			then
 				if [ "$(getparam userName)" != "$USER" ]
@@ -301,15 +312,14 @@ session_list_user_suspended()
 					fi
 				fi
 			fi
-	
-			depth=$(getparam screeninfo | cut -d "x" -f3 | cut -d "+" -f1 )
-			[ "$depth" = "32" ] && depth=24
-			geom=$(getparam screeninfo | cut -d "x" -f1,2) 
-			render=$(getparam screeninfo | cut -d "+" -f2 )
-			available="N/A"
-			udepth=$(echo $3 | cut -d "x" -f3 | cut -d "+" -f1 )
-			[ "$udepth" = "32" ] && udepth=24
-			urender=$(echo $3 | cut -d "+" -f2 )
+
+			[[ "$(getparam screeninfo)" =~ '^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)' ]]
+			geom=${BASH_REMATCH[1]}
+			depth=${BASH_REMATCH[2]}
+			render=${BASH_REMATCH[3]}
+			[[ "$3" =~ '^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)' ]]
+			udepth=${BASH_REMATCH[2]}
+			urender=${BASH_REMATCH[3]}
 
 			mode="D"
 			[ "$(getparam sessionRootlessMode)" = "1" ] && mode="-"
@@ -341,7 +351,7 @@ session_list_user_suspended()
 				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "$(getparam type)" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName)" >> $TMPFILE
 			fi
 		fi
-		egrep -q "^userName=$1$" $i && let SESSION_COUNT_USER=$SESSION_COUNT_USER+1
+		[ "$1" = ".*" -o "$(getparam userName)" = "$1" ] && let SESSION_COUNT_USER=$SESSION_COUNT_USER+1
 	done
 	
 	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]
@@ -1652,12 +1662,12 @@ do
 				session_list_user_suspended "$USER" 'Suspended' "$(getparam geometry)" "$(getparam type)"
 			elif [ "$status" = "suspended,running" -o "$status" = "suspended" ] # since 1.5.0
 			then
-				status=$(echo $status | sed 's/,/$|^status=/g; s/suspended/Suspended/g; s/running/Running/g')
+				status=$(echo $status | sed 's/,/|/g; s/suspended/Suspended/g; s/running/Running/g')
 				[ "$ENABLE_SHOW_RUNNING_SESSIONS" = "0" ] && status="Suspended"
 				session_list_user_suspended "$USER" "$status" "$(getparam geometry)" "$(getparam type)"
 			elif [ "$(getparam type)" = "shadow" ]
 			then
-				session_list_user_suspended ".*" "Running" "" "shadow"
+				session_list_user_suspended ".*" "Suspended|Running" "" "shadow"
 			else
 				session_list_user "$USER" | log_tee
 			fi
