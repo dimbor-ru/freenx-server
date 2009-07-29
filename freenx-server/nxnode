@@ -72,11 +72,9 @@ stringinstring()
 
 getparam()
 {
-	pattern=".*&$1=([^&]*)"
-	str="&$CMDLINE"
-	[[ $str =~ $pattern ]]
-	echo ${BASH_REMATCH[1]}
-	[ "$BASH_REMATCH" != "" ]
+	stringinstring "&$1=" "$CMDLINE" || return 1
+	echo "$CMDLINE" |  tr "&" "\n" | egrep "^"$1"=" | awk -F= '{ VAL=$2 } END { print VAL }' | sed 's|%24|$|'
+	return 0
 }
 
 find_app()
