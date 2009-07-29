@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.9
+Release: alt18.10
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -125,6 +125,9 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 
 %changelog
+* Wed Jul 29 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.10
+- fix new bash regexp syntax
+
 * Wed Jul 29 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.9
 - fix new bash regexp syntax
 
