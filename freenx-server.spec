@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.10
+Release: alt18.11
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -108,6 +108,8 @@ fi
 %config(noreplace) %_sysconfdir/nxserver/node.conf.d/fast-share-mount.conf
 %config %_sysconfdir/logrotate.d/freenx-server
 %config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
+%config(noreplace) %_sysconfdir/nxserver/Xkbmap
+%_sysconfdir/nxserver/fixkeyboard
 %_initdir/%name
 %if %_vendor == "alt"
 %else
@@ -120,11 +122,12 @@ fi
 %cups_root/cups/backend/nx*
 %attr(2750,nx,nx) %_var/lib/nxserver/home
 %attr(2750,root,nx) %_var/lib/nxserver/db
-%dir %_datadir/%name/node.conf.d
-%config(noreplace) %_sysconfdir/nxserver/Xkbmap
-%_sysconfdir/nxserver/fixkeyboard
+%_datadir/%name
 
 %changelog
+* Thu Jul 30 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.11
+- fix restoring suspended sessions
+
 * Wed Jul 29 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.10
 - fix new bash regexp syntax
 
