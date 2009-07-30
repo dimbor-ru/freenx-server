@@ -300,7 +300,7 @@ _session_list_user_suspended()
 		[ -f $i ] || break
 		let SESSION_COUNT=$SESSION_COUNT+1
 		CMDLINE=$(session_get_cmdline $i)
-		if [[ ( "$1" == ".*" || "$(getparam userName)" == "$1" ) && $(getparam status) =~ "$2" ]]
+		if [[ ( "$1" == ".*" || "$(getparam userName)" == "$1" ) && $(getparam status) =~ $2 ]]
 		then
 			if [ "$4" = "shadow" ]
 			then
@@ -315,11 +315,12 @@ _session_list_user_suspended()
 				fi
 			fi
 
-			[[ "$(getparam screeninfo)" =~ '^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)' ]]
+			pattern='^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)'
+			[[ $(getparam screeninfo) =~ $pattern ]]
 			geom=${BASH_REMATCH[1]}
 			depth=${BASH_REMATCH[2]}
 			render=${BASH_REMATCH[3]}
-			[[ "$3" =~ '^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)' ]]
+			[[ $3 =~ $pattern ]]
 			udepth=${BASH_REMATCH[2]}
 			urender=${BASH_REMATCH[3]}
 
