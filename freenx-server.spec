@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.11
+Release: alt18.12
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -125,6 +125,9 @@ fi
 %_datadir/%name
 
 %changelog
+* Tue Sep 22 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.12
+- fix CUPSLogLevel config parser
+
 * Thu Jul 30 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.11
 - fix restoring suspended sessions
 
