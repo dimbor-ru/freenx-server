@@ -360,7 +360,7 @@ fi
 #########################################################################
 
 CUPSLogLevel="info"
-case "CUPS_LogLevel" in
+case "$CUPS_LogLevel" in
 	info)
 	CUPSLogLevel="info"
 	;;
