@@ -1735,7 +1735,8 @@ cmd_node_smbmount()
 	realport=$(cat "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mport")
 	[ -n "$realport" ] && port=$realport
 	# dimbor: add russian, save cmdstr and kill dialogs
-	if [ -n "$SMB_MOUNT_OPTIONS" ] then
+	if [ -n "$SMB_MOUNT_OPTIONS" ]
+	then
 	    MNTSTR="$COMMAND_SMBMOUNT //$computername/$share $dir -o username=$username,password=$password,ip=127.0.0.1,port=$port,$SMB_MOUNT_OPTIONS 2>&1"
 	else
 	    MNTSTR="$COMMAND_SMBMOUNT //$computername/$share $dir -o username=$username,password=$password,ip=127.0.0.1,port=$port 2>&1"
