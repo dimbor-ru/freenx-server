@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt18.12
+Release: alt19
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -15,6 +15,9 @@ Source1: %name.init
 Source2: %name.outformat
 Source3: cups-additional.conf
 Source4: fast-share-mount.conf
+Source5: linux-forum-additional.conf
+Source6: sudoers.conf
+
 Obsoletes: freenx
 Provides: freenx = %version
 
@@ -81,6 +84,7 @@ mkdir -p %buildroot%_var/lib/nxserver/db
 mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
 mkdir -p %buildroot%_datadir/%name/node.conf.d
 mkdir -p %buildroot%_sysconfdir/logrotate.d
+mkdir -p %buildroot%_sysconfdir/sudo.d
 mkdir -p %buildroot%_sysconfdir/dbus-1/system.d/
 cp -p data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
 cp -p nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/system.d/
@@ -89,6 +93,8 @@ install -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver
 install -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver
 install -m644 %SOURCE3 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE4 %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m644 %SOURCE5 %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m600 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -106,7 +112,9 @@ fi
 %config(noreplace) %_sysconfdir/nxserver/node.conf
 %config(noreplace) %_sysconfdir/nxserver/node.conf.d/cups-additional.conf
 %config(noreplace) %_sysconfdir/nxserver/node.conf.d/fast-share-mount.conf
+%config(noreplace) %_sysconfdir/nxserver/node.conf.d/linux-forum-additional.conf
 %config %_sysconfdir/logrotate.d/freenx-server
+%config(noreplace) %_sysconfdir/sudo.d/nxserver
 %config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
 %config(noreplace) %_sysconfdir/nxserver/Xkbmap
 %_sysconfdir/nxserver/fixkeyboard
@@ -125,6 +133,10 @@ fi
 %_datadir/%name
 
 %changelog
+* Wed Sep 30 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19
+- add patch for Server mode CUPS
+  and SMB per-user share mount (from dimbor)
+
 * Tue Sep 22 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt18.12
 - fix CUPSLogLevel config parser
 
