@@ -1737,16 +1737,28 @@ do
 		addmount*)
 			server_get_params $CMD
 			PARAMS=$SERVER_PARAMS
-			# TODO: This redirection is crap here.
-			server_nxnode_start --smbmount "$USER" "$PARAMS" >/dev/null 2>&1 | log_error >/dev/null
-			echo_x "NX> 719 SMB filesystem: running"
+			# chg by dimbor - we need to keep silent sometimes
+			if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]
+			then # is'nt crap, but also is full shit
+			    ( server_nxnode_start --smbmount "$USER" "$PARAMS" >/dev/null 2>&1 ) &
+			else # original behaviour
+			    # TODO: This redirection is crap here.
+			    server_nxnode_start --smbmount "$USER" "$PARAMS" >/dev/null 2>&1 | log_error >/dev/null
+			    echo_x "NX> 719 SMB filesystem: running"
+			fi
 		;;
 		addprinter*)
 			server_get_params $CMD
 			PARAMS=$SERVER_PARAMS
-			# TODO: This redirecion is crap here.
-			server_nxnode_start --addprinter "$USER" "$PARAMS" >/dev/null 2>&1 | log_error >/dev/null
-			echo_x "NX> 719 CUPS printer: running"
+			# chg by dimbor - for use system cupsd    
+			if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ] 
+			then # this is nearly even now
+			    ( server_nxnode_start --addprinter "$USER" "$PARAMS" >/dev/null 2>&1 ) &
+			else # original behaviour
+			    # TODO: This redirecion is crap here.
+			    server_nxnode_start --addprinter "$USER" "$PARAMS" >/dev/null 2>&1 | log_error >/dev/null
+			    echo_x "NX> 719 CUPS printer: running"
+		    fi
 		;;
 		*)
 			# disabled for 1.4.0-5 snapshot client

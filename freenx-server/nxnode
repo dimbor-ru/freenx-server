@@ -104,6 +104,44 @@ getparam_sessionid()
 #
 
 #
+# dimbor: functions to control user's shares and printers in mode "per user"
+# instead of "per session".
+# 
+
+sdir2share()
+# arg: sharename
+# get directory for first found user's running session (except current),
+# when given share or printer has mounted
+{
+    AGENT_PIDS="$(ps -wo pid=,cmd= -C "nxagent" | cut -d" " -f1)"
+    for i in $USER_FAKE_HOME/.nx/C-*
+    do
+	[ "$i" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
+	NODE_AGENT_PID=$(cat "$i/pids/agent" 2>/dev/null)
+	[ -z "$NODE_AGENT_PID" ] && continue
+	[ -z "$(echo "$AGENT_PIDS" | grep $NODE_AGENT_PID)" ] && continue
+	[ -n "$(echo $1 | grep "//")" ] && FN="$i/shares" || FN="$i/printers"
+#	echo "$(echo $1 | grep "//")" "$FN" >> /home/dim/_tst 
+	[ -f "$FN" ] || continue
+#	echo "$(cat $FN | grep -w "$1") ">> /home/dim/_tst 
+	[ -n "$(cat $FN | grep -w "$1")" ] && echo "$i"
+    done
+}
+
+current_mport()
+# arg: sharename/printername
+# if share mounted, then get current smb mount port
+{
+    if [ -n "$(echo $1 | grep "//")" ]
+    then 
+	echo "$(ps -wo pid=,cmd= -C "smbmount" | grep -w "$1" | cut -d" " -f11)"
+    else
+        echo "$(lpstat -v | grep -w "$1" | cut -d/ -f3 | cut -d@ -f2 | cut -d: -f2)"
+    fi
+}
+
+
+#
 # node_terminate_agent <session id>
 #
 
@@ -111,6 +149,8 @@ node_terminate_agent()
 {
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
 	[ -n "$NODE_AGENT_PID" ] && kill $NODE_AGENT_PID 2>/dev/null
+	[ -z $(ps x| grep "nxagent" | cut -d" " -f1 | grep $NODE_AGENT_PID) ] && return
+	kill $NODE_AGENT_PID 2>/dev/null
 }
 
 #
@@ -668,6 +708,49 @@ node_start_agent()
 
 node_cupsd_stop()
 {
+    #  dimbor: if system cupsd is used, we try to remove/remount printers
+    if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]
+    then
+	sdir="$USER_FAKE_HOME/.nx/C-$sess_id"
+	mport=$(cat "$sdir/scripts/mport" 2>/dev/null)
+        [ -e "$sdir/printers" -a -n "$mport" ] || return
+	#echo "$DELIM 720 Start deleting: sdir=$sdir, port=$mport"
+	PRNS="$(cat "$sdir/printers")"
+	echo "$PRNS" | while read STR
+	do
+	    [ "$(echo "$STR" | wc -w)" -lt "3" ] && continue
+	    if [ -n "$(echo "$STR" | grep "foomatic-configure")" ]
+	    then
+		printer="$(echo "$STR" | cut -d" " -f6)"
+	    else
+		printer="$(echo "$STR" | cut -d" " -f4)"
+	    fi
+	    new_sdir="$(sdir2share "$printer")"
+	    #echo "$DELIM 720 Delete printer=$printer, cw="$(echo "$STR" | wc -w)" new_sdir=$new_sdir"
+	    echo "$DELIM 720 Deleting printer $printer."
+	    /usr/bin/sudo /usr/sbin/lpadmin -x "$printer" 2>&1
+    	    FN="$sdir/printers"
+	    SC="$(cat $FN | tr -d "$STR\n" 2>/dev/null)"
+	    echo -n "$SC" > $FN
+	    if [ -n "$new_sdir" ]
+	    then # remount
+		new_mport=$(cat "$new_sdir/scripts/mport" 2>/dev/null)
+		[ -z "$new_mport" ] && continue
+		CMDSTR="$(echo "$STR" | sed s/0.1:$mport/0.1:$new_mport/)"
+		echo "$DELIM 720 Reinstall printer $printer to mport:$new_mport."
+		#echo "$DELIM 721 $CMDSTR"
+		error=$($CMDSTR)
+		PFN="$new_sdir/printers"
+    		[ ! -e "$PFN" ] && touch "$PFN" && chmod 600 "$PFN" # create "top-secret" file
+		SC="$(cat "$PFN" 2>/dev/null)"
+		if [ -n "$(echo "$SC" | grep "$printer")" ]
+		then 
+	    	    echo -n "$(echo "$SC" | tr -d "$printer\n" 2>/dev/null)" > "$PFN"
+		fi 
+	    	echo "$CMDSTR" >> "$PFN"
+	    fi
+	done	    
+    else # original behaviour
 	#
 	# Cleanup userspace cups daemon	
 	#
@@ -686,6 +769,7 @@ node_cupsd_stop()
 	# remove all printers
 	echo >"$USER_FAKE_HOME/.nx/C-$sess_id/cups/printers.conf"
 	[ -z "$KDE_PRINTRC" ] || sed "s|^Host=$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock||" -i "$KDE_PRINTRC"
+    fi
 }
 
 #
@@ -845,12 +929,65 @@ node_cupsd_reload()
 
 node_cupsd_get_socket()
 {
-	node_cupsd_setup
-	echo $NODE_CUPSD_SOCKET
+	# chg by dimbor
+	if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]
+	then
+	    echo "$CUPS_DEFAULT_SOCK"
+	else # for use system cupsd
+	    node_cupsd_setup
+	    echo $NODE_CUPSD_SOCKET
+	fi
 }
 
 node_umount_smb()
 {
+    #  dimbor: if sessions with same shares found, we try to remount them
+    if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]
+    then
+	sdir="$USER_FAKE_HOME/.nx/C-$sess_id"
+	mport=$(cat "$sdir/scripts/mport" 2>/dev/null)
+        [ -e "$sdir/shares" -a -n "$mport" ] || return
+	#echo "$DELIM 720 Start umount: sdir=$sdir, port=$mport"
+	SHARES="$(cat "$sdir/shares")"
+	echo "$SHARES" | while read STR
+	do
+	    [ "$(echo "$STR" | wc -w)" -lt "3" ] && continue
+	    share="$(echo "$STR" | cut -d" " -f2)"
+	    mpoint="$(echo "$STR" | cut -d" " -f3)"
+	    new_sdir="$(sdir2share "$share")"
+	    #echo "$DELIM 720 Umount share=$share, cw="$(echo "$STR" | wc -w)" new_sdir=$new_sdir"
+	    echo "$DELIM 720 Umount share $share."
+    	    for i in `seq 1 15` ; do
+		if [ "$(mount | grep "$mpoint" | wc -l)" -ne 0 ] ; then
+		    $COMMAND_SMBUMOUNT "$mpoint" >/dev/null 2>/dev/null
+		    [ $? -ne 0 ] && $COMMAND_SMBUMOUNT -f "$mpoint" >/dev/null 2>/dev/null
+		else
+		    break
+		fi
+		sleep 0.5s
+	    done
+    	    FN="$sdir/shares"
+	    SC="$(cat $FN | tr -d "$STR\n")"
+	    echo -n "$SC" > $FN
+	    if [ -n "$new_sdir" ]
+	    then # remount
+		new_mport=$(cat "$new_sdir/scripts/mport" 2>/dev/null)
+		[ -z "$new_mport" ] && continue
+		CMDSTR="$(echo "$STR" | sed s/port=$mport/port=$new_mport/)"
+		echo "$DELIM 721 Remount share $share to mport:$new_mport."
+		#echo "$DELIM 721 $CMDSTR"
+		error=$($CMDSTR)
+		SFN="$new_sdir/shares"
+    		[ ! -e "$SFN" ] && touch "$SFN" && chmod 600 "$SFN" # create "top-secret" file
+		SC="$(cat "$SFN" 2>/dev/null)"
+		if [ -n "$(echo "$SC" | grep "$share")" ]
+		then 
+	    	    echo -n "$(echo "$SC" | tr -d "$share\n")" > "$SFN"
+		fi 
+	    	echo "$CMDSTR" >> "$SFN"
+	    fi
+	done	    
+    else # original behaviour
 	[ -e "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" ] || return
 	cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" | while read mpoint
 	do
@@ -865,6 +1002,7 @@ node_umount_smb()
 		done
 		rmdir "$mpoint" >/dev/null 2>/dev/null #JJK:Remove mount point if empty
 	done
+    fi
 }
 
 node_stop_services()
@@ -1555,6 +1693,10 @@ cmd_node_smbmount()
 	share=$(getparam share)
 	computername=$(getparam computername)
 	dir=$(getparam dir | sed 's|$(SHARES)|MyShares|g')
+	# chg by dimbor'
+	[ -n "$(echo "$dir" | grep MyShares)" ] && dir="$HOME/$dir"
+	mkdir -p "$dir"
+	[ ! -e "$dir" ] && echo "$DELIM 500 Error: Unable to create $dir" && exit 1
 	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | awk 'BEGIN {FS="-"} {i=NF-1; print $i}')
 	smbport=""
 	smbport=$(cat "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/smbport" 2>/dev/null)
@@ -1570,8 +1712,19 @@ cmd_node_smbmount()
 	    smbport=139
 	fi
 
-	# rdir=$(getparam dir | sed 's|$(SHARES)/||g')
-	mkdir -p "$HOME/$dir"
+        # dimbor: for multisession share control we do mount share, if it realy not exist
+	if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]
+        then
+	    SFN="$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/shares"
+	    [ ! -e $SFN ] && touch $SFN && chmod 600 $SFN 
+	    if [ -n "$(current_mport "//$computername/$share")" ] # mark only, if still added
+	    then
+	        echo "$DELIM 701 Share //$computername/$share already mounted on $dir"
+		echo "//$computername/$share" >> "$SFN"
+		return
+	    fi
+	fi
+	
 	# wait up to 30 sec until nxagent has opened the listener port for samba connections
 	for (( i=30; $i; --i ))
 	do
@@ -1581,14 +1734,32 @@ cmd_node_smbmount()
 	# sometimes the samba port we get from nxserver is not the right one, so let's get it from nxagent
 	realport=$(cat "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mport")
 	[ -n "$realport" ] && port=$realport
-	error=$(PASSWD="$password" $COMMAND_SMBMOUNT "//$computername/$share" "$HOME/$dir" -o username="$username",ip=127.0.0.1,port=$port 2>&1)
+	# dimbor: add russian, save cmdstr and kill dialogs
+	if [ -n "$SMB_MOUNT_OPTIONS" ] then
+	    MNTSTR="$COMMAND_SMBMOUNT //$computername/$share $dir -o username=$username,password=$password,ip=127.0.0.1,port=$port,$SMB_MOUNT_OPTIONS 2>&1"
+	else
+	    MNTSTR="$COMMAND_SMBMOUNT //$computername/$share $dir -o username=$username,password=$password,ip=127.0.0.1,port=$port 2>&1"
+	fi
+	echo "$DELIM 701 Attempt to start $COMMAND_SMBMOUNT //$computername/$share $dir -o $SMB_MOUNT_OPTIONS ..."
+	error=$($MNTSTR)
 	if [ $? -eq 0 ]
 	then
-		$PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' mounted on: '$HOME/$dir'" -display :$display &
-		echo "$HOME/$dir" >> "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
+		if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]
+		then
+		    echo "$dir" >> "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
+		    echo "$DELIM 702 Share //$computername/$share mount on $dir"
+		    [ -z "$(grep "//$computername/$share" "$SFN")" ] && echo "$MNTSTR" >> "$SFN"
+		else
+		    $PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' mounted on: '$dir'" -display :$display &
+		    echo "$dir" >> "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
+		fi
 	else
-		$PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' failed to mount: $error" -display :$display &
-		rmdir "$HOME/$dir" >/dev/null 2>/dev/null #JJK: Remove mount point if empty
+		echo "$DELIM 702 Share //$computername/$share failed to mount!"
+		if [ "$ENABLE_SHARE_MULTIMOUNT" != "1" ]
+		then
+		    $PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' failed to mount: $error" -display :$display &
+		    rmdir "$dir" >/dev/null 2>/dev/null #JJK: Remove mount point if empty
+		fi
 	fi
 }
 
@@ -1607,36 +1778,153 @@ cmd_node_addprinter()
 	defaultPrinter=$(getparam defaultPrinter)
 	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | awk 'BEGIN {FS="-"} {i=NF-1; print $i}') 
 	sess_id="$SERVER_NAME-$display-$sessionid"
-	
+
+	# dimbor: norm
+	if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]
+	then
+	    share="$(echo "$share" | sed 's/%23/\#/' | sed 's/%40/\@/')"
+	fi
 	# this will also setup the userspace cupsd
 	export CUPS_SERVER=$(node_cupsd_get_socket)
 	
 
 	if [ "$type" = "smb" ]
 	then
-		if [ -x "$CUPS_BACKEND/nxsmb" ]
+	    if [ -x "$CUPS_BACKEND/nxsmb" -a "$ENABLE_CUPS_SERVER_MODE" != "1" ] # chg by dimbor
+	    then
+		smbport=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport" 2>/dev/null)
+		[ -z "$smbport" ] && smbport=139 # should not happen
+		if [ "$smbport" = "445" ]
 		then
-			smbport=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport" 2>/dev/null)
-			[ -z "$smbport" ] && smbport=139 # should not happen
-
-			if [ "$smbport" = "445" ]
-			then
-				smbproto="cifs"
-			else
-				smbproto="smb"
-			fi
-
-			DEVICE_URI="nxsmb://$username:$password@127.0.0.1:$port/$smbproto/$share"
+		    smbproto="cifs"
 		else
-			DEVICE_URI="smb://$username:$password@127.0.0.1:$port/$share"
+		    smbproto="smb"
 		fi
-		NAME="$share"
-		ENABLE_CUPS_SEAMLESS="0"
+		DEVICE_URI="nxsmb://$username:$password@127.0.0.1:$port/$smbproto/$share"
+	    else
+		DEVICE_URI="smb://$username:$password@127.0.0.1:$port/$share"
+	    fi
+	    NAME="$share"
+	    ENABLE_CUPS_SEAMLESS="0"
 	else
 		DEVICE_URI="nxipp://$username:$password@127.0.0.1:$port/printers/$printer"
 		NAME="$printer"
 	fi
+
+#JJK: I like to also allow 'guest' so you can do things like print
+#JJK: testpages from the CUPS web interface. Note this is required
+#JJK: even for the original user to print test pages	
+#JJK:	PUBLIC="-u allow:$USER"
+	PUBLIC="-u allow:$USER,guest"	
+	[ "$public" == "1" ] && PUBLIC=""
+
 	export PATH_BIN
+   # dimbor: We use system cupsd    
+   if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ] 
+   then
+	# dimbor: Name of windows share MUST BE set to name of driver.ppd from
+	# $NX_ETC_DIR/ppd/ (without ".ppd"). 
+	# In case of ENABLE_FOOMATIC="1" share name may set to
+	# [@]<printer id>[#<N>][__<driver>]
+	# <printer id>: printer id from foomatic db.
+	# <N>:Number of printer instance
+	# "__": char "_" twice
+	# <driver>: driver from foomatic db.
+	# @: if sharename started with char "@", force setup to anyone
+	# share name  printer id "HP-LaserJet_4M" and driver "Postscript-HP"
+	# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)		  
+	# Have any ideas? Then do it!
+	PFN="$USER_FAKE_HOME/.nx/C-$sess_id/printers"
+	MODEL="$NX_ETC_DIR/ppd/$NAME.ppd"
+	if [ -r "$MODEL" ]
+	then
+	    PNAME="$computername""_""$NAME" # user's printer name
+	else  # calculated
+	    PRE="$(echo "$NAME" | grep "@")"
+	    HASDRV="$(echo "$NAME" | grep "__")"
+	    HASNN="$(echo "$NAME" | grep "#")"
+	    ID="$NAME"
+	    NN=""
+	    [ -n "$HASDRV" ] && ID="$(echo "$NAME" | awk 'BEGIN {FS="__"} {print $1}')"
+	    if [ -n "$HASNN" ] 
+	    then
+	        NN="_""$(echo "$ID" | cut -d"#" -f2)"
+	        ID="$(echo "$ID" | cut -d"#" -f1)"
+	    fi
+	    if [ -n "$HASDRV" ]
+	    then
+		DRV="$(echo "$NAME" | awk 'BEGIN {FS="__"} {i=NF; print $i}')"
+	    elif [ -z "$PRE" ]
+	    then
+		DRV="$(/usr/bin/sudo /usr/bin/foomatic-configure -X -p "$ID" -q | grep "<driver>" | head -1 | cut -d">" -f2 | cut -d"<" -f1)"
+		if [ -z "$DRV" ]
+		then
+		    echo "$DELIM 703 Driver for printer id $ID not found in foomatic db. Printer not installed."
+		    return
+		fi
+	    fi
+	    if [ -z "$PRE" ]
+	    then
+	        PNAME="$computername""_""$(echo $ID | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
+	    else
+		PNAME="$computername""_""$(echo $ID | cut -d"@" -f2 | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
+		ID="HP-LaserJet_4M"
+		DRV="Postscript-HP"
+	    fi		
+	fi
+	[ ! -e "$PFN" ] && touch "$PFN" && chmod 600 "$PFN" # create "top-secret" file
+	# wait up to 30 sec until nxagent has opened the listener port for samba connections
+	for (( i=30; $i; --i ))
+	do
+		[ -f "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mport" ] && break
+		sleep 1
+	done
+	CURPORT=$(current_mport "$PNAME") # search for installed printer
+	if [ -n "$CURPORT" -a "$CURPORT" != "$port" ]
+	then # present
+	    SHARE_PRESENT="$(PASSWD=$password smbclient -L $computername -I 127.0.0.1 -p $CURPORT 2>/dev/null | grep "$share")"
+	    if [ -z "$SHARE_PRESENT" ]
+	    then
+		echo "$DELIM 701 Printer $PNAME present in CUPS (port:$CURPORT), but is not accessible. Try to delete."
+		/usr/bin/sudo /usr/sbin/lpadmin -x "$PNAME"
+	    fi
+	else
+	    SHARE_PRESENT="$(PASSWD=$password smbclient -L "$computername" -I 127.0.0.1 -p "$port" 2>/dev/null | grep "$share")"
+	    #echo "PASSWD=$password smbclient -L "$computername" -I 127.0.0.1 -p "$port" 2>/dev/null | grep $share"
+	fi
+	if [ -n "$CURPORT" -a -n "$SHARE_PRESENT" ] # mark only, if still exist
+	then
+	    echo "$DELIM 701 Printer $PNAME present in CUPS (port:$CURPORT), will be use existing."
+	    echo "$PNAME" >> "$PFN"
+	    return
+	elif [ -z "$SHARE_PRESENT" ]
+	then
+	    echo "$DELIM 701 Printer $PNAME is not accessible. Stop adding."
+	    return
+	fi
+	if [ -r "$MODEL" ]
+	then
+	    echo "$DELIM 702 Attempt to install $MODEL. Printer - $PNAME."
+	    CMDSTR="/usr/bin/sudo /usr/sbin/lpadmin -p $PNAME -P $MODEL -v $DEVICE_URI $PUBLIC -E"
+	    $CMDSTR
+	    echo "$CMDSTR" >> "$PFN"
+	elif [ "$ENABLE_FOOMATIC" != "0" ]
+	then # foomatic printer is here
+	    CMDSTR="/usr/bin/sudo /usr/bin/foomatic-configure -s cups -n $PNAME -p $ID -d $DRV -c $DEVICE_URI -q 1>/dev/null 2>&1"
+	    #echo "$CMDSTR"
+	    $CMDSTR
+	    if [ $? -eq 0 ]
+	    then
+		echo "$CMDSTR" >> "$PFN"
+		/usr/bin/sudo /usr/sbin/lpadmin -p $PNAME $PUBLIC
+		echo "$DELIM 704 FOOMATIC printer $PNAME installed, Driver - $DRV"
+	    else
+		echo "$DELIM 704 FOOMATIC printer $PNAME (Driver - $DRV) failed to install"
+	    fi
+	else
+	    echo "$DELIM 701 $MODEL driver not found! Printer $NAME not installed."
+	fi
+   else # original behaviour
 	mkdir -p "$USER_FAKE_HOME/.nx/config/ppd/"
 
 	if [ "$ENABLE_CUPS_SEAMLESS" != "1" ]
@@ -1651,13 +1939,6 @@ cmd_node_addprinter()
 		MODEL="download_cached"
 	fi
 	
-#JJK: I like to also allow 'guest' so you can do things like print
-#JJK: testpages from the CUPS web interface. Note this is required
-#JJK: even for the original user to print test pages	
-#JJK:	PUBLIC="-u allow:$USER"
-	PUBLIC="-u allow:$USER,guest"	
-	[ "$public" == "1" ] && PUBLIC=""
-
 	if [ "$MODEL" = "download_new" -o "$MODEL" = "download_cached" ]
 	then
 		if [ "$MODEL" = "download_new" -o ! -r "$USER_FAKE_HOME/.nx/config/ppd/$printer.ppd" ]
@@ -1679,6 +1960,7 @@ cmd_node_addprinter()
 	fi
 
 	[ "$defaultPrinter" = "1" ] && /usr/sbin/lpadmin -d "$NAME"
+   fi # end of original
 }
 
 nxnode_func()
@@ -1701,15 +1983,29 @@ case "$1" in
 		cmd_node_suspend
 	;;
 	--smbmount)
+		# chg by dimbor
+	   if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]
+	   then
+		echo "NX> 700 Start cmd_node_smbmount, waitng to smb connection."
+		cmd_node_smbmount
+	   else # original behaviour
 		if [ "$SHARE_FAST_MOUNT" = "1" ]
 		then 
-			cmd_node_smbmount &>/dev/null </dev/null 
+			cmd_node_smbmount &>/dev/null </dev/null
 		else 
 			cmd_node_smbmount &>/dev/null </dev/null &
 		fi
+	   fi
 	;;
 	--addprinter)
-		cmd_node_addprinter &>/dev/null </dev/null &
+		# chg by dimbor
+		if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]
+		then
+		    echo "NX> 700 Start addition of printer to system CUPS"
+		    cmd_node_addprinter
+		else # original behaviour
+		    cmd_node_addprinter &>/dev/null </dev/null &
+		fi
 	;;
 	--check)
 		echo "NX> 716 finished"

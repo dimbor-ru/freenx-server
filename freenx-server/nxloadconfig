@@ -266,6 +266,9 @@ ENABLE_EXTERNAL_NXDESKTOP="0"
 ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD="1"
 ENABLE_EXTERNAL_NXVIEWER="0"
 SHARE_FAST_MOUNT="0"
+ENABLE_CUPS_SERVER_MODE="0"
+ENABLE_SHARE_MULTIMOUNT="0"
+SMB_MOUNT_OPTIONS=""
 
 ############################################################################
 # OS specific directives
