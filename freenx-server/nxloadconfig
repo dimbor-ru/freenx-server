@@ -335,6 +335,9 @@ fi
 # node.conf file evaluation
 #########################################################################
 
+#main config. may be override by other
+[ -e $NX_ETC_DIR/node.conf ] && . $NX_ETC_DIR/node.conf
+
 SHARED_CONFS="/usr/share/freenx-server"
 if [ -d $SHARED_CONFS/node.conf.d ]
 then
@@ -352,7 +355,7 @@ then
 	done
 fi
 
-[ -e $NX_ETC_DIR/node.conf ] && . $NX_ETC_DIR/node.conf
+#user config.
 [ "$USERCONF" = "yes" -a -e $NX_ETC_DIR/$USER.node.conf ] && . $NX_ETC_DIR/$USER.node.conf
 
 #########################################################################
