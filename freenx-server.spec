@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19
+Release: alt19.1
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -17,6 +17,7 @@ Source3: cups-additional.conf
 Source4: fast-share-mount.conf
 Source5: linux-forum-additional.conf
 Source6: sudoers.conf
+Source7: mount-additional.conf
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -94,6 +95,7 @@ install -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver
 install -m644 %SOURCE3 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE4 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE5 %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m644 %SOURCE7 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m600 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 
 %pre
@@ -110,9 +112,7 @@ fi
 %dir %_sysconfdir/nxserver
 %dir %_sysconfdir/nxserver/node.conf.d
 %config(noreplace) %_sysconfdir/nxserver/node.conf
-%config(noreplace) %_sysconfdir/nxserver/node.conf.d/cups-additional.conf
-%config(noreplace) %_sysconfdir/nxserver/node.conf.d/fast-share-mount.conf
-%config(noreplace) %_sysconfdir/nxserver/node.conf.d/linux-forum-additional.conf
+%config(noreplace) %_sysconfdir/nxserver/node.conf.d/*.conf
 %config %_sysconfdir/logrotate.d/freenx-server
 %config(noreplace) %_sysconfdir/sudo.d/nxserver
 %config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
@@ -133,6 +133,9 @@ fi
 %_datadir/%name
 
 %changelog
+* Tue Oct 06 2009 Vitaly Lipatov <lav@altlinux.ru> 0.7.4-alt19.1
+- fix mount-additional.conf packing
+
 * Wed Sep 30 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19
 - add patch for Server mode CUPS
   and SMB per-user share mount (from dimbor)
