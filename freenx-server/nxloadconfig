@@ -682,8 +682,8 @@ then
 	[ -z $(echo "$ENABLE_ROOTLESS_MODE" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_ROOTLESS_MODE=$ENABLE_ROOTLESS_MODE\""
 
-	[ -z "$(strings $COMMAND_NXAGENT | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[0123].0')" ] && \
-		WARNING="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[0123].0 version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[0123].0 backend is needed for this version of FreeNX."
+	[ -z "$(strings $COMMAND_NXAGENT | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[01234].0')" ] && \
+		WARNING="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[01234].0 version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[0123].0 backend is needed for this version of FreeNX."
 		
 	[ -z $(echo "$ENABLE_USESSION" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_USESSION=$ENABLE_USESSION\""
