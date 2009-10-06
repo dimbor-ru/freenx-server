@@ -10,7 +10,7 @@ Url: http://freenx.berlios.de
 
 Packager: Boris Savelev <boris@altlinux.org>
 
-Source: %name-%version.tar.bz2
+Source: ftp://updates.etersoft.ru/pub/Etersoft/RX@Etersoft/unstable/sources/tarball/%name-%version.tar.bz2
 Source1: %name.init
 Source2: %name.outformat
 Source3: cups-additional.conf
