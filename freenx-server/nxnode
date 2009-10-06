@@ -1741,7 +1741,7 @@ cmd_node_smbmount()
 	else
 	    MNTSTR="$COMMAND_SMBMOUNT //$computername/$share $dir -o username=$username,password=$password,ip=127.0.0.1,port=$port 2>&1"
 	fi
-	echo "$DELIM 701 Attempt to start $COMMAND_SMBMOUNT //$computername/$share $dir -o $SMB_MOUNT_OPTIONS ..."
+	echo "$DELIM 701 Attempt to start $MNTSTR"
 	error=$($MNTSTR)
 	if [ $? -eq 0 ]
 	then
