@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19.1
+Release: alt19.2
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -96,7 +96,7 @@ install -m644 %SOURCE3 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE4 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE5 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE7 %buildroot%_sysconfdir/nxserver/node.conf.d
-install -m600 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
+install -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -114,7 +114,7 @@ fi
 %config(noreplace) %_sysconfdir/nxserver/node.conf
 %config(noreplace) %_sysconfdir/nxserver/node.conf.d/*.conf
 %config %_sysconfdir/logrotate.d/freenx-server
-%config(noreplace) %_sysconfdir/sudo.d/nxserver
+%attr(0400,root,root) %config(noreplace) %_sysconfdir/sudo.d/nxserver
 %config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
 %config(noreplace) %_sysconfdir/nxserver/Xkbmap
 %_sysconfdir/nxserver/fixkeyboard
@@ -133,6 +133,9 @@ fi
 %_datadir/%name
 
 %changelog
+* Wed Oct 07 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.2
+- fix perm on nxserver sudo config (closes: #21860)
+
 * Tue Oct 06 2009 Vitaly Lipatov <lav@altlinux.ru> 0.7.4-alt19.1
 - fix mount-additional.conf packing
 
