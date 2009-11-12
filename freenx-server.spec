@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19.2
+Release: alt19.3
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -18,6 +18,7 @@ Source4: fast-share-mount.conf
 Source5: linux-forum-additional.conf
 Source6: sudoers.conf
 Source7: mount-additional.conf
+Source8: terminate-suspend-nx.sh
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -32,6 +33,7 @@ Requires: dbus-tools-gui
 Requires: binutils
 Requires: Xdialog
 Requires: /usr/bin/xvt
+Requires: schedutils
 %endif
 BuildPreReq: rpm-build-compat
 BuildRequires: imake xorg-cf-files gccmakedep
@@ -87,6 +89,8 @@ mkdir -p %buildroot%_datadir/%name/node.conf.d
 mkdir -p %buildroot%_sysconfdir/logrotate.d
 mkdir -p %buildroot%_sysconfdir/sudo.d
 mkdir -p %buildroot%_sysconfdir/dbus-1/system.d/
+mkdir -p %buildroot%_sysconfdir/cron.hourly
+mkdir -p %buildroot%_sysconfdir/sysconfig
 cp -p data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
 cp -p nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/system.d/
 mv nx-session-launcher/README nx-session-launcher/README.suid
@@ -97,6 +101,12 @@ install -m644 %SOURCE4 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE5 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE7 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
+install -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly
+
+cat >> %buildroot%_sysconfdir/sysconfig/%name << EOF
+#Time to live SUSPENDED freenx session in seconds for cron task
+#SESSION_TTL=3600
+EOF
 
 %pre
 %groupadd nx 2> /dev/null ||:
@@ -118,6 +128,8 @@ fi
 %config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
 %config(noreplace) %_sysconfdir/nxserver/Xkbmap
 %_sysconfdir/nxserver/fixkeyboard
+%_sysconfdir/sysconfig/%name
+%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
 %_initdir/%name
 %if %_vendor == "alt"
 %else
@@ -133,6 +145,10 @@ fi
 %_datadir/%name
 
 %changelog
+* Thu Nov 12 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.3
+- add Requires schedutils for ALT-system (fix eter#4421)
+- add cron-script for terminate suspended sessions (fix eter#4436)
+
 * Wed Oct 07 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.2
 - fix perm on nxserver sudo config (closes: #21860)
 

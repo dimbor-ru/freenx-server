@@ -1,4 +1,5 @@
 copy: *.init
 copy: *.outformat
 copy: *.conf
+copy: *.sh
 tar.bz2: freenx-server
