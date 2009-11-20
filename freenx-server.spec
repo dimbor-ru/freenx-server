@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19.3
+Release: alt19.4
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -104,8 +104,10 @@ install -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 install -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly
 
 cat >> %buildroot%_sysconfdir/sysconfig/%name << EOF
-#Time to live SUSPENDED freenx session in seconds for cron task
-#SESSION_TTL=3600
+#Time to live SUSPENDED freenx session in seconds for cron task.
+#If not set default value is 3600.
+#Cron task enable if value greater than 0.
+SESSION_TTL=0
 EOF
 
 %pre
@@ -145,6 +147,9 @@ fi
 %_datadir/%name
 
 %changelog
+* Fri Nov 20 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.4
+- disable terminate-suspend-nx.sh cron task by default
+
 * Thu Nov 12 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.3
 - add Requires schedutils for ALT-system (fix eter#4421)
 - add cron-script for terminate suspended sessions (fix eter#4436)

@@ -6,7 +6,7 @@
 SESSION_TTL=${SESSION_TTL:-3600}
 nxdir="/var/lib/nxserver/db/running"
 nxserver="/usr/bin/nxserver"
-if [ -d "$nxdir" ] ; then
+if [ -d "$nxdir" -a $SESSION_TTL -gt 0 ] ; then
   for f in `ls $nxdir` ; do
     sessiontype=`cat $nxdir/$f | grep status | cut -d= -f2`
     user=`cat $nxdir/$f | grep userName | cut -d= -f2`
