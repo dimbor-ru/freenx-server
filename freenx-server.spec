@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19.4
+Release: alt19.4.1
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -147,6 +147,9 @@ fi
 %_datadir/%name
 
 %changelog
+* Wed Dec 02 2009 Eugeny A. Rostovtsev (REAL) <real at altlinux.org> 0.7.4-alt19.4.1
+- Rebuilt with python 2.6
+
 * Fri Nov 20 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.4
 - disable terminate-suspend-nx.sh cron task by default
 
