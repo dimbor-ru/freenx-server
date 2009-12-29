@@ -1,11 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-<<<<<<< HEAD
 Release: alt19.5
-=======
-Release: alt19.4.1
->>>>>>> altlinux/sisyphus
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
