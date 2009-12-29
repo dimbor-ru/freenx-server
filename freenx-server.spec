@@ -19,6 +19,7 @@ Source5: linux-forum-additional.conf
 Source6: sudoers.conf
 Source7: mount-additional.conf
 Source8: terminate-suspend-nx.sh
+Source9: numlockx.conf
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -100,6 +101,7 @@ install -m644 %SOURCE3 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE4 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE5 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE7 %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m644 %SOURCE9 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 install -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly
 

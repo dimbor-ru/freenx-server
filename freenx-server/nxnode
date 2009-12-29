@@ -316,10 +316,11 @@ node_start_applications()
 	
 	. /etc/profile
 	if [ -d /etc/profile.d ] ; then
-	    for i in /etc/profile.d/*.sh
-	    do
-		[ -e $i ] && . $i
-	done
+		for f in /etc/profile.d/*.sh; do
+		    if [ -f "$f" -a -r "$f" -a -x "$f" -a -s "$f" -a ! -L "$f" ]; then
+			. "$f"
+		    fi
+		done
 	fi
 
 	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ] ; then
@@ -345,8 +346,7 @@ node_start_applications()
 	[ "$FIXKBD_STATUS" == "0" ] && $NX_ETC_DIR/fixkeyboard
 
 	#numlockx
-	NUMLOCKX=`which numlockx 2>/dev/null`
-	[ -x "$NUMLOCKX" ] && "$NUMLOCKX" on
+	[ "$NUMLOCKX_STATUS" != "system" ] && "$NUMLOCKX" "$NUMLOCKX_STATUS"
 
 	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/apps/"
 

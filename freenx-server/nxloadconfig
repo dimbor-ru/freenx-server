@@ -269,6 +269,7 @@ SHARE_FAST_MOUNT="0"
 ENABLE_CUPS_SERVER_MODE="0"
 ENABLE_SHARE_MULTIMOUNT="0"
 SMB_MOUNT_OPTIONS=""
+NUMLOCKX="numlockx"
 
 ############################################################################
 # OS specific directives
@@ -378,6 +379,18 @@ case "$CUPS_LogLevel" in
 	;;
 esac
 
+NUMLOCKX_STATUS="system"
+case "$NUMLOCK_METHOD" in
+	on)
+	    NUMLOCKX_STATUS="on"
+	;;
+	off)
+	    NUMLOCKX_STATUS="off"
+	;;
+	*)
+	    NUMLOCKX_STATUS="system"
+	;;
+esac
 #########################################################################
 # Calculated values
 #########################################################################
