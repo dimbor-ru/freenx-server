@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19.4
+Release: alt19.5
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -20,6 +20,7 @@ Source6: sudoers.conf
 Source7: mount-additional.conf
 Source8: terminate-suspend-nx.sh
 Source9: numlockx.conf
+Source10: node.conf
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -74,13 +75,15 @@ sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
 sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
 %makeinstall_std
-mv -f %buildroot%_sysconfdir/nxserver/node.conf.sample %buildroot%_sysconfdir/nxserver/node.conf
 mkdir -p %buildroot%_initdir
 install -m 755 %SOURCE1 %buildroot%_initdir/%name
 sed -i "s|@LOCKDIR@|$LOCKDIR|g" %buildroot%_initdir/%name
+install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf
 %if %_vendor == "alt"
+sed -i "s|@startgnome@|/usr/bin/startgnome2|g" %buildroot%_sysconfdir/nxserver/node.conf
 %else
 install -m 755 %SOURCE2 %buildroot%_initdir
+sed -i "s|@startgnome@|/usr/bin/gnome-session|g" %buildroot%_sysconfdir/nxserver/node.conf
 %endif
 
 mkdir -p %buildroot%_var/lib/nxserver/home
@@ -126,6 +129,7 @@ fi
 %dir %_sysconfdir/nxserver
 %dir %_sysconfdir/nxserver/node.conf.d
 %config(noreplace) %_sysconfdir/nxserver/node.conf
+%_sysconfdir/nxserver/node.conf.sample
 %config(noreplace) %_sysconfdir/nxserver/node.conf.d/*.conf
 %config %_sysconfdir/logrotate.d/freenx-server
 %attr(0400,root,root) %config(noreplace) %_sysconfdir/sudo.d/nxserver
@@ -149,6 +153,10 @@ fi
 %_datadir/%name
 
 %changelog
+* Tue Dec 29 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.5
+- fix COMMAND_START_GNOME for ALTLinux (fix eter#4725)
+- don't start numlockx during session startup by default. Add additional config for numlockx
+
 * Fri Nov 20 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.4
 - disable terminate-suspend-nx.sh cron task by default
 
