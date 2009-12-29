@@ -1,7 +1,11 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
+<<<<<<< HEAD
 Release: alt19.5
+=======
+Release: alt19.4.1
+>>>>>>> altlinux/sisyphus
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -156,6 +160,9 @@ fi
 * Tue Dec 29 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.5
 - fix COMMAND_START_GNOME for ALTLinux (fix eter#4725)
 - don't start numlockx during session startup by default. Add additional config for numlockx
+
+* Wed Dec 02 2009 Eugeny A. Rostovtsev (REAL) <real at altlinux.org> 0.7.4-alt19.4.1
+- Rebuilt with python 2.6
 
 * Fri Nov 20 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.4
 - disable terminate-suspend-nx.sh cron task by default
