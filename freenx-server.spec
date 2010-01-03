@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19.6
+Release: alt19.7
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -155,6 +155,9 @@ fi
 %_datadir/%name
 
 %changelog
+* Sun Jan 03 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.7
+- fix permission on /tmp/.X11-unix after creating (fix eter#4653)
+
 * Sun Jan 03 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.6
 - fix NETCAT_COMMAND running (fix eter#3818)
 - add additional config for profile including during node startup ('on' by default)
