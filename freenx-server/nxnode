@@ -314,13 +314,18 @@ node_start_applications()
 	# Prepare application startup
 	#
 	
+	if [ "$ENABLE_SOURCE_PROFILE" = "1" ] ; then
 	. /etc/profile
-	if [ -d /etc/profile.d ] ; then
+	fi
+
+	if [ "$ENABLE_SOURCE_BASH_PROFILE_D" = "1" ] ; then
+	    if [ -d /etc/profile.d ] ; then
 		for f in /etc/profile.d/*.sh; do
 		    if [ -f "$f" -a -r "$f" -a -x "$f" -a -s "$f" -a ! -L "$f" ]; then
 			. "$f"
 		    fi
 		done
+	    fi
 	fi
 
 	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ] ; then
