@@ -72,7 +72,7 @@ start()
 		passed
 		exit 1
 	fi
-		[ ! -d "/tmp/.X11-unix" ] && mkdir -m1755 /tmp/.X11-unix/
+		[ ! -d "/tmp/.X11-unix" ] && mkdir -m1777 /tmp/.X11-unix/
 		$PATH_BIN/nxserver --cleanup > /dev/null 2>&1
 		$PATH_BIN/nxserver --start > /dev/null 2>&1
 		#status_cmd
