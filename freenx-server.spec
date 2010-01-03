@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19.5
+Release: alt19.6
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -21,6 +21,7 @@ Source7: mount-additional.conf
 Source8: terminate-suspend-nx.sh
 Source9: numlockx.conf
 Source10: node.conf
+Source11: basic-additional.conf
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -105,6 +106,7 @@ install -m644 %SOURCE4 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE5 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE7 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m644 %SOURCE9 %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m644 %SOURCE11 %buildroot%_sysconfdir/nxserver/node.conf.d
 install -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 install -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly
 
@@ -153,6 +155,10 @@ fi
 %_datadir/%name
 
 %changelog
+* Sun Jan 03 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.6
+- fix NETCAT_COMMAND running (fix eter#3818)
+- add additional config for profile including during node startup ('on' by default)
+
 * Tue Dec 29 2009 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.5
 - fix COMMAND_START_GNOME for ALTLinux (fix eter#4725)
 - don't start numlockx during session startup by default. Add additional config for numlockx
