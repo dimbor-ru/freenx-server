@@ -1489,7 +1489,7 @@ server_startrestore_session()
 			fi
 
                         let PROXY_DISPLAY=$SESS_DISPLAY+4000
-                        if $COMMAND_NETCAT -z "$SERVER_HOST" $PROXY_DISPLAY
+                        if $COMMAND_NETCAT -z "$SERVER_HOST" $PROXY_DISPLAY 2>/dev/null
                         then
                                 log 2 "Warning: nxagent proxy without .nX$SESS_DISPLAY-lock found on host:port $SERVER_HOST:$AGENT_DISPLAY."
                                 let SESS_DISPLAY=$SESS_DISPLAY+1
@@ -1499,7 +1499,7 @@ server_startrestore_session()
 			# Now check for the other enabled services
 			
 			let SAMBA_DISPLAY=$SESS_DISPLAY+3000
-			if [ "$(getparam 'samba')" = 1 ] && $COMMAND_NETCAT -z "$SERVER_HOST" $SAMBA_DISPLAY
+			if [ "$(getparam 'samba')" = 1 ] && ( $COMMAND_NETCAT -z "$SERVER_HOST" $SAMBA_DISPLAY 2>/dev/null )
 			then
 				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as samba port is not free."
 				let SESS_DISPLAY=$SESS_DISPLAY+1
@@ -1507,7 +1507,7 @@ server_startrestore_session()
 			fi
 			
 			let MEDIA_DISPLAY=$SESS_DISPLAY+7000
-			if [ "$(getparam 'media')" = 1 ] && $COMMAND_NETCAT -z "$SERVER_HOST" $MEDIA_DISPLAY
+			if [ "$(getparam 'media')" = 1 ] && ( $COMMAND_NETCAT -z "$SERVER_HOST" $MEDIA_DISPLAY 2>/dev/null )
 			then
 				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as media port is not free."
 				let SESS_DISPLAY=$SESS_DISPLAY+1
@@ -1516,7 +1516,7 @@ server_startrestore_session()
 
 			
 			let CUPS_DISPLAY=$SESS_DISPLAY+9000
-			if [ "$(getparam 'cups')" = 1 ] && $COMMAND_NETCAT -z "$SERVER_HOST" $CUPS_DISPLAY
+			if [ "$(getparam 'cups')" = 1 ] && ( $COMMAND_NETCAT -z "$SERVER_HOST" $CUPS_DISPLAY 2>/dev/null )
 			then
 				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as cups port is not free."
 				let SESS_DISPLAY=$SESS_DISPLAY+1
@@ -1635,7 +1635,7 @@ do
 			if [ "$ENCRYPTION" = "1" ] 
 			then 
 				let PROXY_DISPLAY=$SESS_DISPLAY+4000
-				$COMMAND_NETCAT $SERVER_HOST $PROXY_DISPLAY
+				$COMMAND_NETCAT $SERVER_HOST $PROXY_DISPLAY 2>/dev/null
 				RC=$?
 				# kill our parent sshd process
 				kill $PPID
