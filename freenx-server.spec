@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt19.7
+Release: alt20
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -13,15 +13,8 @@ Packager: Boris Savelev <boris@altlinux.org>
 Source: ftp://updates.etersoft.ru/pub/Etersoft/RX@Etersoft/unstable/sources/tarball/%name-%version.tar.bz2
 Source1: %name.init
 Source2: %name.outformat
-Source3: cups-additional.conf
-Source4: fast-share-mount.conf
-Source5: linux-forum-additional.conf
 Source6: sudoers.conf
-Source7: mount-additional.conf
 Source8: terminate-suspend-nx.sh
-Source9: numlockx.conf
-Source10: node.conf
-Source11: basic-additional.conf
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -49,20 +42,7 @@ or anything better. This package contains a free (GPL) implementation
 of the nxserver component.
 
 %prep
-%setup -q
-
-%build
-%make_build
-
-%install
-
-# Debian based distr haven't /var/lock/subsys
-if [ -d %_var/lock/subsys ] ; then
-    LOCKDIR=%_var/lock/subsys
-else
-    LOCKDIR=%_var/lock
-fi
-
+%setup
 # wrong install path
 sed -i "s|/usr/lib|%_libdir|g" nxredir/Makefile
 sed -i "s|%_libdir/cups|%cups_root/cups|g" Makefile
@@ -75,40 +55,34 @@ sed -i "s|/usr/lib|%_libdir|g" nxredir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
 sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
-%makeinstall_std
-mkdir -p %buildroot%_initdir
-install -m 755 %SOURCE1 %buildroot%_initdir/%name
-sed -i "s|@LOCKDIR@|$LOCKDIR|g" %buildroot%_initdir/%name
-install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf
-%if %_vendor == "alt"
-sed -i "s|@startgnome@|/usr/bin/startgnome2|g" %buildroot%_sysconfdir/nxserver/node.conf
-%else
-install -m 755 %SOURCE2 %buildroot%_initdir
-sed -i "s|@startgnome@|/usr/bin/gnome-session|g" %buildroot%_sysconfdir/nxserver/node.conf
-%endif
+%build
+%make_build
 
+%install
+%makeinstall_std
 mkdir -p %buildroot%_var/lib/nxserver/home
 mkdir -p %buildroot%_var/lib/nxserver/db
 mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
 mkdir -p %buildroot%_datadir/%name/node.conf.d
-mkdir -p %buildroot%_sysconfdir/logrotate.d
-mkdir -p %buildroot%_sysconfdir/sudo.d
-mkdir -p %buildroot%_sysconfdir/dbus-1/system.d/
-mkdir -p %buildroot%_sysconfdir/cron.hourly
 mkdir -p %buildroot%_sysconfdir/sysconfig
-cp -p data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
-cp -p nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/system.d/
+
+install -Dp -m755 %SOURCE1 %buildroot%_initdir/%name
+install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
+install -Dp -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver/Xkbmap
+install -Dp -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
+install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
+install -Dp -m644 conf/node.conf %buildroot%_sysconfdir/nxserver/node.conf
+install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d/
+%if %_vendor == "alt"
+sed -i "s|@startgnome@|/usr/bin/startgnome2|g" %buildroot%_sysconfdir/nxserver/node.conf.d/*.conf
+%else
+install -m 755 %SOURCE2 %buildroot%_initdir
+sed -i "s|@startgnome@|/usr/bin/gnome-session|g" %buildroot%_sysconfdir/nxserver/node.conf.d/*.conf
+%endif
+
+install -Dp -m644 data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
+install -Dp -m644 nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
 mv nx-session-launcher/README nx-session-launcher/README.suid
-install -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver
-install -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver
-install -m644 %SOURCE3 %buildroot%_sysconfdir/nxserver/node.conf.d
-install -m644 %SOURCE4 %buildroot%_sysconfdir/nxserver/node.conf.d
-install -m644 %SOURCE5 %buildroot%_sysconfdir/nxserver/node.conf.d
-install -m644 %SOURCE7 %buildroot%_sysconfdir/nxserver/node.conf.d
-install -m644 %SOURCE9 %buildroot%_sysconfdir/nxserver/node.conf.d
-install -m644 %SOURCE11 %buildroot%_sysconfdir/nxserver/node.conf.d
-install -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
-install -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly
 
 cat >> %buildroot%_sysconfdir/sysconfig/%name << EOF
 #Time to live SUSPENDED freenx session in seconds for cron task.
@@ -155,6 +129,9 @@ fi
 %_datadir/%name
 
 %changelog
+* Sun Jan 31 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt20
+- move all config values form node.conf to %_sysconfdir/nxserver/node.conf.d/*.conf
+
 * Sun Jan 03 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt19.7
 - fix permission on /tmp/.X11-unix after creating (fix eter#4653)
 
