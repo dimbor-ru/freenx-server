@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt20
+Release: alt20.1
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -15,6 +15,7 @@ Source1: %name.init
 Source2: %name.outformat
 Source6: sudoers.conf
 Source8: terminate-suspend-nx.sh
+Source10: 100-altlinux.conf
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -74,10 +75,9 @@ install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-
 install -Dp -m644 conf/node.conf %buildroot%_sysconfdir/nxserver/node.conf
 install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d/
 %if %_vendor == "alt"
-sed -i "s|@startgnome@|/usr/bin/startgnome2|g" %buildroot%_sysconfdir/nxserver/node.conf.d/*.conf
+install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf.d/
 %else
-install -m 755 %SOURCE2 %buildroot%_initdir
-sed -i "s|@startgnome@|/usr/bin/gnome-session|g" %buildroot%_sysconfdir/nxserver/node.conf.d/*.conf
+install -m755 %SOURCE2 %buildroot%_initdir
 %endif
 
 install -Dp -m644 data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
@@ -129,6 +129,10 @@ fi
 %_datadir/%name
 
 %changelog
+* Sun Jan 31 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt20.1
+- fix defaults for all
+- add 100-altlinux.conf with ALTLinux defaults
+
 * Sun Jan 31 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt20
 - move all config values form node.conf to %_sysconfdir/nxserver/node.conf.d/*.conf
 
