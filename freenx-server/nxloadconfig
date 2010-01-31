@@ -209,8 +209,8 @@ if [ ! -x "$COMMAND_GDM_X_SESSION" ]
 then
 	COMMAND_GDM_X_SESSION="/etc/X11/Xsession"
 fi
-COMMAND_START_KDE=startkde
-COMMAND_START_GNOME=gnome-session
+COMMAND_START_KDE="/usr/bin/ssh-agent /usr/bin/dbus-launch --exit-with-session /usr/bin/startkde"
+COMMAND_START_GNOME="/usr/bin/ssh-agent /usr/bin/dbus-launch --exit-with-session gnome-session"
 COMMAND_START_CDE=cdwm
 COMMAND_XTERM=xterm
 COMMAND_XAUTH=/usr/bin/xauth
