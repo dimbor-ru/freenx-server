@@ -657,8 +657,16 @@ then
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_XAUTH=$COMMAND_XAUTH\""
 	! mywhich "$COMMAND_SMBMOUNT" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT\". You'll not be able to use SAMBA. "
+	! mywhich "$COMMAND_SMBMOUNT_CIFS" >/dev/null 2>&1 && \
+		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBMOUNT_CIFS=$COMMAND_SMBMOUNT_CIFS\". You'll not be able to use SAMBA. "
+	mywhich "$COMMAND_SMBMOUNT_CIFS" >/dev/null 2>&1 && \
+		[ $(stat -c %a `mywhich "$COMMAND_SMBMOUNT_CIFS"`) -ne 4755 ] && ( WARNING="yes" ; echo "Warning: Invalid permission on \"$COMMAND_SMBMOUNT_CIFS\". Valid are \"4755\". You'll not be able to use SAMBA. " )
 	! mywhich "$COMMAND_SMBUMOUNT" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT\". You'll not be able to use SAMBA."
+	! mywhich "$COMMAND_SMBUMOUNT_CIFS" >/dev/null 2>&1 && \
+		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBUMOUNT_CIFS=$COMMAND_SMBUMOUNT_CIFS\". You'll not be able to use SAMBA. "
+	mywhich "$COMMAND_SMBUMOUNT_CIFS" >/dev/null 2>&1 && \
+		[ $(stat -c %a `mywhich "$COMMAND_SMBUMOUNT_CIFS"`) -ne 4755 ] && ( WARNING="yes" ; echo "Warning: Invalid permission on \"$COMMAND_SMBUMOUNT_CIFS\". Valid are \"4755\". You'll not be able to use SAMBA. " )
 	! mywhich "$COMMAND_NETCAT" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_NETCAT=$COMMAND_NETCAT\""
 	! mywhich "$COMMAND_SSH" >/dev/null 2>&1 && \
@@ -668,6 +676,9 @@ then
 	! mywhich "$COMMAND_CUPSD" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_CUPSD=$COMMAND_CUPSD\"" \
 					  && echo "         Users will not be able to enable printing."
+	mywhich "$COMMAND_CUPSD" >/dev/null 2>&1 && \
+		[ $(stat -c %a `mywhich "$COMMAND_CUPSD"`) -ne 755 ] && ( WARNING="yes" ; echo "Warning: Invalid permission \"$COMMAND_CUPSD\". Valid are \"755\"." \
+					  && echo "         Users will not be able to enable printing." )
 	[ -z "$(strings $COMMAND_CUPSD | egrep 'CUPS\/1.2')" ] && \
 		WARNING="yes" && echo "Warning: Invalid cupsd version of \"$COMMAND_CUPSD\". Need version 1.2." \
 					  && echo "         Users will not be able to enable printing. Ignore if you use cups > 1.2"
