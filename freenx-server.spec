@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt20.1
+Release: alt21
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -15,6 +15,7 @@ Source1: %name.init
 Source2: %name.outformat
 Source6: sudoers.conf
 Source8: terminate-suspend-nx.sh
+Source9: Xsession
 Source10: 100-altlinux.conf
 
 Obsoletes: freenx
@@ -69,13 +70,14 @@ mkdir -p %buildroot%_sysconfdir/sysconfig
 
 install -Dp -m755 %SOURCE1 %buildroot%_initdir/%name
 install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
+install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession
 install -Dp -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver/Xkbmap
 install -Dp -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
 install -Dp -m644 conf/node.conf %buildroot%_sysconfdir/nxserver/node.conf
-install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d/
+install -m644 conf/conf.d/*.conf %buildroot%_datadir/%name/node.conf.d
 %if %_vendor == "alt"
-install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf.d/
+install -m644 %SOURCE10 %buildroot%_datadir/%name/node.conf.d
 %else
 install -m755 %SOURCE2 %buildroot%_initdir
 %endif
@@ -104,15 +106,15 @@ fi
 %doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample nx-session-launcher/README.suid
 %dir %_sysconfdir/nxserver
 %dir %_sysconfdir/nxserver/node.conf.d
-%config(noreplace) %_sysconfdir/nxserver/node.conf
+%config %_sysconfdir/nxserver/node.conf
 %_sysconfdir/nxserver/node.conf.sample
-%config(noreplace) %_sysconfdir/nxserver/node.conf.d/*.conf
 %config %_sysconfdir/logrotate.d/freenx-server
-%attr(0400,root,root) %config(noreplace) %_sysconfdir/sudo.d/nxserver
+%attr(0400,root,root) %config %_sysconfdir/sudo.d/nxserver
 %config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
-%config(noreplace) %_sysconfdir/nxserver/Xkbmap
+%config %_sysconfdir/nxserver/Xkbmap
 %_sysconfdir/nxserver/fixkeyboard
-%_sysconfdir/sysconfig/%name
+%_sysconfdir/nxserver/Xsession
+%config %_sysconfdir/sysconfig/%name
 %_sysconfdir/cron.hourly/terminate-suspend-nx.sh
 %_initdir/%name
 %if %_vendor == "alt"
@@ -129,6 +131,11 @@ fi
 %_datadir/%name
 
 %changelog
+* Sun Feb 14 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt21
+- move default config set to %_datadir/%name/node.conf.d.
+  All values must be override from /etc/nxserver/node.conf
+  and /etc/nxserver/node.conf.d
+
 * Sun Jan 31 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt20.1
 - fix defaults for all
 - add 100-altlinux.conf with ALTLinux defaults
