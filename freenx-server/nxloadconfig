@@ -184,7 +184,7 @@ COMMAND_FOOMATIC="/usr/bin/foomatic-ppdfile"
 PPD_DIR="/usr/share/cups/model" #JJK: Note /usr/share/ppd on some systems
 
 CUPS_BACKEND="/usr/lib/cups/backend"
-CUPS_IPP_BACKEND="$CUPS_BACKEND/nxipp"
+CUPS_IPP_BACKEND="$CUPS_BACKEND/ipp"
 CUPS_DEFAULT_SOCK="/var/run/cups/cups.sock"
 CUPS_ETC="/etc/cups/"
 

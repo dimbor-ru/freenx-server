@@ -274,14 +274,6 @@ EOF
 	chown nx:root "$NX_LOGFILE"
 
 	echo "done"
-
-	if [ -d "$CUPS_BACKEND" ]
-	then
-		echo -n "Setting up cups nxipp backend ..."
-		cp -af "$CUPS_BACKEND/ipp" "$CUPS_IPP_BACKEND"
-		chmod 755 "$CUPS_IPP_BACKEND"
-		echo "done"
-	fi
 }
 
 test_nx()
