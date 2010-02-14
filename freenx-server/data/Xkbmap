@@ -1,2 +1,2 @@
 -layout en_US,ru(winkeys)
--option -option grp:ctrl_shift_toggle,grp_led:scroll
+-option grp:ctrl_shift_toggle,grp_led:scroll
