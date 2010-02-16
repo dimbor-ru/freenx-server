@@ -98,6 +98,7 @@ getparam_sessionid()
 }
 
 nxlog() {
+if [ "$NX_LOG_LEVEL" -ge 6 ] ; then
 	[ -n "$sessionid" ] || sessionid=$(getparam sessionid)
 	[ -n "$sessionid" ] || sessionid=$(getparam session_id)
 	[ -n "$sessionid" ] || sessionid=$sess_id
@@ -113,7 +114,14 @@ nxlog() {
 			echo "$(LANG=C date): $@" >> "$USER_FAKE_HOME/.nx/nxnode.log"
 		fi
 	fi
+fi
 }
+
+if [ -n "$CMDLINE" ] ; then
+	nxlog "$0: run nxnode with CMDLINE \"$CMDLINE\""
+else
+	nxlog "$0: run nxnode with \"$@\""
+fi
 
 #
 # -----------------------------------------------------------------------------
@@ -131,6 +139,7 @@ sdir2share()
 # get directory for first found user's running session (except current),
 # when given share or printer has mounted
 {
+    nxlog "$FUNCNAME: starting"
     AGENT_PIDS="$(ps -wo pid=,cmd= -C "nxagent" | cut -d" " -f1)"
     for i in $USER_FAKE_HOME/.nx/C-*
     do
@@ -144,18 +153,21 @@ sdir2share()
 #	echo "$(cat $FN | grep -w "$1") ">> /home/dim/_tst 
 	[ -n "$(cat $FN | grep -w "$1")" ] && echo "$i"
     done
+    nxlog "$FUNCNAME: end"
 }
 
 current_mport()
 # arg: sharename/printername
 # if share mounted, then get current smb mount port
 {
+    nxlog "$FUNCNAME: starting"
     if [ -n "$(echo $1 | grep "//")" ]
     then 
 	echo "$(ps -wo pid=,cmd= -C "smbmount" | grep -w "$1" | cut -d" " -f11)"
     else
         echo "$(lpstat -v | grep -w "$1" | cut -d/ -f3 | cut -d@ -f2 | cut -d: -f2)"
     fi
+    nxlog "$FUNCNAME: end"
 }
 
 
@@ -165,10 +177,12 @@ current_mport()
 
 node_terminate_agent()
 {
+	nxlog "$FUNCNAME: starting"
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
 	[ -n "$NODE_AGENT_PID" ] && kill $NODE_AGENT_PID 2>/dev/null
 	[ -z $(ps x| grep "nxagent" | cut -d" " -f1 | grep $NODE_AGENT_PID) ] && return
 	kill $NODE_AGENT_PID 2>/dev/null
+	nxlog "$FUNCNAME: end"
 }
 
 #
@@ -188,6 +202,7 @@ node_terminate_session()
 	nxlog "$FUNCNAME: starting"
 	[ -d "$USER_FAKE_HOME/.nx/C-$1/" ] || ( nxlog "$FUNCNAME: Session directory not found."; return )
 
+	nxlog "$FUNCNAME: Start terminating session \"$1\" with status \"$2\""
 	# Kill nxagent
 	
 	nxlog "$FUNCNAME: kill nxagent"
@@ -229,10 +244,20 @@ node_terminate_session()
 	# Preserve or remove session information
 	
 	nxlog "$FUNCNAME: Preserve or remove session information"
-	[ "$SESSION_LOG_CLEAN" = "1" ] && rm -rf "$USER_FAKE_HOME/.nx/C-$1/"
+	if [ "$SESSION_LOG_CLEAN" = "1" ] ; then
+		nxlog "$FUNCNAME: Clean session information."
+		rm -rf "$USER_FAKE_HOME/.nx/C-$1/"
+		rm -f  "$USER_FAKE_HOME/.nx/nxnode-$1.log"
+		rm -f  "$USER_FAKE_HOME/.nx/nxnode.log"
+	fi
 	
-	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/F-C-$1"
-	[ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] && mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/T-C-$1"
+	if [ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] ; then
+		nxlog "$FUNCNAME: Session failed. Rename session directory from \"$USER_FAKE_HOME/.nx/C-$1/\" to \"$USER_FAKE_HOME/.nx/F-C-$1\""
+		mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/F-C-$1"
+	elif [ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] ; then
+		nxlog "$FUNCNAME: Session terminated. Rename session directory from \"$USER_FAKE_HOME/.nx/C-$1/\" to \"$USER_FAKE_HOME/.nx/T-C-$1\""
+		mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/T-C-$1"
+	fi
 	nxlog "$FUNCNAME: end"
 }
 
@@ -244,13 +269,16 @@ node_terminate_session()
 
 node_fail_restore_session()
 {
+	nxlog "$FUNCNAME: starting"
 	echo "NX> 1004 Error: Could not resume session. nxagent process could not be found."
 	
 	NODE_TAIL_PID=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail" 2>/dev/null)
 	[ -n "$NODE_TAIL_PID" ] && kill $NODE_TAIL_PID
 	[ -n "$NODE_TAIL_PID" ] && echo "NX 1004> kill $NODE_TAIL_PID"
 	
+	nxlog "$FUNCNAME: call 'node_terminate_session \"$1\" \"failed\"'"
 	node_terminate_session "$1" "failed"
+	nxlog "$FUNCNAME: end. Next is 'exit 1'"
 	exit 1
 }
 
@@ -260,12 +288,17 @@ node_fail_restore_session()
 
 node_suspend_session()
 {
+	nxlog "$FUNCNAME: starting"
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
 
 	if [ -n "$NODE_AGENT_PID" ]
 	then
-		kill -0 $NODE_AGENT_PID || return 1
-		kill -HUP $NODE_AGENT_PID && return 0
+		nxlog "$FUNCNAME: NODE_AGENT_PID=\"$NODE_AGENT_PID\". Killing..."
+		kill -0 $NODE_AGENT_PID || ( nxlog "$FUNCNAME: end" ; return 1 )
+		kill -HUP $NODE_AGENT_PID && ( nxlog "$FUNCNAME: end" ; return 0 )
+	else
+		nxlog "$FUNCNAME: NODE_AGENT_PID is empty"
+		nxlog "$FUNCNAME: end"
 	fi
 
 	return 1
@@ -280,6 +313,7 @@ node_suspend_session()
 
 node_find_application()
 {
+	nxlog "$FUNCNAME: starting"
 	NODE_STARTX=""
 
 	case $1 in
@@ -317,7 +351,9 @@ node_find_application()
 		;;
 	esac
 
+	nxlog "$FUNCNAME: return NODE_STARTX=\"$NODE_STARTX\""
 	echo "$NODE_STARTX"
+	nxlog "$FUNCNAME: end"
 }
 
 #
@@ -514,7 +550,7 @@ node_start_applications()
 	
 	if [ "$virtualdesktop" = "1" -o "$rootless" != "1" ] ; then
 		nxlog "$FUNCNAME: Call node_terminate_agent for non-rootless or virtualdesktop session type"
-		nxlog "$FUNCNAME: Call \"node_terminate_agent '$sess_id'\""
+		nxlog "$FUNCNAME: Call 'node_terminate_agent \"$sess_id\"'"
 		node_terminate_agent "$sess_id"
 	fi
 	nxlog "$FUNCNAME: end"
@@ -1079,7 +1115,7 @@ node_emergency_exit()
 	node_stop_services
 
 	# kill the session
-	nxlog "$FUNCNAME: call node_terminate_session"
+	nxlog "$FUNCNAME: call 'node_terminate_session \"$sess_id\" \"failed\"'"
 	node_terminate_session "$sess_id" "failed"
 
 	echo "NX> 1004 Error: Emergency exit due to kill signal."
@@ -1378,10 +1414,10 @@ node_start_monitor()
 	nxlog "$FUNCNAME: staring"
 	if [ "$ENABLE_1_5_0_BACKEND" = "1" ]
 	then
-		nxlog "$FUNCNAME: call node_start_monitor_1_5_0"
+		nxlog "$FUNCNAME: call 'node_start_monitor_1_5_0 \"$@\"'"
 		node_start_monitor_1_5_0 "$@"
 	else
-		nxlog "$FUNCNAME: call node_start_monitor_2_0_0"
+		nxlog "$FUNCNAME: call 'node_start_monitor_2_0_0 \"$@\"'"
 		node_start_monitor_2_0_0 "$@"
 	fi
 
