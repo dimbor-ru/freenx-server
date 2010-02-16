@@ -124,8 +124,6 @@ MergeResources()
 [ -d /etc/X11/Xresources ] && Xresources_d=$(ls /etc/X11/Xresources)
 MergeResources /etc/X11/Xresources $Xresources_d "$HOME/.Xresources" "$HOME/.Xdefaults"
 
-/etc/X11/xinit/xrootwarn || exit
-
 TryXBrowser()
 {
 	local n
