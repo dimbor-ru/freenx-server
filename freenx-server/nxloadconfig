@@ -691,9 +691,8 @@ then
 		[ $(stat -c %a `mywhich "$COMMAND_CUPSD"`) -ne 755 ] && ( WARNING="yes" ; echo "Warning: Invalid permissions on \"$COMMAND_CUPSD\". Valid permissions are \"755\"." \
 					  && echo "         Users will not be able to enable printing." )
 	  mywhich "$COMMAND_CUPSD" >/dev/null 2>&1 && \
-		[ -z "$(strings $COMMAND_CUPSD | egrep 'CUPS\/1.2')" ] && \
-			WARNING="yes" && echo "Warning: Invalid cupsd version of \"$COMMAND_CUPSD\". Need version 1.2." \
-					  && echo "         Users will not be able to enable printing. Ignore if you use cups > 1.2"
+		[ $(echo "`strings $COMMAND_CUPSD | egrep 'CUPS\/1\.' | head -1 | sed 's|CUPS\/||'` >= 1.2" | bc) -ne 1 ] && \
+			WARNING="yes" && echo "Warning: Invalid cupsd version of \"$COMMAND_CUPSD\". Need version more or equal than 1.2."
 	fi
 	! mywhich "$COMMAND_MD5SUM" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_MD5SUM=$COMMAND_MD5SUM\""
