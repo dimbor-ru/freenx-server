@@ -475,8 +475,10 @@ node_start_applications()
 	
 	if [ "$virtualdesktop" = "1" -a "$type" = "unix-application" -a "$DEFAULT_X_WM" != "" -a -x "$(find_app $DEFAULT_X_WM)" ]
 	then
+		nxlog "$FUNCNAME: start a window manager - \"DISPLAY=:$display $DEFAULT_X_WM\""
 		DISPLAY=:$display $DEFAULT_X_WM >>"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1 &
 		NODE_WM_PID=$!
+		nxlog "$FUNCNAME: NODE_WM_PID=\"$NODE_WM_PID\""
 	fi
 
 	#
@@ -518,7 +520,7 @@ node_start_applications()
 	echo "$NODE_APP_PID" >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/apps/$NODE_APP_PID"
 	nxlog "$FUNCNAME: Waiting for NODE_APP_PID"
 	wait $NODE_APP_PID
-	nxlog "$FUNCNAME: NODE_APP_PID finished."
+	nxlog "$FUNCNAME: NODE_APP_PID finished"
 	nxlog "$FUNCNAME: processing with NODE_APP_PID child before killing nxagent"
 	for child in `ps -o pid,ppid ax | awk "{ if ( \$2 == $NODE_APP_PID ) { print \$1 } }"` ; do
 		if [ "$KILL_NODE_APPLICATION_CHILD" = "1" ] ; then
@@ -536,10 +538,11 @@ node_start_applications()
 	
 	if [ -n "$NODE_WM_PID" ]
 	then
+		nxlog "$FUNCNAME: NODE_WM_PID is not empty"
 		# kill the WM after application is finished?
-		[ "$KILL_DEFAULT_X_WM" = "1" ] && kill $NODE_WM_PID 2>/dev/null
+		[ "$KILL_DEFAULT_X_WM" = "1" ] && ( nxlog "$FUNCNAME: killing $NODE_WM_PID" ; kill $NODE_WM_PID 2>/dev/null )
 		# or just wait until it finishes?
-		[ "$KILL_DEFAULT_X_WM" = "1" ] || wait $NODE_WM_PID
+		[ "$KILL_DEFAULT_X_WM" = "1" ] || ( nxlog "$FUNCNAME: wait for $NODE_WM_PID is dead" ; wait $NODE_WM_PID )
 	fi
 	nxlog "$FUNCNAME: Clean pids/apps/$NODE_APP_PID"
 	rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/apps/$NODE_APP_PID"
@@ -610,6 +613,7 @@ node_start_agent()
 	#    leaving all other output flow through like normally.
 	
 	# preparations
+	nxlog "$FUNCNAME: starting"
 	exec 3>&2
 	exec 4>&1
 
@@ -1481,6 +1485,11 @@ startsession()
 	agent_domain=$(getparam agent_domain)
 	screeninfo=$(getparam screeninfo)
 	nodelay=$(getparam nodelay)
+	
+	sess_id="$SERVER_NAME-$display-$uniqueid"
+	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"
+	
+	nxlog "$FUNCNAME: starting with args \"$@\""
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
 
 	# 1.5.0 options
@@ -1565,9 +1574,6 @@ startsession()
 
 	# Authentication method needed by guest mode.
 	login_method=$(getparam login_method)
-	
-	sess_id="$SERVER_NAME-$display-$uniqueid"
-	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"
 	
 	# export the agent_* options for the helper scripts
 	if [ "$(getparam freenx_export_agents)" = "1" ]
@@ -1680,6 +1686,7 @@ then
 	# This needs to be set, else nxagent is terminated
 	rootless="1"
 	virtualdesktop="0"
+	nxlog "$FUNCNAME: call 'node_start_applications'"
 	node_start_applications &
 	echo "NX> 596 Application $application started successfully."
 	return
@@ -1688,6 +1695,7 @@ fi
 	OLD_UMASK=$(umask)
 	umask 0077
 
+	nxlog "$FUNCNAME: generate \"$USER_FAKE_HOME/.nx/C-$sess_id/options\""
 cat << EOF > "$USER_FAKE_HOME/.nx/C-$sess_id/options"
 nx/nx,${keyboard:+keyboard=$keyboard,}${kbtype:+kbtype=$kbtype,}${kbload:+kbload=$kbload,}${keymap:+keymap=$keymap,}${geometry:+geometry=$geometry,}${client:+client=$client,}${resize:+resize=$resize,}${CACHE}${IMAGES}${PACK}link=$link,nodelay=$nodelay,type=$realtype${clipboard:+,clipboard=$clipboard}${composite:+composite=$composite},cleanup=10,product=LFE/None/LFEN/None,shmem=1,${backingstore:+backingstore=$backingstore,}shpix=1,${ACCEPT}cookie=$proxy_cookie,id=$sess_id,samba=$samba,media=$media${sync:+,sync=$sync}${cups:+,cups=$cups}${keybd:+,keybd=$keybd}${aux:+,aux=$aux}${http:+,http=$http}${rdpcolors:+,rdpcolors=$rdpcolors}${rdpcache:+,rdpcache=$rdpcache}${fullscreen:+,fullscreen=1}${menu:+,menu=$menu}:$display
 EOF
@@ -1697,6 +1705,7 @@ EOF
 #samba=$samba,media=$media,render=$render:$display
 
 	# write xauth script file
+	nxlog "$FUNCNAME: write xauth script file"
 
 $COMMAND_XAUTH >/dev/null 2>&1 <<EOF
 add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
@@ -1723,15 +1732,18 @@ EOF
 	# If we have a shadow cookie, we add it to xauth session authority file as well
 	if [ -n "$shadowcookie" ]
 	then
+		nxlog "$FUNCNAME: If we have a shadow cookie, we add it to xauth session authority file as well"
 		$COMMAND_XAUTH -f "$SHADOW_XAUTHORITY" add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 "$shadowcookie"
 	elif [ -n "$shadowdisplay" ]
 	then
 		# we need to merge in the normal .Xauthority file
+		nxlog "$FUNCNAME: we need to merge in the normal .Xauthority file"
 		$COMMAND_XAUTH -f "$SHADOW_XAUTHORITY" merge "$HOME/.Xauthority"
 	fi
 
 if [ "$1" = "restore" ]
 then
+	nxlog "$FUNCNAME: restore session"
 	echo > "$USER_FAKE_HOME/.nx/C-$sess_id/session"
 	sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$USER_FAKE_HOME"'/.nx/C-'"$sess_id"'/session' | node_start_monitor "$1" "$status" &
 
@@ -1741,8 +1753,10 @@ then
 	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/"
 	echo "$MONITOR_PID" > "$USER_FAKE_HOME/.nx/C-$sess_id/pids/monitor"
 
+	nxlog "$FUNCNAME: call 'node_suspend_session \"$sess_id\"'"
 	node_suspend_session "$sess_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$USER_FAKE_HOME/.nx/C-$sess_id/session"; node_fail_restore_session "$sess_id"; }
 else
+	nxlog "$FUNCNAME: call 'node_start_agent'"
 	node_start_agent &
 	while true ; do
 	    if [ -e "$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent" ] ; then
@@ -1791,6 +1805,7 @@ then
 	rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail"
 fi
 wait # for all children
+nxlog "$FUNCNAME: end"
 }
 
 #
