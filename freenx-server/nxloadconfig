@@ -404,7 +404,7 @@ esac
 [ -z "$PROXY_LIBRARY_PATH" ] && PROXY_LIBRARY_PATH=$PATH_LIB
 
 [ -z "$APPLICATION_LIBRARY_PATH" ] && APPLICATION_LIBRARY_PATH=$PATH_LIB
-[ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/libX11-nx.so.6.2:$APPLICATION_LIBRARY_PATH/libXext-nx.so.6.4:$APPLICATION_LIBRARY_PATH/libXcomp.so.3:$APPLICATION_LIBRARY_PATH/libXcompext.so.3:$APPLICATION_LIBRARY_PATH/libXrender-nx.so.1.2.2"
+[ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/libX11.so.6:$APPLICATION_LIBRARY_PATH/libXext.so.6:$APPLICATION_LIBRARY_PATH/libXcomp.so.3:$APPLICATION_LIBRARY_PATH/libXcompext.so.3:$APPLICATION_LIBRARY_PATH/libXrender.so.1"
 
 NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
 
@@ -622,11 +622,11 @@ then
 	[ ! -x "$CUPS_BACKEND/smb" ] && \
 		WARNING="yes" && echo "Warning: \"$CUPS_BACKEND/smb\" is not executable." \
 					  && echo "         Users will not be able to enable printing."
-	[ -e "$CUPS_IPP_BACKEND" ] && [ $(stat -c %a "$CUPS_IPP_BACKEND") -ne 755 ] && \
-		WARNING="yes" && echo "Warning: Warning: Invalid permissions on \"$CUPS_IPP_BACKEND\". Valid permissions are 755." \
+	[ -e "$CUPS_IPP_BACKEND" ] && [ $(stat -c %a "$CUPS_IPP_BACKEND") -ne 711 ] && \
+		WARNING="yes" && echo "Warning: Warning: Invalid permissions on \"$CUPS_IPP_BACKEND\". Valid permissions are 711." \
 					  && echo "         Users will not be able to enable printing."
-	[ -e "$CUPS_BACKEND/smb" ] && [ $(stat -c %a "$CUPS_BACKEND/smb") -ne 755 ] && \
-		WARNING="yes" && echo "Warning: Warning: Invalid permissions on \"$CUPS_BACKEND/smb\". Valid permissions are 755." \
+	[ -e "$CUPS_BACKEND/smb" ] && [ ! -L "$CUPS_BACKEND/smb" ] && [ $(stat -c %a "$CUPS_BACKEND/smb") -ne 711 ] && \
+		WARNING="yes" && echo "Warning: Warning: Invalid permissions on \"$CUPS_BACKEND/smb\". Valid permissions are 711." \
 					  && echo "         Users will not be able to enable printing."
 	[ ! -e "$CUPS_ETC/mime.types" -o ! -e "$CUPS_ETC/mime.convs" ] && \
 		WARNING="yes" && echo "Warning: Invalid value \"CUPS_ETC=$CUPS_ETC\"" \
@@ -667,13 +667,13 @@ then
 	! mywhich "$COMMAND_SMBMOUNT_CIFS" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBMOUNT_CIFS=$COMMAND_SMBMOUNT_CIFS\". You'll not be able to use SAMBA. "
 	mywhich "$COMMAND_SMBMOUNT_CIFS" >/dev/null 2>&1 && \
-		[ $(stat -c %a `mywhich "$COMMAND_SMBMOUNT_CIFS"`) -ne 4755 ] && ( WARNING="yes" ; echo "Warning: Invalid permissions on \"$COMMAND_SMBMOUNT_CIFS\". Valid permissions are \"4755\". You'll not be able to use SAMBA. " )
+		[ $(stat -c %a `mywhich "$COMMAND_SMBMOUNT_CIFS"`) -ne 4711 ] && ( WARNING="yes" ; echo "Warning: Invalid permissions on \"$COMMAND_SMBMOUNT_CIFS\". Valid permissions are \"4711\". You'll not be able to use SAMBA. " )
 	! mywhich "$COMMAND_SMBUMOUNT" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT\". You'll not be able to use SAMBA."
 	! mywhich "$COMMAND_SMBUMOUNT_CIFS" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBUMOUNT_CIFS=$COMMAND_SMBUMOUNT_CIFS\". You'll not be able to use SAMBA. "
 	mywhich "$COMMAND_SMBUMOUNT_CIFS" >/dev/null 2>&1 && \
-		[ $(stat -c %a `mywhich "$COMMAND_SMBUMOUNT_CIFS"`) -ne 4755 ] && ( WARNING="yes" ; echo "Warning: Invalid permissions on \"$COMMAND_SMBUMOUNT_CIFS\". Valid permission are \"4755\". You'll not be able to use SAMBA. " )
+		[ $(stat -c %a `mywhich "$COMMAND_SMBUMOUNT_CIFS"`) -ne 4711 ] && ( WARNING="yes" ; echo "Warning: Invalid permissions on \"$COMMAND_SMBUMOUNT_CIFS\". Valid permission are \"4711\". You'll not be able to use SAMBA. " )
 	! mywhich "$COMMAND_NETCAT" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_NETCAT=$COMMAND_NETCAT\""
 	! mywhich "$COMMAND_SSH" >/dev/null 2>&1 && \
@@ -690,7 +690,7 @@ then
 	  mywhich "$COMMAND_CUPSD" >/dev/null 2>&1 && \
 		[ $(stat -c %a `mywhich "$COMMAND_CUPSD"`) -ne 755 ] && ( WARNING="yes" ; echo "Warning: Invalid permissions on \"$COMMAND_CUPSD\". Valid permissions are \"755\"." \
 					  && echo "         Users will not be able to enable printing." )
-	  mywhich "$COMMAND_CUPSD" >/dev/null 2>&1 && \
+	  mywhich "$COMMAND_CUPSD" >/dev/null 2>&1 && [ -r $(mywhich "$COMMAND_CUPSD") ] && \
 		[ $(echo "`strings $COMMAND_CUPSD | egrep 'CUPS\/1\.' | head -1 | sed 's|CUPS\/||'` >= 1.2" | bc) -ne 1 ] && \
 			WARNING="yes" && echo "Warning: Invalid cupsd version of \"$COMMAND_CUPSD\". Need version more or equal than 1.2."
 	fi
