@@ -1633,6 +1633,8 @@ startsession()
 		proxyip=$(ping -c1 "$host" | grep 'PING' | cut -d'(' -f2 | cut -d')' -f1)
 	fi
 	
+	# ' clean mc.syntax
+	
 	[ -z "$proxyip" ] && proxyip="127.0.0.1"
 	
 	# ok, lets make the session dir first:
