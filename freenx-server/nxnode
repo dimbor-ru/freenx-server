@@ -1734,7 +1734,13 @@ then
 	node_suspend_session "$sess_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$USER_FAKE_HOME/.nx/C-$sess_id/session"; node_fail_restore_session "$sess_id"; }
 else
 	node_start_agent &
-	node_start_applications &
+	while true ; do
+	    if [ -e "$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent" ] ; then
+		nxlog "$FUNCNAME: call 'node_start_applications'"
+		node_start_applications &
+		break
+	    fi
+	done
 fi
 
 if which "$NODE_AUTOSTART" >/dev/null 2>&1
