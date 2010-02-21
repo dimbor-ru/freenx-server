@@ -383,17 +383,6 @@ node_start_applications()
 	    . /etc/profile
 	fi
 
-	if [ "$ENABLE_SOURCE_BASH_PROFILE_D" = "1" ] ; then
-	    nxlog "$FUNCNAME: source sh profile.d"
-	    if [ -d /etc/profile.d ] ; then
-		for f in /etc/profile.d/*.sh; do
-		    if [ -f "$f" -a -r "$f" -a -x "$f" -a -s "$f" -a ! -L "$f" ]; then
-			. "$f"
-		    fi
-		done
-	    fi
-	fi
-
 	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ] ; then
 	    nxlog "$FUNCNAME: source bash profile"
 	    [ -f ~/.bash_profile ] && . ~/.bash_profile
