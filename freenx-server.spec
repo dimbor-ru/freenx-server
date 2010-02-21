@@ -113,6 +113,9 @@ fi
 %dir %_sysconfdir/nxserver
 %dir %_sysconfdir/nxserver/node.conf.d
 %config %_sysconfdir/nxserver/node.conf
+%if %_vendor == "alt"
+%config %_sysconfdir/nxserver/node.conf.d/*
+%endif
 %_sysconfdir/nxserver/node.conf.sample
 %config %_sysconfdir/logrotate.d/freenx-server
 %attr(0400,root,root) %config %_sysconfdir/sudo.d/nxserver
