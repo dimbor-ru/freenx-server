@@ -313,7 +313,7 @@ node_suspend_session()
 
 node_find_application()
 {
-	nxlog "$FUNCNAME: starting"
+	nxlog "$FUNCNAME: starting with args \"$@\""
 	NODE_STARTX=""
 
 	case $1 in
@@ -670,6 +670,7 @@ node_start_agent()
 
 	if [ "$type" = "windows" ]
 	then
+		nxlog "$FUNCNAME: Type \"windows\""
 		# nxdesktop session (Windows RDP)
 
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
@@ -688,6 +689,7 @@ node_start_agent()
 
 	elif [ "$type" = "vnc" ]
 	then
+		nxlog "$FUNCNAME: Type \"vnc\""
 		# nxviewer session (VNC RFB)
 		
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
@@ -721,9 +723,12 @@ node_start_agent()
 	elif [ "$R" = "-R" -a "$rootless" != "1" ]
 	then
 		# nxproxy single application mode session
+		nxlog "$FUNCNAME: Start nxproxy for single application session mode"
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && export LD_LIBRARY_PATH="$PROXY_LIBRARY_PATH:$LD_LIBRARY_PATH"
+		nxlog "$FUNCNAME: Start nxproxy by command: '$PATH_BIN/nxproxy -C :$display $PROXY_EXTRA_OPTIONS'"
 		$PATH_BIN/nxproxy -C :$display $PROXY_EXTRA_OPTIONS 2>&3 &
 	else
+		nxlog "$FUNCNAME: NXAgent session type"
 		# nxagent session (X11)
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
 		
@@ -735,12 +740,14 @@ node_start_agent()
 		
 		if [ "$type" = "shadow" ]
 		then
+			nxlog "$FUNCNAME: Type \"shadow\". Add some args to nxagent"
 			R="-S -shadow $shadowhost:$shadowdisplay -shadowmode $ENABLE_INTERACTIVE_SESSION_SHADOWING"
 			P="-nopersistent"
 		fi
 		
 		# Start the agent
 		
+		nxlog "$FUNCNAME: Start nxagent by command: '$COMMAND_NXAGENT $P $R -name \"NX - $user@$SERVER_NAME:$display - $session (GPL Edition)\" -option \"$USER_FAKE_HOME/.nx/C-$sess_id/options\" $B $FP $AGENT_EXTRA_OPTIONS_X :$display'"
 		#PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 		PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 	fi
@@ -752,27 +759,36 @@ node_start_agent()
 	NODE_AGENT_PID=$!
 	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/"
 	echo "$NODE_AGENT_PID" >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent"
+	nxlog "$FUNCNAME: Wait for NODE_AGENT_PID ($NODE_AGENT_PID)"
 	wait $NODE_AGENT_PID
 
 	NODE_AGENT_EXIT_STATUS=$?
+	nxlog "$FUNCNAME: NODE_AGENT_EXIT_STATUS = \"$NODE_AGENT_EXIT_STATUS\""
 	NODE_FAILED=""
 	if [ $NODE_AGENT_EXIT_STATUS -ne 0 ]
 	then
 		echo "NX> 1004 Error: NX Agent exited with exit status 1. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$USER_FAKE_HOME/.nx/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
 		cat "$USER_FAKE_HOME/.nx/C-$sess_id/session" 1>&2
 		NODE_FAILED="failed"
+		nxlog "$FUNCNAME: NODE_FAILED = \"$NODE_FAILED\""
 	fi
+	nxlog "$FUNCNAME: close session"
 	echo "NX> 1006 Session status: closed"
 	
 	#
 	# Cleanup session information
 	#	
 	
+	nxlog "$FUNCNAME: cleanup session information '$sess_id'"
+	nxlog "$FUNCNAME: remove agent pidfile -- '$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent'"
 	rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent"
+	nxlog "$FUNCNAME: call 'node_terminate_session \"$sess_id\" \"$NODE_FAILED\"'"
 	node_terminate_session "$sess_id" "$NODE_FAILED"
 	
 	# remove possible leftovers of nxagent
+	nxlog "$FUNCNAME:remove /tmp/.X$display-lock"
 	rm -f /tmp/.X$display-lock
+	nxlog "$FUNCNAME: remove /tmp/.X11-unix/X$display"
 	rm -f /tmp/.X11-unix/X$display
 	} 3>&1 1>&4 | tee "$USER_FAKE_HOME/.nx/C-$sess_id/session" | node_start_monitor; } 4>&1
 }
