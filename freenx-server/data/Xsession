@@ -203,20 +203,19 @@ RunIfExecutable /etc/X11/xinit/xrandrrc
 RunIfExecutable /etc/X11/xinit/fixkeyboard
 RunIfExecutable /etc/X11/xinit/XIM
 
-# See if desktop manager has asked for a specific environment.
 if [ $# -ge 1 ]; then
-	exec "$@"
+	"$@"
 else
 	# Try user defined action.
-	ExecIfExecutable "$HOME/.xsession"
-	ExecIfExecutable "$HOME/.Xclients"
+	RunIfExecutable "$HOME/.xsession"
+	RunIfExecutable "$HOME/.Xclients"
 
 	# Try WM Selector.
-	ExecIfExecutable wm-select
+	RunIfExecutable wm-select
 
 	# Try WM Manager.
-	ExecIfExecutable wmselect
+	RunIfExecutable wmselect
 
 	# Try default from runwm.
-	exec runwm default
+	runwm default
 fi
