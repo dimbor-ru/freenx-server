@@ -179,8 +179,9 @@ node_terminate_agent()
 {
 	nxlog "$FUNCNAME: starting"
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
-	[ -n "$NODE_AGENT_PID" ] && kill $NODE_AGENT_PID 2>/dev/null
-	[ -z $(ps x| grep "nxagent" | cut -d" " -f1 | grep $NODE_AGENT_PID) ] && return
+	[ -n "$NODE_AGENT_PID" ] && ( nxlog "$FUNCNAME: killing NODE_AGENT_PID" ; kill $NODE_AGENT_PID 2>/dev/null )
+	[ -z $(ps x| grep "nxagent" | cut -d" " -f1 | grep $NODE_AGENT_PID) ] && ( nxlog "$FUNCNAME: process list for 'nxagent' empty. end" ; return )
+	nxlog "$FUNCNAME: killing NODE_AGENT_PID. Try #2"
 	kill $NODE_AGENT_PID 2>/dev/null
 	nxlog "$FUNCNAME: end"
 }
@@ -205,14 +206,15 @@ node_terminate_session()
 	nxlog "$FUNCNAME: Start terminating session \"$1\" with status \"$2\""
 	# Kill nxagent
 	
-	nxlog "$FUNCNAME: kill nxagent"
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
 	
 	if [ -n "$NODE_AGENT_PID" ]
 	then
+		nxlog "$FUNCNAME: kill nxagent"
 		kill $NODE_AGENT_PID 2>/dev/null
 		if ! [ "$virtualdesktop" = "0" -a "$rootless" != "1" ]
 		then
+			nxlog "$FUNCNAME: force kill nxagent"
 			sleep 1
 			kill -0 $NODE_AGENT_PID 2>/dev/null && kill -9 $NODE_AGENT_PID 2>/dev/null
 		fi
@@ -220,9 +222,8 @@ node_terminate_session()
 
 	# Kill tail process
 	
-	nxlog "$FUNCNAME: kill tail process"
 	NODE_TAIL_PID=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail" 2>/dev/null)
-	[ -n "$NODE_TAIL_PID" ] && kill $NODE_TAIL_PID 2>/dev/null
+	[ -n "$NODE_TAIL_PID" ] && ( nxlog "$FUNCNAME: kill tail process" ; kill $NODE_TAIL_PID 2>/dev/null )
 
 	# JJK: Kill running services
 	# FF: Seems this is needed also here ...
