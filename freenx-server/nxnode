@@ -521,16 +521,6 @@ node_start_applications()
 	nxlog "$FUNCNAME: Waiting for NODE_APP_PID"
 	wait $NODE_APP_PID
 	nxlog "$FUNCNAME: NODE_APP_PID finished"
-	nxlog "$FUNCNAME: processing with NODE_APP_PID child before killing nxagent"
-	for child in `ps -o pid,ppid ax | awk "{ if ( \$2 == $NODE_APP_PID ) { print \$1 } }"` ; do
-		if [ "$KILL_NODE_APPLICATION_CHILD" = "1" ] ; then
-			nxlog "$FUNCNAME: killing app with pid \"$child\" because parent pid is \"$NODE_APP_PID\""
-			kill $child >/dev/null 2>&1
-		else
-			nxlog "$FUNCNAME: waiting for app with pid \"$child\" because parent pid is \"$NODE_APP_PID\""
-			wait $child
-		fi
-	done
 
 	#
 	# Kill or wait for the started window manager
@@ -546,6 +536,8 @@ node_start_applications()
 	fi
 	nxlog "$FUNCNAME: Clean pids/apps/$NODE_APP_PID"
 	rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/apps/$NODE_APP_PID"
+
+	sleep "$NODE_APP_WAIT_TIMEOUT"s
 
 	# Do not terminate agent in case of rootless agent mode.
 	# The agent times out after a while by itself anyway.

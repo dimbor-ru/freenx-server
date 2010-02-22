@@ -271,6 +271,7 @@ ENABLE_CUPS_SERVER_MODE="0"
 ENABLE_SHARE_MULTIMOUNT="0"
 SMB_MOUNT_OPTIONS=""
 NUMLOCKX="numlockx"
+NODE_APP_WAIT_TIMEOUT="5"
 
 ############################################################################
 # OS specific directives
