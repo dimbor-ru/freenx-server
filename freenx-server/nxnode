@@ -618,6 +618,17 @@ node_start_agent()
 	# Setup environment
 	#
 
+	if [ "$ENABLE_SOURCE_PROFILE" = "1" ] ; then
+	    nxlog "$FUNCNAME: source profile"
+	    . /etc/profile
+	fi
+
+	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ] ; then
+	    nxlog "$FUNCNAME: source bash profile"
+	    [ -f ~/.bash_profile ] && . ~/.bash_profile
+	    [ -f /etc/bashrc ] && . /etc/bashrc
+	fi
+
 	export DISPLAY="nx/nx,options=$USER_FAKE_HOME/.nx/C-$sess_id/options:$display"
 	export XAUTHORITY="$USER_FAKE_HOME/.nx/C-$sess_id/authority"
 	export HOME="$USER_FAKE_HOME"
