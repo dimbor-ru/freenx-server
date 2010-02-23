@@ -180,9 +180,12 @@ node_terminate_agent()
 	nxlog "$FUNCNAME: starting"
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
 	[ -n "$NODE_AGENT_PID" ] && ( nxlog "$FUNCNAME: killing NODE_AGENT_PID" ; kill $NODE_AGENT_PID 2>/dev/null )
-	[ -z $(ps x| grep "nxagent" | cut -d" " -f1 | grep $NODE_AGENT_PID) ] && ( nxlog "$FUNCNAME: process list for 'nxagent' empty. end" ; return )
-	nxlog "$FUNCNAME: killing NODE_AGENT_PID. Try #2"
-	kill $NODE_AGENT_PID 2>/dev/null
+	if [ -z $(ps x| grep "nxagent" | cut -d" " -f1 | grep $NODE_AGENT_PID) ] ; then
+		nxlog "$FUNCNAME: process list for 'nxagent' empty"
+	else
+		nxlog "$FUNCNAME: killing NODE_AGENT_PID. Try #2"
+		kill $NODE_AGENT_PID 2>/dev/null
+	fi
 	nxlog "$FUNCNAME: end"
 }
 
@@ -379,6 +382,8 @@ node_start_applications()
 	# Prepare application startup
 	#
 	
+	export DISPLAY=:$display
+
 	if [ "$ENABLE_SOURCE_PROFILE" = "1" ] ; then
 	    nxlog "$FUNCNAME: source profile"
 	    . /etc/profile
@@ -390,7 +395,6 @@ node_start_applications()
 	    [ -f /etc/bashrc ] && . /etc/bashrc
 	fi
 
-	export DISPLAY=:$display
 	nxlog "$FUNCNAME: DISPLAY is $display"
 	while [ -z "`xdpyinfo | head 2> /dev/null`" ]; do
 		sleep 2
@@ -753,6 +757,9 @@ node_start_agent()
 		fi
 		
 		# Start the agent
+		
+		nxlog "$FUNCNAME: env start `env`"
+		nxlog "$FUNCNAME: env end"
 		
 		nxlog "$FUNCNAME: Start nxagent by command: '$COMMAND_NXAGENT $P $R -name \"NX - $user@$SERVER_NAME:$display - $session (GPL Edition)\" -option \"$USER_FAKE_HOME/.nx/C-$sess_id/options\" $B $FP $AGENT_EXTRA_OPTIONS_X :$display'"
 		#PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
@@ -1215,6 +1222,7 @@ node_start_monitor_2_0_0()
 
 			if [ "$NODE_SUSPEND_STATUS" = "Running" ]
 			then
+				nxlog "$FUNCNAME: call 'node_suspend_session \"$sess_id\"'"
 				node_suspend_session "$sess_id"
 				NODE_SUSPEND_STATUS=""
 			else
