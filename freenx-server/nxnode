@@ -1764,13 +1764,15 @@ then
 else
 	nxlog "$FUNCNAME: call 'node_start_agent'"
 	node_start_agent &
-	while true ; do
+	for (( i=60; $i; --i )) ; do
 	    if [ -e "$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent" ] ; then
-		nxlog "$FUNCNAME: call 'node_start_applications'"
-		node_start_applications &
+		nxlog "$FUNCNAME: wait for nxagent pid'"
+		sleep 0.5s
 		break
 	    fi
 	done
+	nxlog "$FUNCNAME: call 'node_start_applications'"
+	node_start_applications &
 fi
 
 if which "$NODE_AUTOSTART" >/dev/null 2>&1
