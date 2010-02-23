@@ -362,6 +362,7 @@ _session_list_user_suspended()
 		export DESKTOP_SHARING_IDS=""
 		for i in $(LC_ALL=C netstat -ln --protocol=unix | egrep 'X11-unix/X[0-9]$' | sed 's/.*X\(.*\)/\1/g')
 		do
+	# '
 			uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM | cut -d" " -f1 | tr "[a-z]" "[A-Z]")
 			DESKTOP_SHARING_IDS="$DESKTOP_SHARING_IDS $uniqueid=$i"
 			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$uniqueid" "--------" "$udepth" "$(echo $3 | cut -d'x' -f1,2)" "Running" "X$i (Local)" >> $TMPFILE
