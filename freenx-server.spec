@@ -16,7 +16,7 @@ Source2: %name.outformat
 Source6: sudoers.conf
 Source8: terminate-suspend-nx.sh
 Source9: Xsession
-Source10: 100-altlinux.conf
+Source10: 99-altlinux.conf
 
 Obsoletes: freenx
 Provides: freenx = %version
@@ -82,6 +82,7 @@ install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf.sample
 install -m644 conf/conf.d/*.conf %buildroot%_datadir/%name/node.conf.d
+install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d
 %if %_vendor == "alt"
 install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf.d
 %else
@@ -113,9 +114,7 @@ fi
 %dir %_sysconfdir/nxserver
 %dir %_sysconfdir/nxserver/node.conf.d
 %config %_sysconfdir/nxserver/node.conf
-%if %_vendor == "alt"
 %config %_sysconfdir/nxserver/node.conf.d/*
-%endif
 %_sysconfdir/nxserver/node.conf.sample
 %config %_sysconfdir/logrotate.d/freenx-server
 %attr(0400,root,root) %config %_sysconfdir/sudo.d/nxserver
