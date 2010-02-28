@@ -326,6 +326,7 @@ node_find_application()
 		;;
 		unix-kde)
 			NODE_STARTX=$COMMAND_START_KDE
+			[ "$KDE4_ENABLE" = "1" -n "$COMMAND_START_KDE" ] && NODE_STARTX=$COMMAND_START_KDE4
 		;;
 		unix-gnome)
 			NODE_STARTX=$COMMAND_START_GNOME
