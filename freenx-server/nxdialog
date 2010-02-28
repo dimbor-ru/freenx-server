@@ -315,7 +315,7 @@ xdialog_printer_configure_driver()
 	$DIALOG --stdout --title "$DIALOG_CAPTION" --radiolist "$DIALOG_MESSAGE" 0 0 6 "${XDIALOG_LIST[@]}"
 }
 
-#JJK: dialog interface
+#JJK: dialog interface "
 # These are analogous to the Xdialog functions with a few subtle
 # syntax differences
 #
