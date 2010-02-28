@@ -80,7 +80,7 @@ export DISPLAY
 [ -x "/usr/NX/bin/nxclient" ] && NXCLIENT="/usr/NX/bin/nxclient"
 [ -z "$NXCLIENT" ] && NXCLIENT="/usr/NX/bin/nxclient"
 
-[ -x "$NXCLIENT" -a "$DIALOG_TYPE" != "printer" -a "$(file -bi $NXCLIENT)" != 'application/x-shellscript' ] \
+[ -x "$NXCLIENT" ] \
 	&& exec ${NXCLIENT} "${PARAMS[@]}"
 
 if [ -x "/usr/bin/xvt" ] ; then
