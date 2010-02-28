@@ -210,7 +210,7 @@ CMD=""
 CMD="$CMD $@"
 
 if [ $# -ge 1 ]; then
-	"$CMD"
+	$CMD
 else
 	# Try user defined action.
 	RunIfExecutable "$HOME/.xsession"
