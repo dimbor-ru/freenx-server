@@ -55,6 +55,7 @@ sed -i "s|\$NX_DIR/lib|%_libdir|g" nxloadconfig
 # nxredir nxsmb
 sed -i "s|/usr/lib|%_libdir|g" nxredir/nxredir
 sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
+sed -i "s|/usr/lib|%_libdir|g" %SOURCE10
 sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
 %build
