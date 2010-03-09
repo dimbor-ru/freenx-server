@@ -15,7 +15,6 @@ Source1: %name.init
 Source2: %name.outformat
 Source6: sudoers.conf
 Source8: terminate-suspend-nx.sh
-Source9: Xsession
 Source10: 99-altlinux.conf
 
 Obsoletes: freenx
