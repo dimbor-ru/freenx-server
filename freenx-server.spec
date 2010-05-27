@@ -74,7 +74,7 @@ for f in conf/conf.d/*.conf ; do
     cat $f >> node.conf
 done
 
-install -m755 rxsetup %_bindir
+install -m755 rxsetup %buildroot%_bindir
 install -Dp -m755 %SOURCE1 %buildroot%_initdir/%name
 install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
 install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession

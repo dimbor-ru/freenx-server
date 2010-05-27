@@ -11,7 +11,10 @@ echo 'SESSION_TTL=3600' > /etc/sysconfig/freenx-server
 echo 'COMMAND_START_KDE="`which startkde4 || env PATH=/usr/lib/kde4/bin:/usr/lib64/kde4/bin:$PATH which startkde`"' >> /etc/nxserver/node.conf
 
 for sshd in ssh sshd openssh opensshd; do
-	[ -e /etc/init.d/$sshd ] && service $sshd start
+	if [ -e /etc/init.d/$sshd ]; then
+		service $sshd start
+		chkconfig $sshd on
+	fi
 done
 
 nxsetup --setup-nomachine-key --install
