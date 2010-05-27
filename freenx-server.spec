@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt21
+Release: alt22
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -62,6 +62,7 @@ sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
 %install
 %makeinstall_std
+mkdir -p %buildroot%_bindir
 mkdir -p %buildroot%_var/lib/nxserver/home
 mkdir -p %buildroot%_var/lib/nxserver/db
 mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
@@ -73,6 +74,7 @@ for f in conf/conf.d/*.conf ; do
     cat $f >> node.conf
 done
 
+install -m755 %name/rxsetup %_bindir
 install -Dp -m755 %SOURCE1 %buildroot%_initdir/%name
 install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
 install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession
@@ -113,16 +115,16 @@ fi
 %doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample nx-session-launcher/README.suid
 %dir %_sysconfdir/nxserver
 %dir %_sysconfdir/nxserver/node.conf.d
-%config %_sysconfdir/nxserver/node.conf
-%config %_sysconfdir/nxserver/node.conf.d/*
+%config(noreplace) %_sysconfdir/nxserver/node.conf
+%config(noreplace) %_sysconfdir/nxserver/node.conf.d/*
 %_sysconfdir/nxserver/node.conf.sample
-%config %_sysconfdir/logrotate.d/freenx-server
+%config(noreplace) %_sysconfdir/logrotate.d/freenx-server
 %attr(0400,root,root) %config %_sysconfdir/sudo.d/nxserver
-%config %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
-%config %_sysconfdir/nxserver/Xkbmap
+%config(noreplace) %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
+%config(noreplace) %_sysconfdir/nxserver/Xkbmap
 %_sysconfdir/nxserver/fixkeyboard
 %_sysconfdir/nxserver/Xsession
-%config %_sysconfdir/sysconfig/%name
+%config(noreplace) %_sysconfdir/sysconfig/%name
 %_sysconfdir/cron.hourly/terminate-suspend-nx.sh
 %_initdir/%name
 %if %_vendor == "alt"
@@ -131,6 +133,7 @@ fi
 %endif
 %attr(4711,nx,root) %_bindir/nx-session-launcher-suid
 %_bindir/nx*
+%_bindir/rxsetup
 %dir %_libdir/%name
 %attr(755,root,root) %_libdir/%name/libnxredir.so.0
 %cups_root/cups/backend/nx*
@@ -139,6 +142,10 @@ fi
 %_datadir/%name
 
 %changelog
+* Thu May 27 2010 Devaev Maxim <mdevaev@etersoft.ru> 0.7.4-alt22
+- Added rxsetup script
+- Fixed config replacement
+
 * Sun Feb 14 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt21
 - move default config set to %_datadir/%name/node.conf.d.
   All values must be override from /etc/nxserver/node.conf
