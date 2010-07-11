@@ -298,8 +298,8 @@ node_suspend_session()
 	if [ -n "$NODE_AGENT_PID" ]
 	then
 		nxlog "$FUNCNAME: NODE_AGENT_PID=\"$NODE_AGENT_PID\". Killing..."
-		kill -0 $NODE_AGENT_PID || ( nxlog "$FUNCNAME: end" ; return 1 )
-		kill -HUP $NODE_AGENT_PID && ( nxlog "$FUNCNAME: end" ; return 0 )
+		kill -0 $NODE_AGENT_PID || { nxlog "$FUNCNAME: end" ; return 1; }
+		kill -HUP $NODE_AGENT_PID && { nxlog "$FUNCNAME: end" ; return 0; }
 	else
 		nxlog "$FUNCNAME: NODE_AGENT_PID is empty"
 		nxlog "$FUNCNAME: end"
