@@ -164,14 +164,6 @@ fi
 
 export HELP_BROWSER="$BROWSER"
 
-# Source shell scripts from system /etc/X11/profile.d/
-for f in /etc/X11/profile.d/*.sh; do
-	# Don't run *.rpm* and *~ scripts
-	[ "${f%.rpm*}" = "$f" -a "${f%\~}" = "$f" ] || continue
-
-	SourceIfNotEmpty "$f" "$@"
-done
-
 # Source shell scripts from user ~/.xprofile
 SourceIfNotEmpty "$HOME"/.xprofile "$@"
 
