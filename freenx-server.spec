@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt21
+Release: alt22
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -139,6 +139,10 @@ fi
 %_datadir/%name
 
 %changelog
+* Sun Jul 11 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt22
+- fix restore session after suspend (eterbug #5704)
+- do not source /etc/X11/profile.d/* in freenx Xsession
+
 * Sun Feb 14 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt21
 - move default config set to %_datadir/%name/node.conf.d.
   All values must be override from /etc/nxserver/node.conf
