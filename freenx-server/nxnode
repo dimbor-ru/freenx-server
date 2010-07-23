@@ -457,9 +457,18 @@ node_start_applications()
 	fi
 
 	CUPS_SERVER_SOCKET="$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock"
-	[ "$cups" = "1" -a "$ENABLE_CUPS_SERVER_EXPORT" = "1" ] && ( nxlog "$FUNCNAME: export CUPS_SERVER=$CUPS_SERVER_SOCKET" ; export CUPS_SERVER="$CUPS_SERVER_SOCKET" )
-	[ "$samba" = "1" -a "$ENABLE_CUPS_SERVER_EXPORT" = "1" ] && [ -d "$USER_FAKE_HOME/.nx/C-$sess_id/cups" ] && ( nxlog "$FUNCNAME: export CUPS_SERVER=$CUPS_SERVER_SOCKET" ; export CUPS_SERVER="$CUPS_SERVER_SOCKET" )
-	
+	if [ "$ENABLE_CUPS_SERVER_EXPORT" = "1" ] ; then
+		if [ "$cups" = "1" ] ; then
+			nxlog "$FUNCNAME: export CUPS_SERVER=$CUPS_SERVER_SOCKET"
+			export CUPS_SERVER="$CUPS_SERVER_SOCKET"
+		fi
+		if [ "$samba" = "1" ] && [ -d "$USER_FAKE_HOME/.nx/C-$sess_id/cups" ] 
+		then 
+			nxlog "$FUNCNAME: export CUPS_SERVER=$CUPS_SERVER_SOCKET"
+			export CUPS_SERVER="$CUPS_SERVER_SOCKET"
+		fi
+	fi
+
 	if [ "$ENABLE_SAMBA_PRELOAD" = "1" -a -x "$PATH_BIN/nxredir" ]
 	then
 		let NXSAMBA_PORT=$display+3000
