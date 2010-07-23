@@ -1,5 +1,6 @@
 %define cups_root %_prefix/lib
-Name: freenx-server
+%define oname freenx-server
+Name: rx-etersoft
 Version: 0.7.4
 Release: alt23
 
@@ -10,15 +11,18 @@ Url: http://freenx.berlios.de
 
 Packager: Boris Savelev <boris@altlinux.org>
 
-Source: ftp://updates.etersoft.ru/pub/Etersoft/RX@Etersoft/unstable/sources/tarball/%name-%version.tar.bz2
-Source1: %name.init
-Source2: %name.outformat
+Source: ftp://updates.etersoft.ru/pub/Etersoft/RX@Etersoft/unstable/sources/tarball/%oname-%version.tar.bz2
+Source1: %oname.init
+Source2: %oname.outformat
 Source6: sudoers.conf
 Source8: terminate-suspend-nx.sh
 Source10: 99-altlinux.conf
 
 Obsoletes: freenx
 Provides: freenx = %version
+
+Obsoletes: %oname
+Provides: %oname = %version
 
 Requires: nx
 Requires: openssl
@@ -43,7 +47,7 @@ or anything better. This package contains a free (GPL) implementation
 of the nxserver component.
 
 %prep
-%setup
+%setup -n %oname-%version
 # wrong install path
 sed -i "s|/usr/lib|%_libdir|g" nxredir/Makefile
 sed -i "s|%_libdir/cups|%cups_root/cups|g" Makefile
@@ -66,7 +70,7 @@ mkdir -p %buildroot%_bindir
 mkdir -p %buildroot%_var/lib/nxserver/home
 mkdir -p %buildroot%_var/lib/nxserver/db
 mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
-mkdir -p %buildroot%_datadir/%name/node.conf.d
+mkdir -p %buildroot%_datadir/%oname/node.conf.d
 mkdir -p %buildroot%_sysconfdir/sysconfig
 
 cat conf/node.conf > node.conf
@@ -75,7 +79,7 @@ for f in conf/conf.d/*.conf ; do
 done
 
 install -m755 rxsetup %buildroot%_bindir
-install -Dp -m755 %SOURCE1 %buildroot%_initdir/%name
+install -Dp -m755 %SOURCE1 %buildroot%_initdir/%oname
 install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
 install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession
 install -Dp -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver/Xkbmap
@@ -83,7 +87,7 @@ install -Dp -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf.sample
-install -m644 conf/conf.d/*.conf %buildroot%_datadir/%name/node.conf.d
+install -m644 conf/conf.d/*.conf %buildroot%_datadir/%oname/node.conf.d
 install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d
 %if %_vendor == "alt"
 install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf.d
@@ -95,7 +99,7 @@ install -Dp -m644 data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-serve
 install -Dp -m644 nx-session-launcher/ConsoleKit-NX.conf %buildroot%_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
 mv nx-session-launcher/README nx-session-launcher/README.suid
 
-cat >> %buildroot%_sysconfdir/sysconfig/%name << EOF
+cat >> %buildroot%_sysconfdir/sysconfig/%oname << EOF
 #Time to live SUSPENDED freenx session in seconds for cron task.
 #If not set default value is 3600.
 #Cron task enable if value greater than 0.
@@ -124,22 +128,22 @@ fi
 %config(noreplace) %_sysconfdir/nxserver/Xkbmap
 %_sysconfdir/nxserver/fixkeyboard
 %_sysconfdir/nxserver/Xsession
-%config(noreplace) %_sysconfdir/sysconfig/%name
+%config(noreplace) %_sysconfdir/sysconfig/%oname
 %_sysconfdir/cron.hourly/terminate-suspend-nx.sh
-%_initdir/%name
+%_initdir/%oname
 %if %_vendor == "alt"
 %else
-%_initdir/%name.outformat
+%_initdir/%oname.outformat
 %endif
 %attr(4711,nx,root) %_bindir/nx-session-launcher-suid
 %_bindir/nx*
 %_bindir/rxsetup
-%dir %_libdir/%name
-%attr(755,root,root) %_libdir/%name/libnxredir.so.0
+%dir %_libdir/%oname
+%attr(755,root,root) %_libdir/%oname/libnxredir.so.0
 %cups_root/cups/backend/nx*
 %attr(2750,nx,nx) %_var/lib/nxserver/home
 %attr(2750,root,nx) %_var/lib/nxserver/db
-%_datadir/%name
+%_datadir/%oname
 
 %changelog
 * Mon Jul 12 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt23
