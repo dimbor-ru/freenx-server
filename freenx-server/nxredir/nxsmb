@@ -8,8 +8,8 @@
 
 # turn on DEBUG?
 #set -x -v
-CUPS_BACKEND="/usr/lib/cups/backend/"
-PATH_LIB="/usr/lib/"
+CUPS_BACKEND="/usr/lib/cups/backend"
+PATH_LIB="/usr/lib"
 
 NXREDIR_LIBRARY="$PATH_LIB/freenx-server/libnxredir.so.0"
 COMMAND_SMB="$CUPS_BACKEND/smb"

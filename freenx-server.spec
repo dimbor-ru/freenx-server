@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt22
+Release: alt23
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -142,9 +142,14 @@ fi
 %_datadir/%name
 
 %changelog
-* Thu May 27 2010 Devaev Maxim <mdevaev@etersoft.ru> 0.7.4-alt22
+* Mon Jul 12 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt23
+- fix double slashes in nxsmb and nxredir (thx to dimbor)
+
+* Sun Jul 11 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt22
 - Added rxsetup script
 - Fixed config replacement
+- fix restore session after suspend (eterbug #5704)
+- do not source /etc/X11/profile.d/* in freenx Xsession
 
 * Sun Feb 14 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt21
 - move default config set to %_datadir/%name/node.conf.d.
