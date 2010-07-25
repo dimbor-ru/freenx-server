@@ -40,6 +40,7 @@ else
 fi
 
 DEVICE_URI=$(echo $DEVICE_URI | sed "s|:$PORT/$PROTOCOL/|:$REAL_PORT/|g")
+export DEVICE_URI=$(echo $DEVICE_URI | sed "s|nxsmb://|smb://|g")
 
 export NXSAMBA_PORT="$PORT"
 export LD_PRELOAD="$NXREDIR_LIBRARY${LD_PRELOAD:+:$LD_PRELOAD}"
