@@ -115,6 +115,7 @@ if [ "$NX_LOG_LEVEL" -ge 6 ] ; then
 		fi
 	fi
 fi
+return 0
 }
 
 if [ -n "$CMDLINE" ] ; then
