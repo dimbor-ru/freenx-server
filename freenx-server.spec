@@ -1,7 +1,7 @@
 %define cups_root %_prefix/lib
 Name: freenx-server
 Version: 0.7.4
-Release: alt23
+Release: alt24
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -139,6 +139,10 @@ fi
 %_datadir/%name
 
 %changelog
+* Sun Jul 25 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt24
+- fix printer forwarding (thx to dimbor and unixforum)
+- nxlog now always return '0'
+
 * Mon Jul 12 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt23
 - fix double slashes in nxsmb and nxredir (thx to dimbor)
 
