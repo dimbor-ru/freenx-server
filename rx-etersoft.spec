@@ -1,15 +1,15 @@
 %define cups_root %_prefix/lib
 %define oname freenx-server
 Name: rx-etersoft
-Version: 0.7.4
-Release: alt24
+Version: 1.1.1
+Release: alt1
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
 License: GPLv2
-Url: http://freenx.berlios.de
+Url: http://wiki.etersoft.ru/RX
 
-Packager: Boris Savelev <boris@altlinux.org>
+Packager: Denis Baranov <baraka@altlinux.org>
 
 Source: ftp://updates.etersoft.ru/pub/Etersoft/RX@Etersoft/unstable/sources/tarball/%oname-%version.tar.bz2
 Source1: %oname.init
