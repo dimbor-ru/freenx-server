@@ -115,6 +115,7 @@ if [ "$NX_LOG_LEVEL" -ge 6 ] ; then
 		fi
 	fi
 fi
+return 0
 }
 
 if [ -n "$CMDLINE" ] ; then
@@ -468,7 +469,6 @@ node_start_applications()
 			export CUPS_SERVER="$CUPS_SERVER_SOCKET"
 		fi
 	fi
-
 	if [ "$ENABLE_SAMBA_PRELOAD" = "1" -a -x "$PATH_BIN/nxredir" ]
 	then
 		let NXSAMBA_PORT=$display+3000
