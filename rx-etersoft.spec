@@ -146,6 +146,9 @@ fi
 %_datadir/%oname
 
 %changelog
+* Mon Jul 26 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt1
+- release RX@Etersoft 1.1.1
+
 * Sun Jul 25 2010 Boris Savelev <boris@altlinux.org> 0.7.4-alt24
 - fix printer forwarding (thx to dimbor and unixforum)
 - nxlog now always return '0'
