@@ -89,13 +89,17 @@ else
     xterm_command=`which xterm`
 fi
 
-# FIXME: This should be COMMAND_XDIALOG, ...
-if [ -x /usr/bin/Xdialog ] 
+if [ -x /usr/bin/zenity ]
 then
+    dialog_interface="zenity"
+    DIALOG=/usr/bin/zenity
+# FIXME: This should be COMMAND_XDIALOG, ...
+elif [ -x /usr/bin/Xdialog ]
+    then
 	dialog_interface="xdialog"
 	DIALOG=/usr/bin/Xdialog # just in case that we have no good path
-elif [ -x /usr/bin/dialog ]
-then
+    elif [ -x /usr/bin/dialog ]
+    then
 	#JJK: Added 'dialog_interface=dialog' option because Xdialog not standard
 	#JJK: on some distros such as Fedora and xmessage won't handle long
 	#JJK: lists of ppd files while the combination of 'dialog' and 'xterm'
@@ -117,7 +121,7 @@ then
 		rm -f $TMPFILE
 		exit 0
 	fi
-else
+    else
 	dialog_interface="xmessage"
 	xmessage=$(which xmessage 2>/dev/null)
 	[ -z "$xmessage" ] && xmessage="/usr/X11R6/bin/xmessage"
@@ -255,6 +259,73 @@ xmessage_printer_configure_driver()
 }
 
 #
+# zenity interface
+#
+
+zenity_ok()
+{
+	$DIALOG --info --title=$DIALOG_CAPTION --text=$DIALOG_MESSAGE
+	return 0 # Give cancel on close ...
+}
+
+zenity_yesno()
+{
+	$DIALOG --question --title=$DIALOG_CAPTION --text="$DIALOG_MESSAGE"
+	RC=$?
+	[ $RC -eq 0 ] && return 2
+	[ $RC -eq 1 ] && return 0
+}
+
+zenity_yesnosuspend()
+{
+	$DIALOG --question --no-wrap --title="$DIALOG_CAPTION" --ok-label="Suspend" --cancel-label="Terminate" --text="$DIALOG_MESSAGE Close this dialog to cancel."
+	RC=$?
+	[ $RC -eq 0 ] && return 3
+	[ $RC -eq 1 ] && return 2
+}
+
+zenity_panic()
+{
+	$DIALOG --question --no-wrap --title="$DIALOG_CAPTION" --ok-label="Terminate" --cancel-label="Cancel" --text="$DIALOG_MESSAGE"
+	RC=$?
+	[ $RC -eq 0 ] && return 2
+	[ $RC -eq 1 ] && return 0
+}
+
+zenity_quit()
+{
+        $DIALOG --info --title="$DIALOG_CAPTION" --text="$DIALOG_MESSAGE"
+        return 0 # Give cancel on close ...
+}
+
+zenity_printer_ask()
+{
+	$DIALOG --question --title="$DIALOG_CAPTION" --ok-label="Ok" --cancel-label="Configure" --text="$DIALOG_MESSAGE\n\nClose this dialog to cancel."
+	RC=$?
+	[ $RC -eq 255 ] && return 2
+	return $RC
+}
+
+zenity_printer_configure_vendor()
+{
+	IFS='|' VENDOR_LIST=( $(utility_printer getvendlist))
+	unset IFS
+	for el in $(seq 0 $(( ${#VENDOR_LIST[@]} -1 )) )
+	do
+	    z+=" $el"
+	    z+=" ${VENDOR_LIST[$el]/ /_}"
+	done
+	$DIALOG --list  --title="$DIALOG_CAPTION" --text="$DIALOG_MESSAGE" --radiolist --column="" --column="" $z
+}
+
+# zenity_printer_configure_driver vendor old_driver
+zenity_printer_configure_driver()
+{
+	IFS='|' XDIALOG_LIST=( $(utility_printer getextdrvlist "$1" | sed 's,^,FALSE ,g; /'"$(basename $2)"'/ s,FALSE ,TRUE ,g' | tr '\n' '|' | sed 's/ /./g' | sed 's/TRUE./TRUE /g' ) )
+	$DIALOG --list --radiolist --title="$DIALOG_CAPTION" --text="$DIALOG_MESSAGE" --column="" --column="" ${XDIALOG_LIST[@]}
+}
+
+#"
 # xdialog interface
 #
 
