@@ -29,6 +29,7 @@ Requires: openssl
 Requires: netcat
 Requires: expect
 Requires: foomatic-db-engine
+Requires: zenity
 %if %_vendor == "alt"
 Requires: dbus-tools-gui
 Requires: binutils
@@ -148,6 +149,7 @@ fi
 %changelog
 * Fri Jul 30 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt2
 - add support zenity for dialog interface
+- add requires zenity
 
 * Mon Jul 26 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt1
 - release RX@Etersoft 1.1.1
