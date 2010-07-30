@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt1
+Release: alt2
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -146,6 +146,9 @@ fi
 %_datadir/%oname
 
 %changelog
+* Fri Jul 30 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt2
+- add support zenity for dialog interface
+
 * Mon Jul 26 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt1
 - release RX@Etersoft 1.1.1
 
