@@ -1121,7 +1121,7 @@ node_umount_smb()
     CMD_PRE=""; smbport=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport" 2>/dev/null)
 
     if [ "$smbport" = "445" ] ; then
-	COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
+	COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS; COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS;
 	if [ -n "$($COMMAND_SMBMOUNT 2>&1 | grep "setuid root program disabled")" ] ; then
 	    # mount.cifs samba bug detected (http://bugs.etersoft.ru/show_bug.cgi?id=5824),
 	    # try with sudo (this need to tune sudoers or sudo.d/nxserver)
