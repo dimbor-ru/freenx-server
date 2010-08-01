@@ -135,6 +135,28 @@ fi
 # -----------------------------------------------------------------------------
 #
 
+norm_param()
+# arg: string
+# dimbor: normalize string from hex (thnx 2Civil at unixforum.org) and convert
+# charset if needed
+{
+    nxlog "$FUNCNAME ($$): starting with args \"$@\""
+    res="$(echo "$1" | $COMMAND_PERL -pe 's/%([A-Fa-f0-9]{2})/pack('C',hex($1))/seg;')"
+    nxlog "$FUNCNAME ($$): after normalize res == \"$res\""
+    #nxlog "$FUNCNAME ($$): WIN_CP_CONVERT_CHAIN== \"$WIN_CP_CONVERT_CHAIN\""
+    for cp_pair in $WIN_CP_CONVERT_CHAIN ; do
+	cp_from="$(echo "$cp_pair" | cut -d\> -f1)"
+        [ -n "$cp_from" ] || cp_from="UTF-8"
+	cp_to="$(echo "$cp_pair" | cut -d\> -f2)"
+	[ -n "$cp_to" ] || cp_to="UTF-8"
+	res="$(echo "$res" | iconv -f $cp_from -t $cp_to)"
+	#nxlog "$FUNCNAME ($$): converting $cp_from > $cp_to == \"$res\""
+    done
+    nxlog "$FUNCNAME ($$): return res === \"$res\""
+    echo $res
+}
+
+
 #
 # dimbor: functions to control user's shares and printers in mode "per user"
 # instead of "per session".
@@ -1868,7 +1890,14 @@ cmd_node_smbmount()
 	share=$(getparam share)
 	computername=$(getparam computername)
 	dir=$(getparam dir | sed 's|$(SHARES)|MyShares|g')
-	# chg by dimbor'
+
+	# normalize '
+	username=$(norm_param $username)
+    	password=$(norm_param $password)
+	share=$(norm_param $share)
+	dir=$(norm_param $dir)
+	computername=$(norm_param $computername)
+
 	[ -n "$(echo "$dir" | grep MyShares)" ] && dir="$HOME/$dir"
 	mkdir -p "$dir"
 	[ ! -e "$dir" ] && echo "$DELIM 500 Error: Unable to create $dir" && exit 1
@@ -1961,11 +1990,12 @@ cmd_node_addprinter()
 	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | awk 'BEGIN {FS="-"} {i=NF-1; print $i}') 
 	sess_id="$SERVER_NAME-$display-$sessionid"
 
-	# dimbor: norm
-	if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]
-	then
-	    share="$(echo "$share" | sed 's/%23/\#/' | sed 's/%40/\@/')"
-	fi
+	# normalize
+	username=$(norm_param $username)
+    	password=$(norm_param $password)
+	share=$(norm_param $share)
+	computername=$(norm_param $computername)
+	
 	# this will also setup the userspace cupsd
 	export CUPS_SERVER=$(node_cupsd_get_socket)
 	
