@@ -7,14 +7,14 @@
 #
 #####
 
-passwd -u -f nx
+passwd -u nx
 echo 'SESSION_TTL=3600' > /etc/sysconfig/freenx-server
 echo 'COMMAND_START_KDE="`which startkde4 || env PATH=/usr/lib/kde4/bin:/usr/lib64/kde4/bin:$PATH which startkde`"' >> /etc/nxserver/node.conf
 
 for sshd in ssh sshd openssh opensshd; do
 	if [ -e /etc/init.d/$sshd ]; then
-		service $sshd start
-		chkconfig $sshd on
+		/etc/init.d/$sshd start
+		chkconfig $sshd on || update-rc.d $sshd defaults
 	fi
 done
 
@@ -23,6 +23,7 @@ chmod 755 /usr/sbin/cupsd
 chmod 711 /usr/lib/cups/backend/ipp
 
 nxsetup --setup-nomachine-key --install
-chkconfig freenx-server on
-service freenx-server start
+
+chkconfig freenx-server on || update-rc.d freenx-server defaults
+/etc/init.d/freenx-server start
 
