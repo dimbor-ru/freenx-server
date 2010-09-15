@@ -35,7 +35,6 @@ Requires: dbus-tools-gui
 Requires: binutils
 Requires: Xdialog
 Requires: /usr/bin/xvt
-Requires: schedutils
 %endif
 BuildPreReq: rpm-build-compat
 BuildRequires: imake xorg-cf-files gccmakedep
