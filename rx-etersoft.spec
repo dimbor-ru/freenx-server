@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt3
+Release: alt4
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -36,7 +36,7 @@ Requires: binutils
 Requires: Xdialog
 Requires: /usr/bin/xvt
 %endif
-BuildPreReq: rpm-build-compat
+BuildPreReq: rpm-build-intro
 BuildRequires: imake xorg-cf-files gccmakedep
 
 %description
@@ -146,6 +146,9 @@ fi
 %_datadir/%oname
 
 %changelog
+* Thu Oct 07 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt4
+- fix build requeries
+
 * Fri Oct 01 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt3
 - fix requeries
 
