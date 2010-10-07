@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt4
+Release: alt5
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -146,6 +146,10 @@ fi
 %_datadir/%oname
 
 %changelog
+* Thu Oct 07 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt5
+- change COMMAND_MD5SUM on md5sum
+- add in config default DPI=96 (eterbug#6112)
+
 * Thu Oct 07 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt4
 - fix build requeries
 
