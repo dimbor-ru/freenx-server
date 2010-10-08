@@ -204,13 +204,13 @@ check_remote_printer()
     CMDSTR="/usr/bin/rpcclient -U $upass -c 'openprinter $1' -p $dport -I 127.0.0.1 127.0.0.1"
     nxlog "$FUNCNAME ($$): invoke command \"$CMDSTR\""
     res=""; numa="0"; ret="0"
-    while [ -z "$res" -o "$ret" = "1" ] ; do 
+    while [ "$ret" = "0" ] ; do
     # addprinter and addmount try to use one mport at the same time, we need to endure ;)
 	(( numa++ ))
 	res="$(NXSAMBA_PORT=$2 LD_PRELOAD=$NXREDIR_LIBRARY eval $CMDSTR)"
 	nxlog "$FUNCNAME ($$): on attempt $numa says \"$res\""
-	[ -n "$(echo "$res" | grep "NT_STATUS_END_OF_FILE")" ] && ret="1" || \
-	    [ -n "$(echo "$res" | grep "DOS code")" ] && ret="1" || ret="0"
+	[ -n "$(echo "$res" | grep successfully)" ] && { ret="1"; continue; }
+	[ "$numa" -gt 4 ] && ret="1" && res="timeout"
     done
     [ -n "$(echo $res | grep successfully)" ] && res=0 || res=1
     nxlog "$FUNCNAME ($$): end with res = $res"
@@ -2115,8 +2115,8 @@ cmd_node_addprinter()
 		DRV="$(echo "$NAME" | awk 'BEGIN {FS="__"} {i=NF; print $i}')"
 	    elif [ -z "$PRE" ] ; then
 		drvs="$(/usr/bin/sudo /usr/bin/foomatic-configure -X -p "$ID" -q)"
-		[ $? -ne 0 ] && { nxlog "$FUNCNAME ($$): FAILED getting list of drivers from foomatic db. Printer not installed."; return 1; }
-		DRV="$(/usr/bin/sudo /usr/bin/foomatic-configure -X -p "$ID" -q | grep "<driver>" | head -1 | cut -d">" -f2 | cut -d"<" -f1)"
+		[ $? -ne 0 ] && { nxlog "$FUNCNAME ($$): FAILED getting list of drivers from foomatic db for printer id \"$ID\". Printer not installed."; return 1; }
+		DRV="$(echo "$drvs" | grep "<driver>" | head -1 | cut -d">" -f2 | cut -d"<" -f1)"
 		[ -z "$DRV" ] && { nxlog "$FUNCNAME ($$): Driver for printer id \"$ID\" NOT FOUND in foomatic db. Printer not installed."; return 1; }
 	    fi
 	    if [ -z "$PRE" ] ; then
