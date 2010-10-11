@@ -73,7 +73,7 @@ mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
 mkdir -p %buildroot%_datadir/%oname/node.conf.d
 mkdir -p %buildroot%_sysconfdir/sysconfig
 
-cat conf/node.conf > node.conf
+echo "See /etc/nxserver/node.conf.d/*.conf" > node.conf
 #for f in conf/conf.d/*.conf ; do
 #    cat $f >> node.conf
 #done
