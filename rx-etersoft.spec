@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt5
+Release: alt6
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -146,6 +146,10 @@ fi
 %_datadir/%oname
 
 %changelog
+* Mon Oct 11 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt6
+- add autodetect KDE4 by default in conf
+- clean node.conf, all values must be override from /etc/nxserver/node.conf.d/*.conf
+
 * Thu Oct 07 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt5
 - change COMMAND_MD5SUM on md5sum
 - add in config default DPI=96 (eterbug#6112)
