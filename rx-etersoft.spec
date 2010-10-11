@@ -74,9 +74,9 @@ mkdir -p %buildroot%_datadir/%oname/node.conf.d
 mkdir -p %buildroot%_sysconfdir/sysconfig
 
 cat conf/node.conf > node.conf
-for f in conf/conf.d/*.conf ; do
-    cat $f >> node.conf
-done
+#for f in conf/conf.d/*.conf ; do
+#    cat $f >> node.conf
+#done
 
 install -m755 rxsetup %buildroot%_bindir
 install -Dp -m755 %SOURCE1 %buildroot%_initdir/%oname
