@@ -73,10 +73,7 @@ mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
 mkdir -p %buildroot%_datadir/%oname/node.conf.d
 mkdir -p %buildroot%_sysconfdir/sysconfig
 
-echo "See /etc/nxserver/node.conf.d/*.conf" > node.conf
-#for f in conf/conf.d/*.conf ; do
-#    cat $f >> node.conf
-#done
+echo "# See /etc/nxserver/node.conf.d/*.conf" > node.conf
 
 install -m755 rxsetup %buildroot%_bindir
 install -Dp -m755 %SOURCE1 %buildroot%_initdir/%oname
@@ -86,7 +83,6 @@ install -Dp -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver/Xkbmap
 install -Dp -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf
-install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf.sample
 install -m644 conf/conf.d/*.conf %buildroot%_datadir/%oname/node.conf.d
 install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d
 %if %_vendor == "alt"
