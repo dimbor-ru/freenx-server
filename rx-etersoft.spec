@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt6
+Release: alt7
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -142,6 +142,9 @@ fi
 %_datadir/%oname
 
 %changelog
+* Tue Oct 12 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt7
+- load config files from node.conf.d/ only *.conf
+
 * Mon Oct 11 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt6
 - add autodetect KDE4 by default in conf
 - clean node.conf, all values must be override from /etc/nxserver/node.conf.d/*.conf
