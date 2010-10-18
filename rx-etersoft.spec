@@ -70,6 +70,7 @@ mkdir -p %buildroot%_bindir
 mkdir -p %buildroot%_var/lib/nxserver/home
 mkdir -p %buildroot%_var/lib/nxserver/db
 mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
+mkdir -p %buildroot%_sysconfdir/nxserver/acls
 mkdir -p %buildroot%_datadir/%oname/node.conf.d
 mkdir -p %buildroot%_sysconfdir/sysconfig
 
@@ -85,6 +86,7 @@ install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf
 install -m644 conf/conf.d/*.conf %buildroot%_datadir/%oname/node.conf.d
 install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m644 conf/acls/* %buildroot%_sysconfdir/nxserver/acls
 %if %_vendor == "alt"
 install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf.d
 %else
@@ -117,6 +119,7 @@ fi
 %dir %_sysconfdir/nxserver/node.conf.d
 %config(noreplace) %_sysconfdir/nxserver/node.conf
 %config(noreplace) %_sysconfdir/nxserver/node.conf.d/*
+%config(noreplace) %_sysconfdir/nxserver/acls/*
 %_sysconfdir/nxserver/node.conf.sample
 %config(noreplace) %_sysconfdir/logrotate.d/freenx-server
 %attr(0400,root,root) %config %_sysconfdir/sudo.d/nxserver
@@ -142,6 +145,9 @@ fi
 %_datadir/%oname
 
 %changelog
+* Mon Oct 18 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt8
+- add ACLS check by dimbor
+
 * Tue Oct 12 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt7
 - load config files from node.conf.d/ only *.conf
 

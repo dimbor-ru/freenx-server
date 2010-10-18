@@ -402,6 +402,12 @@ node_find_application()
 		;;
 	esac
 
+	# dimbor: another personalyzed way to ACLS control and replace X-application
+	[ -d "$NX_ACL_DIR" -a -x "$PATH_BIN/nxacl.app" ] && {
+	    nxlog "$FUNCNAME ($$): !!! call nxacl.app with source NODE_STARTX=\"$NODE_STARTX\""
+	    NODE_STARTX="$($PATH_BIN/nxacl.app "$NODE_STARTX" "$CMDLINE")"
+	}
+
 	nxlog "$FUNCNAME ($$): return NODE_STARTX=\"$NODE_STARTX\""
 	echo "$NODE_STARTX"
 	nxlog "$FUNCNAME ($$): end"
