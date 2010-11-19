@@ -7,21 +7,57 @@
 #
 #####
 
-passwd -u nx
+unlock_nx_user()
+{
+        passwd -u nx
+}
 
-for sshd in ssh sshd openssh opensshd; do
-	if [ -e /etc/init.d/$sshd ]; then
-		/etc/init.d/$sshd start
-		chkconfig $sshd on || update-rc.d $sshd defaults
-	fi
-done
+start_sshd()
+{
+        for sshd in ssh sshd openssh opensshd; do
+                if [ -e /etc/init.d/$sshd ]; then
+                        /etc/init.d/$sshd start
+                        RETVAL="$?"
+                        chkconfig $sshd on || update-rc.d $sshd defaults
+                fi
+        done
 
-#configure for printing
-chmod 755 /usr/sbin/cupsd
-chmod 711 /usr/lib/cups/backend/ipp
+        return "$RETVAL"
+}
 
-nxsetup --setup-nomachine-key --install
+enable_cupsd()
+{
+        chmod 755 /usr/sbin/cupsd && \
+        chmod 711 /usr/lib/cups/backend/ipp
+}
 
-chkconfig freenx-server on || update-rc.d freenx-server defaults
-/etc/init.d/freenx-server start
+nx_install()
+{
+        nxsetup --setup-nomachine-key --install
+}
+
+start_freenx_server()
+{
+        chkconfig freenx-server on || update-rc.d freenx-server defaults
+        /etc/init.d/freenx-server start
+}
+
+rxsetup_stages()
+{
+        unlock_nx_user &>rxsetup.log && \
+        start_sshd >>rxsetup.log 2>&1 && \
+        enable_cupsd >>rxsetup.log 2>&1 && \
+        nx_install >>rxsetup.log 2>&1 && \
+        start_freenx_server >>rxsetup.log 2>&1
+        if [ "$?" -ne 0 ]; then
+                echo "Configuration error, see rxsetup.log for details"
+                exit 1
+        else
+                echo "Complete. Now, you may use nxclient for connection to this server"
+        fi
+}
+
+
+##### Main #####
+rxsetup_stages
 
