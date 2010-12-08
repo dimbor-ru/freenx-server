@@ -2254,22 +2254,10 @@ case "$1" in
 		cmd_node_suspend
 	;;
 	--smbmount)
-	   if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ] ; then
 		cmd_node_smbmount
-	   else # original behaviour
-		if [ "$SHARE_FAST_MOUNT" = "1" ] ; then 
-			cmd_node_smbmount &>/dev/null </dev/null
-		else 
-			cmd_node_smbmount &>/dev/null </dev/null &
-		fi
-	   fi
 	;;
 	--addprinter)
-    		if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ] ; then
-            	    cmd_node_addprinter 
-                else # original behaviour
-    	            cmd_node_addprinter &>/dev/null </dev/null &
-        	fi
+        	cmd_node_addprinter
 	;;
 	--check)
 		echo "NX> 716 finished"
