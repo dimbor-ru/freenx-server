@@ -140,10 +140,15 @@ norm_param()
 # dimbor: normalize string from hex (thnx 2Civil at unixforum.org) and convert
 # charset if needed
 {
-    nxlog "$FUNCNAME ($$): starting with args \"$@\""
+    #nxlog "$FUNCNAME ($$): starting with args \"$@\""
     res="$(echo "$1" | $COMMAND_PERL -pe 's/%([A-Fa-f0-9]{2})/pack('C',hex($1))/seg;')"
-    nxlog "$FUNCNAME ($$): after normalize res == \"$res\""
+    #nxlog "$FUNCNAME ($$): after normalize res == \"$res\""
     #nxlog "$FUNCNAME ($$): WIN_CP_CONVERT_CHAIN== \"$WIN_CP_CONVERT_CHAIN\""
+    which iconv 1>/dev/null 2>&1; RC=$?
+    [ -n "$WIN_CP_CONVERT_CHAIN" -a $RC -ne 0 ] && {
+	nxlog "$FUNCNAME ($$): iconv not found, codepages converting is disabled."
+	echo $res; return
+    }
     for cp_pair in $WIN_CP_CONVERT_CHAIN ; do
 	cp_from="$(echo "$cp_pair" | cut -d\> -f1)"
         [ -n "$cp_from" ] || cp_from="UTF-8"
@@ -152,7 +157,7 @@ norm_param()
 	res="$(echo "$res" | iconv -f $cp_from -t $cp_to)"
 	#nxlog "$FUNCNAME ($$): converting $cp_from > $cp_to == \"$res\""
     done
-    nxlog "$FUNCNAME ($$): return res === \"$res\""
+    #nxlog "$FUNCNAME ($$): return res === \"$res\""
     echo $res
 }
 
