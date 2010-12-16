@@ -78,7 +78,7 @@ mkdir -p %buildroot%_sysconfdir/sysconfig/
 
 echo "# See /etc/nxserver/node.conf.d/*.conf" > node.conf
 
-install -m755 rxsetup %buildroot%_bindir/
+install -m755 rxsetup %buildroot%_sbindir/
 install -Dp -m755 %SOURCE1 %buildroot%_initdir/%oname
 install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
 install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession
@@ -137,7 +137,7 @@ fi
 %endif
 %attr(4711,nx,root) %_bindir/nx-session-launcher-suid
 %_bindir/nx*
-%_bindir/rxsetup
+%_sbindir/rxsetup
 %dir %_libdir/%oname/
 %attr(755,root,root) %_libdir/%oname/libnxredir.so.0
 %cups_root/cups/backend/nx*
