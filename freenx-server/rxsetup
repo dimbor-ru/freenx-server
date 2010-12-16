@@ -47,20 +47,20 @@ start_freenx_server()
 
 rxsetup_stages()
 {
-        unlock_nx_user &>rxsetup.log && \
-        start_sshd >>rxsetup.log 2>&1 && \
-        enable_cupsd >>rxsetup.log 2>&1 && \
-        nx_install >>rxsetup.log 2>&1 && \
-        start_freenx_server >>rxsetup.log 2>&1
-        if [ "$?" -ne 0 ]; then
-                echo "Configuration error, see rxsetup.log for details"
-                exit 1
-        else
-                echo "Complete. Now, you may use nxclient for connection to this server"
-        fi
+        unlock_nx_user && \
+        start_sshd && \
+        enable_cupsd && \
+        nx_install && \
+        start_freenx_server
 }
 
 
 ##### Main #####
-rxsetup_stages
+rxsetup_stages >rxsetup.log 2>&1
+if [ "$?" -ne 0 ]; then
+        echo "Configuration error, see rxsetup.log for details"
+        exit 1
+else
+        echo "Complete. Now, you may use nxclient for connection to this server"
+fi
 
