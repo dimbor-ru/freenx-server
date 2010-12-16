@@ -14,6 +14,7 @@ unlock_nx_user()
 
 start_sshd()
 {
+        # FIXME Lav: нужно воспользоваться distr_vendor для определения системы
         for sshd in ssh sshd openssh opensshd; do
                 if [ -e /etc/init.d/$sshd ]; then
                         /etc/init.d/$sshd start
@@ -38,8 +39,10 @@ nx_install()
 
 start_freenx_server()
 {
+        SERVICECOMMAND="/etc/init.d/freenx-server"
         chkconfig freenx-server on || update-rc.d freenx-server defaults
-        /etc/init.d/freenx-server start
+        # Without direct dependency to /etc/init.d
+        $SERVICECOMMAND start
 }
 
 rxsetup_stages()
