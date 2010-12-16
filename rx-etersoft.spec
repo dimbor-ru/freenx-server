@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt7
+Release: alt8
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -32,10 +32,13 @@ Requires: foomatic-db-engine
 Requires: zenity
 %if %_vendor == "alt"
 Requires: dbus-tools-gui
+# FIXME: it needs for strings command, need to be removed
 Requires: binutils
-Requires: Xdialog
-Requires: /usr/bin/xvt
+#Requires: Xdialog
+# FIXME: for which purposes?
+#Requires: /usr/bin/xvt
 %endif
+
 BuildPreReq: rpm-build-intro
 BuildRequires: imake xorg-cf-files gccmakedep
 
@@ -49,33 +52,33 @@ of the nxserver component.
 %prep
 %setup -n %oname-%version
 # wrong install path
-sed -i "s|/usr/lib|%_libdir|g" nxredir/Makefile
-sed -i "s|%_libdir/cups|%cups_root/cups|g" Makefile
+%__subst "s|/usr/lib|%_libdir|g" nxredir/Makefile
+%__subst "s|%_libdir/cups|%cups_root/cups|g" Makefile
 # install use nxloadconfig
-sed -i "s|/usr/lib|%_libdir|g" nxloadconfig
-sed -i "s|%_libdir/cups|%cups_root/cups|g" nxloadconfig
-sed -i "s|\$NX_DIR/lib|%_libdir|g" nxloadconfig
+%__subst "s|/usr/lib|%_libdir|g" nxloadconfig
+%__subst "s|%_libdir/cups|%cups_root/cups|g" nxloadconfig
+%__subst "s|\$NX_DIR/lib|%_libdir|g" nxloadconfig
 # nxredir nxsmb
-sed -i "s|/usr/lib|%_libdir|g" nxredir/nxredir
-sed -i "s|/usr/lib|%_libdir|g" nxredir/nxsmb
-sed -i "s|/usr/lib|%_libdir|g" %SOURCE10
-sed -i "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
+%__subst "s|/usr/lib|%_libdir|g" nxredir/nxredir
+%__subst "s|/usr/lib|%_libdir|g" nxredir/nxsmb
+%__subst "s|/usr/lib|%_libdir|g" %SOURCE10
+%__subst "s|%_libdir/cups|%cups_root/cups|g" nxredir/nxsmb
 
 %build
 %make_build
 
 %install
 %makeinstall_std
-mkdir -p %buildroot%_bindir
-mkdir -p %buildroot%_var/lib/nxserver/home
-mkdir -p %buildroot%_var/lib/nxserver/db
-mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d
-mkdir -p %buildroot%_datadir/%oname/node.conf.d
-mkdir -p %buildroot%_sysconfdir/sysconfig
+mkdir -p %buildroot%_bindir/
+mkdir -p %buildroot%_var/lib/nxserver/home/
+mkdir -p %buildroot%_var/lib/nxserver/db/
+mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d/
+mkdir -p %buildroot%_datadir/%oname/node.conf.d/
+mkdir -p %buildroot%_sysconfdir/sysconfig/
 
 echo "# See /etc/nxserver/node.conf.d/*.conf" > node.conf
 
-install -m755 rxsetup %buildroot%_bindir
+install -m755 rxsetup %buildroot%_bindir/
 install -Dp -m755 %SOURCE1 %buildroot%_initdir/%oname
 install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
 install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession
@@ -83,12 +86,12 @@ install -Dp -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver/Xkbmap
 install -Dp -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
 install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf
-install -m644 conf/conf.d/*.conf %buildroot%_datadir/%oname/node.conf.d
-install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m644 conf/conf.d/*.conf %buildroot%_datadir/%oname/node.conf.d/
+install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d/
 %if %_vendor == "alt"
-install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf.d
+install -m644 %SOURCE10 %buildroot%_sysconfdir/nxserver/node.conf.d/
 %else
-install -m755 %SOURCE2 %buildroot%_initdir
+install -m755 %SOURCE2 %buildroot%_initdir/
 %endif
 
 install -Dp -m644 data/logrotate %buildroot%_sysconfdir/logrotate.d/freenx-server
@@ -106,6 +109,7 @@ EOF
 %groupadd nx 2> /dev/null ||:
 %useradd -g nx -G utmp -d /var/lib/nxserver/home/ -s %_bindir/nxserver \
         -c "NX System User" nx 2> /dev/null ||:
+# FIXME: remove it strange code
 if [ ! -d %_datadir/fonts/misc ] && [ ! -e %_datadir/fonts/misc ] && [ -d %_datadir/fonts/bitmap/misc ]
 then
     ln -s %_datadir/fonts/bitmap/misc %_datadir/fonts/misc
@@ -113,8 +117,8 @@ fi
 
 %files
 %doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample nx-session-launcher/README.suid
-%dir %_sysconfdir/nxserver
-%dir %_sysconfdir/nxserver/node.conf.d
+%dir %_sysconfdir/nxserver/
+%dir %_sysconfdir/nxserver/node.conf.d/
 %config(noreplace) %_sysconfdir/nxserver/node.conf
 %config(noreplace) %_sysconfdir/nxserver/node.conf.d/*
 %_sysconfdir/nxserver/node.conf.sample
@@ -134,14 +138,27 @@ fi
 %attr(4711,nx,root) %_bindir/nx-session-launcher-suid
 %_bindir/nx*
 %_bindir/rxsetup
-%dir %_libdir/%oname
+%dir %_libdir/%oname/
 %attr(755,root,root) %_libdir/%oname/libnxredir.so.0
 %cups_root/cups/backend/nx*
-%attr(2750,nx,nx) %_var/lib/nxserver/home
-%attr(2750,root,nx) %_var/lib/nxserver/db
-%_datadir/%oname
+%attr(2750,nx,nx) %_var/lib/nxserver/home/
+%attr(2750,root,nx) %_var/lib/nxserver/db/
+%_datadir/%oname/
 
 %changelog
+* Thu Dec 16 2010 Vitaly Lipatov <lav@altlinux.ru> 1.1.1-alt8
+- cleanup spec
+- change SMB_MOUNT_OPTIONS again, change links to unixforum.org
+- converting smb/cifs resurce-names
+- fix check_remote_printer()
+- fix for kde4 (merge with git.alt)
+- fix node_umount_smb()
+- new code to ENABLE_SHARE_MULTIMOUNT=1 or
+- nxlog tunning
+- rxsetup: disable direct dependency to /etc/init.d (missed on ALT)
+- rxsetup write output into log
+- update sudoers.conf
+
 * Tue Oct 12 2010 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt7
 - load config files from node.conf.d/ only *.conf
 
