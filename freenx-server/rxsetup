@@ -56,11 +56,13 @@ rxsetup_stages()
 
 
 ##### Main #####
-rxsetup_stages >rxsetup.log 2>&1
+echo "Configuring..."
+rxsetup_stages 2>&1 | cat >rxsetup.log
 if [ "$?" -ne 0 ]; then
-        echo "Configuration error, see rxsetup.log for details"
+        echo "Configuration error, see $(pwd)/rxsetup.log for details"
         exit 1
 else
         echo "Complete. Now, you may use nxclient for connection to this server"
+        rm -f $(pwd)/rxsetup.log
 fi
 
