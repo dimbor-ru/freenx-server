@@ -12,6 +12,12 @@ unlock_nx_user()
         passwd -u nx
 }
 
+do_chkconfig_on()
+{
+        chkconfig $1 on 2>/dev/null || update-rc.d $1 defaults
+}
+
+
 start_sshd()
 {
         # FIXME Lav: нужно воспользоваться distr_vendor для определения системы
@@ -19,7 +25,7 @@ start_sshd()
                 if [ -e /etc/init.d/$sshd ]; then
                         /etc/init.d/$sshd start
                         RETVAL="$?"
-                        chkconfig $sshd on || update-rc.d $sshd defaults
+                        do_chkconfig_on $sshd
                 fi
         done
 
@@ -40,7 +46,7 @@ nx_install()
 start_freenx_server()
 {
         SERVICECOMMAND="/etc/init.d/freenx-server"
-        chkconfig freenx-server on || update-rc.d freenx-server defaults
+        do_chkconfig_on freenx-server
         # Without direct dependency to /etc/init.d
         $SERVICECOMMAND start
 }
