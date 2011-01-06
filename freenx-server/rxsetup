@@ -51,13 +51,24 @@ start_freenx_server()
         $SERVICECOMMAND start
 }
 
+check_expect()
+{
+	EXPECT=`which expect 2>/dev/null`
+	[-n "$EXPECT" ] || echo "Error: please install expect"
+}
+
 rxsetup_stages()
 {
-        unlock_nx_user && \
-        start_sshd && \
-        enable_cupsd && \
-        nx_install && \
-        start_freenx_server
+        local ER=0
+        for func in check_expect \
+                    unlock_nx_user \
+                    start_sshd \
+                    enable_cupsd \
+                    nx_install \
+                    start_freenx_server ; do
+            $func || ER=$?
+        done
+        return $ER
 }
 
 
