@@ -1,0 +1,17 @@
+# ACL for all users, that not mentioned in others ACLS
+
+# Uncomment string below to set communism for them
+#.*
+
+# Uncomment below to send them your original message only (bad example)
+#.* %%% !.* %%% "Get out, imbecile!"
+# the same
+#.* %%% %%% "Get out, imbecile!"
+
+# Uncomment below to start very specialy app instead of given (good example ;)
+#.* %%% !.* %%% /usr/games/kpat
+
+# Uncomment below if your'e contempt is limited to running standart
+# warning app. (WARN_APP from nxacl script.)
+# But this is a useless act, because it's installed by default. ;)
+#.* %%% !.*
