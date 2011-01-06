@@ -2,14 +2,14 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt8
+Release: alt9
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
 License: GPLv2
 Url: http://wiki.etersoft.ru/RX
 
-Packager: Denis Baranov <baraka@altlinux.org>
+Packager: Denis Baranov <baraka@etersoft.ru>
 
 Source: ftp://updates.etersoft.ru/pub/Etersoft/RX@Etersoft/unstable/sources/tarball/%oname-%version.tar.bz2
 Source1: %oname.init
@@ -151,6 +151,20 @@ fi
 %_datadir/%oname/
 
 %changelog
+* Thu Jan 06 2011 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt9
+- rxsetup: add check for expect
+- fix error on mount folder with empty password
+- fix rxsetup log path
+- nxnode: logging is a little faster
+- fix endless cycle in node_start_applications()
+- new algorithm of share mounting (--smbmount)
+- chg start-modes of share/printer adding
+- norm_param(): check for iconv, logging switch off
+- fix Makefile: add nxacl.app to
+- smile acl syntax fix
+- upd config to acls check
+- add code&configs to acls check
+
 * Thu Dec 16 2010 Vitaly Lipatov <lav@altlinux.ru> 1.1.1-alt8
 - cleanup spec
 - change SMB_MOUNT_OPTIONS again, change links to unixforum.org
