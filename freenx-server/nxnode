@@ -1219,7 +1219,7 @@ try_mount_smb()
     RC=1; nxlog "$FUNCNAME ($$): Starting: TRY_USER=$TRY_USER, TRY_SUDO=$TRY_SUDO" &
     [ -n "$SMB_MOUNT_OPTIONS" -a "${SMB_MOUNT_OPTIONS:0:1}" != "," ] && SMB_MOUNT_OPTIONS=",$SMB_MOUNT_OPTIONS"
     SMB_OPTS="username=$3,"
-    [ -n "$6" ] && SMB_OPTS="$SMB_OPTS""password=$6,"
+    [ -n "$6" ] && SMB_OPTS="$SMB_OPTS""password=$6," || SMB_OPTS="$SMB_OPTS""password=,"
     SMB_OPTS="$SMB_OPTS""ip=127.0.0.1,port=$4$SMB_MOUNT_OPTIONS"
     [ $TRY_USER -ne 0 ] && {
 	MNTSTR="$COMMAND_SMBMOUNT $1 $2 -o $SMB_OPTS"
