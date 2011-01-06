@@ -80,7 +80,7 @@ mkdir -p %buildroot%_sysconfdir/sysconfig/
 
 echo "# See /etc/nxserver/node.conf.d/*.conf" > node.conf
 
-install -m755 rxsetup %buildroot%_sbindir/
+install -m755 rxsetup %buildroot%_bindir/
 install -Dp -m755 %SOURCE1 %buildroot%_initdir/%oname
 install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
 install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession
@@ -122,6 +122,7 @@ fi
 %doc AUTHORS ChangeLog CONTRIB nxcheckload.sample node.conf.sample nx-session-launcher/README.suid
 %dir %_sysconfdir/nxserver/
 %dir %_sysconfdir/nxserver/node.conf.d/
+%dir %_sysconfdir/nxserver/acls/
 %config(noreplace) %_sysconfdir/nxserver/node.conf
 %config(noreplace) %_sysconfdir/nxserver/node.conf.d/*
 %config(noreplace) %_sysconfdir/nxserver/acls/*
