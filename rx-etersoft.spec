@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt9
+Release: alt10
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -151,6 +151,10 @@ fi
 %_datadir/%oname/
 
 %changelog
+* Fri Jan 14 2011 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt10
+- Fix error with zenity
+- Add message when folder not mount
+
 * Thu Jan 06 2011 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt9
 - rxsetup: add check for expect
 - fix error on mount folder with empty password
