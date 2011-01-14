@@ -2094,6 +2094,7 @@ cmd_node_smbmount()
 	outstr="$(create_mountpoint "$dir" "$USER" "$EGROUP")"
 	[ -n "$outstr" ] && nxlog "$FUNCNAME ($$): create_mountpoint says: \"$outstr\"" &
 	[ $RC -ne 0 ] && { nxlog "$FUNCNAME ($$): Stop mounting." &
+	$PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' failed to mount." -display :$display &
 	    return 1; }
 	
 	smbport=""; smbport=$(cat "$sess_dir/scripts/smbport" 2>/dev/null)
@@ -2104,6 +2105,7 @@ cmd_node_smbmount()
 	    TRY_USER=$(usermount_enable)
 	    TRY_SUDO=$(sudomount_enable)
 	    [ $TRY_USER -eq 0 -a $TRY_SUDO -eq 0 ] && { nxlog "$FUNCNAME ($$): Any methods of (u)mounting are not available. Stop mounting." &
+	    $PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' failed to mount." -display :$display &
 		return 1; }
 	elif [ "x$smbport" = "x" ] ; then
 	    COMMAND_SMBMOUNT=/bin/true
@@ -2119,6 +2121,7 @@ cmd_node_smbmount()
 		    nxlog "$FUNCNAME ($$): Try to force umount dead mountpoint \"$dir\"" &
 		    try_umount_smb "$dir"; RC=$?
     		    [ $RC -ne 0 ] && { nxlog "$FUNCNAME ($$): Umounting FAILED! Stop mounting." &
+		    $PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' failed to mount." -display :$display &
     			return 1; }
 		else
 		    touch "$sess_dir/scripts/@s@$share"; return;
@@ -2149,13 +2152,13 @@ cmd_node_smbmount()
 		echo "//$computername/$share&$dir&$username&$password&$IDS_OPTS" > "$desc_dir/$SFN"
 	    else # not multimount case
     		nxlog "$FUNCNAME ($$): share \"//$computername/$share\" mount on \"$dir\"" &
-		$PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' mounted on: '$dir'" -display :$display &
 	    fi
 	    echo "$dir" >> "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
+	    $PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' mounted on: '$dir'" -display :$display &
 	else
 	    nxlog "$FUNCNAME ($$): Share //$computername/$share mount FAILED." &
+	    $PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' failed to mount." -display :$display &
 	    rmdir "$dir" >/dev/null 2>/dev/null #JJK: Remove mount point if empty
-	    [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ] || $PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" -message "Info: Share: '//$computername/$share' failed to mount." -display :$display &
 	fi
 }
 
