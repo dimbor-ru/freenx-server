@@ -264,13 +264,13 @@ xmessage_printer_configure_driver()
 
 zenity_ok()
 {
-	$DIALOG --info --title=$DIALOG_CAPTION --text=$DIALOG_MESSAGE
+	$DIALOG --info --title="$DIALOG_CAPTION" --text="$DIALOG_MESSAGE"
 	return 0 # Give cancel on close ...
 }
 
 zenity_yesno()
 {
-	$DIALOG --question --title=$DIALOG_CAPTION --text="$DIALOG_MESSAGE"
+	$DIALOG --question --title="$DIALOG_CAPTION" --text="$DIALOG_MESSAGE"
 	RC=$?
 	[ $RC -eq 0 ] && return 2
 	[ $RC -eq 1 ] && return 0
@@ -278,10 +278,18 @@ zenity_yesno()
 
 zenity_yesnosuspend()
 {
-	$DIALOG --question --no-wrap --title="$DIALOG_CAPTION" --ok-label="Suspend" --cancel-label="Terminate" --text="$DIALOG_MESSAGE Close this dialog to cancel."
+	Suspend="Disconnect (Suspend session)"
+	Terminate="Terminate (Log Out)"
+	ans=$( $DIALOG --title="$DIALOG_CAPTION" --text="$DIALOG_MESSAGE Close this dialog to cancel." --list --radiolist --column "" --column "" TRUE "$Terminate" FALSE "$Suspend" )
 	RC=$?
-	[ $RC -eq 0 ] && return 3
-	[ $RC -eq 1 ] && return 2
+	case $ans in
+		$Terminate)
+		    return 2;
+		;;
+		$Suspend)
+		    return 3;
+	esac
+	[ $RC -eq 1 ] && return 0
 }
 
 zenity_panic()
