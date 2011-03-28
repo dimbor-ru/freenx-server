@@ -30,6 +30,7 @@ Requires: netcat
 Requires: expect
 Requires: foomatic-db-engine
 Requires: zenity
+Requires: xorg-x11-fonts-misc
 %if %_vendor == "alt"
 Requires: dbus-tools-gui
 # FIXME: it needs for strings command, need to be removed
