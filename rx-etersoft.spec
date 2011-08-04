@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt10
+Release: alt11
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -159,6 +159,10 @@ fi
 %_datadir/%oname/
 
 %changelog
+* Thu Aug 04 2011 Denis Baranov <baraka@altlinux.ru> 1.1.1-alt11
+- add start kill suspend script every 10 min
+- move sudo settings to sudoers.d folder
+
 * Fri Jan 14 2011 Denis Baranov <baraka@etersoft.ru> 1.1.1-alt10
 - Fix error with zenity
 - Add message when folder not mount
