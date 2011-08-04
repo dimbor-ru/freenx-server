@@ -87,7 +87,7 @@ install -Dp -m755 %SOURCE1 %buildroot%_initdir/%oname
 install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
 install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession
 install -Dp -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver/Xkbmap
-install -Dp -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
+install -Dp -m400 %SOURCE6 %buildroot%_sysconfdir/sudoers.d/nxserver
 install -Dp -m700 %SOURCE8 %buildroot%_bindir/terminate-suspend-nx
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf
 install -m644 conf/conf.d/*.conf %buildroot%_datadir/%oname/node.conf.d
@@ -135,7 +135,7 @@ fi
 %config(noreplace) %_sysconfdir/nxserver/acls/*
 %_sysconfdir/nxserver/node.conf.sample
 %config(noreplace) %_sysconfdir/logrotate.d/freenx-server
-%attr(0400,root,root) %config %_sysconfdir/sudo.d/nxserver
+%attr(0400,root,root) %config %_sysconfdir/sudoers.d/nxserver
 %config(noreplace) %_sysconfdir/dbus-1/system.d/ConsoleKit-NX.conf
 %config(noreplace) %_sysconfdir/nxserver/Xkbmap
 %_sysconfdir/nxserver/fixkeyboard
