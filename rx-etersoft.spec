@@ -77,6 +77,7 @@ mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d/
 mkdir -p %buildroot%_sysconfdir/nxserver/acls/
 mkdir -p %buildroot%_datadir/%oname/node.conf.d/
 mkdir -p %buildroot%_sysconfdir/sysconfig/
+mkdir -p %buildroot%_sysconfdir/cron.d/
 
 
 echo "# See /etc/nxserver/node.conf.d/*.conf" > node.conf
@@ -87,7 +88,7 @@ install -Dp -m755 data/fixkeyboard %buildroot%_sysconfdir/nxserver/fixkeyboard
 install -Dp -m755 data/Xsession %buildroot%_sysconfdir/nxserver/Xsession
 install -Dp -m644 data/Xkbmap %buildroot%_sysconfdir/nxserver/Xkbmap
 install -Dp -m400 %SOURCE6 %buildroot%_sysconfdir/sudo.d/nxserver
-install -Dp -m700 %SOURCE8 %buildroot%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
+install -Dp -m700 %SOURCE8 %buildroot%_bindir/terminate-suspend-nx
 install -Dp -m644 node.conf %buildroot%_sysconfdir/nxserver/node.conf
 install -m644 conf/conf.d/*.conf %buildroot%_datadir/%oname/node.conf.d
 install -m644 conf/conf.d/*.conf %buildroot%_sysconfdir/nxserver/node.conf.d
@@ -107,6 +108,11 @@ cat >> %buildroot%_sysconfdir/sysconfig/%oname << EOF
 #If not set default value is 3600.
 #Cron task enable if value greater than 0.
 SESSION_TTL=0
+EOF
+
+cat >> %buildroot%_sysconfdir/cron.d/%oname << EOF
+#Terminate suspend session nx user
+*/10 *  * * *   root    /usr/bin/terminate-suspend-nx
 EOF
 
 %pre
@@ -135,7 +141,8 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 %_sysconfdir/nxserver/Xsession
 %config(noreplace) %_sysconfdir/sysconfig/%oname
-%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
+%config(noreplace) %_sysconfdir/cron.d/%oname
+%_bindir/terminate-suspend-nx
 %_initdir/%oname
 %if %_vendor == "alt"
 %else
