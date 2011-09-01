@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt11
+Release: alt12
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -158,6 +158,9 @@ fi
 %_datadir/%oname/
 
 %changelog
+* Thu Sep 01 2011 Denis Baranov <baraka@altlinux.ru> 1.1.1-alt12
+- fix requires
+
 * Thu Aug 04 2011 Denis Baranov <baraka@altlinux.ru> 1.1.1-alt11
 - add start kill suspend script every 10 min
 - move sudo settings to sudoers.d folder
