@@ -30,7 +30,6 @@ Requires: netcat
 Requires: expect
 Requires: foomatic-db-engine
 Requires: zenity
-Requires: xorg-x11-fonts-misc
 %if %_vendor == "alt"
 Requires: dbus-tools-gui
 # FIXME: it needs for strings command, need to be removed
@@ -41,7 +40,7 @@ Requires: binutils
 %endif
 
 BuildPreReq: rpm-build-intro
-BuildRequires: imake xorg-cf-files gccmakedep
+BuildRequires: imake xorg-cf-files gccmakedep xauth openssh-server
 
 %description
 Freenx is an application/thin-client server based on nx technology.
