@@ -2,7 +2,7 @@
 %define oname freenx-server
 Name: rx-etersoft
 Version: 1.1.1
-Release: alt12
+Release: alt13
 
 Summary: Freenx application/thin-client server
 Group: Networking/Remote access
@@ -158,6 +158,9 @@ fi
 %_datadir/%oname/
 
 %changelog
+* Fri Oct 21 2011 Denis Baranov <baraka@altlinux.ru> 1.1.1-alt13
+- add nx-3.5.0 version in check function (eterbug #7728)
+
 * Thu Sep 01 2011 Denis Baranov <baraka@altlinux.ru> 1.1.1-alt12
 - fix requires
 
