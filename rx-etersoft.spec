@@ -76,7 +76,6 @@ mkdir -p %buildroot%_sysconfdir/nxserver/node.conf.d/
 mkdir -p %buildroot%_sysconfdir/nxserver/acls/
 mkdir -p %buildroot%_datadir/%oname/node.conf.d/
 mkdir -p %buildroot%_sysconfdir/sysconfig/
-mkdir -p %buildroot%_sysconfdir/cron.d/
 
 
 echo "# See /etc/nxserver/node.conf.d/*.conf" > node.conf
@@ -109,11 +108,6 @@ cat >> %buildroot%_sysconfdir/sysconfig/%oname << EOF
 SESSION_TTL=0
 EOF
 
-cat >> %buildroot%_sysconfdir/cron.d/%oname << EOF
-#Terminate suspend session nx user
-*/10 *  * * *   root    /usr/bin/terminate-suspend-nx
-EOF
-
 %pre
 %groupadd nx 2> /dev/null ||:
 %useradd -g nx -G utmp -d /var/lib/nxserver/home/ -s %_bindir/nxserver \
@@ -140,8 +134,7 @@ fi
 %_sysconfdir/nxserver/fixkeyboard
 %_sysconfdir/nxserver/Xsession
 %config(noreplace) %_sysconfdir/sysconfig/%oname
-%config(noreplace) %_sysconfdir/cron.d/%oname
-%_bindir/terminate-suspend-nx
+%_sysconfdir/cron.hourly/terminate-suspend-nx.sh
 %_initdir/%oname
 %if %_vendor == "alt"
 %else
