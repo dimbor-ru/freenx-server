@@ -2235,7 +2235,7 @@ cmd_node_addprinter()
 	# Have any ideas? Then do it!
 	MODEL="$NX_ETC_DIR/ppd/$NAME.ppd"
 	if [ -r "$MODEL" ] ; then
-	    PNAME="$computername""_""$NAME" # user's printer name
+	    PNAME="$USER""_""$NAME" # user's printer name
     	    nxlog "$FUNCNAME ($$): set PNAME = \"$PNAME\", try to install \"$NAME.ppd\"" &
 	elif [ "$ENABLE_FOOMATIC" != "0" ] ; then  # calculated
 	    PRE="$(echo "$NAME" | grep "@")"
@@ -2259,9 +2259,9 @@ cmd_node_addprinter()
 		    return 1; }
 	    fi
 	    if [ -z "$PRE" ] ; then
-	        PNAME="$computername""_""$(echo $ID | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
+	        PNAME="$USER""_""$(echo $ID | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
 	    else
-		PNAME="$computername""_""$(echo $ID | cut -d"@" -f2 | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
+		PNAME="$USER""_""$(echo $ID | cut -d"@" -f2 | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
 		ID="HP-LaserJet_4M"
 		DRV="Postscript-HP"
 	    fi		
