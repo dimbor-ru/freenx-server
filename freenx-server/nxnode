@@ -896,7 +896,7 @@ try_remount_printers()
 	[ "$spname" = "*" ] && { nxlog "$FUNCNAME ($$): No printers, stop." &
 	    return 1; }
         nxlog "$FUNCNAME ($$): process printer \"$PNAME\", search in system cups on port = $mport." &
-	[ -z "$(lpstat -v | grep "$PNAME" | grep ":$mport")" ] && { nxlog "$FUNCNAME ($$): printer \"$PNAME\" NOT FOUND in system cups on port = $mport." &
+	[ -z "$(LC_ALL=C /usr/bin/lpstat -v | grep "$PNAME" | grep ":$mport")" ] && { nxlog "$FUNCNAME ($$): printer \"$PNAME\" NOT FOUND in system cups on port = $mport." &
 	    continue; }
 	# printer already present at own mport
 	nxlog "$FUNCNAME ($$): printer \"$PNAME\" (port:$mport) found - deleting" &
@@ -2280,7 +2280,7 @@ cmd_node_addprinter()
 	    sleep 1
 	done
 	# check existing printers
-	pstr="$(lpstat -v | grep "$PNAME")"
+	pstr="$(LC_ALL=C lpstat -v | grep "$PNAME")"
 	if [ -n "$pstr" ] ; then # printer present
 	    iport=$(echo "$pstr" | cut -d/ -f3 | cut -d: -f2)
 	    [ "$iport" -gt 0 2>/dev/null ] && drop=0 || { drop=1; dbs="wrong port"; }
