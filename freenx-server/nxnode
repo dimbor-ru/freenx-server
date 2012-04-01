@@ -208,7 +208,7 @@ check_remote_printer()
     NXREDIR_LIBRARY="$PATH_LIB/libnxredir.so.0"
     [ -n "$4" ] && upass="$3%$4" || upass="$3 -N"
     [ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
-    CMDSTR="/usr/bin/rpcclient -U $upass -c 'openprinter $1' -p $dport -I 127.0.0.1 127.0.0.1"
+    CMDSTR="/usr/bin/rpcclient -U $upass -c 'openprinter $1' -p $dport -I 127.0.0.1 127.0.0.1 2>&1"
     nxlog "$FUNCNAME ($$): invoke command \"$CMDSTR\"" &
     res=""; numa="0"; ret="0"
     while [ "$ret" = "0" ] ; do
@@ -2313,7 +2313,7 @@ cmd_node_addprinter()
 	    return 1
 	fi
         nxlog "$FUNCNAME ($$): invoke $CMDSTR" &
-        error="$($CMDSTR)"
+        error="$($CMDSTR 2>&1)"
         if [ $? -eq 0 ] ; then
 	    nxlog "$FUNCNAME ($$): printer \"$PNAME\" installed" &
 	    [ -n "$PUBLIC" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $PNAME $PUBLIC;
