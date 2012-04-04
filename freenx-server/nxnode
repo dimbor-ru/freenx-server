@@ -523,15 +523,16 @@ node_start_applications()
 		fi
 	fi
 
-	CUPS_SERVER_SOCKET="$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock"
-	if [ "$cups" = "1" -a "$ENABLE_CUPS_SERVER_EXPORT" = "1" ] ; then
-	    nxlog "$FUNCNAME ($$): export CUPS_SERVER=$CUPS_SERVER_SOCKET" &
-	    export CUPS_SERVER="$CUPS_SERVER_SOCKET"
-	fi
-	if [ "$samba" = "1" -a "$ENABLE_CUPS_SERVER_EXPORT" = "1" -a  -d "$USER_FAKE_HOME/.nx/C-$sess_id/cups" ] ; then
-	    nxlog "$FUNCNAME ($$): export CUPS_SERVER=$CUPS_SERVER_SOCKET" &
-	    export CUPS_SERVER="$CUPS_SERVER_SOCKET"
-	fi
+	[ "$ENABLE_CUPS_SERVER_MODE" = "1" ] && {
+	    CUPS_SERVER_SOCKET="$(LC_ALL=C /usr/bin/lpstat -H 2>/dev/null)"
+	    [ -r $CUPS_SERVER_SOCKET ] || CUPS_SERVER_SOCKET=""
+	} || CUPS_SERVER_SOCKET="$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock"
+	[ "$ENABLE_CUPS_SERVER_EXPORT" = "1" -a -n "$CUPS_SERVER_SOCKET" ] && {
+	    [ "$cups" = "1" -o "$samba" = "1" ] && {
+		nxlog "$FUNCNAME ($$): export CUPS_SERVER=$CUPS_SERVER_SOCKET" &
+		export CUPS_SERVER="$CUPS_SERVER_SOCKET"
+	    }
+	}
 	if [ "$ENABLE_SAMBA_PRELOAD" = "1" -a -x "$PATH_BIN/nxredir" ]
 	then
 		let NXSAMBA_PORT=$display+3000
