@@ -167,8 +167,25 @@ norm_param()
 # instead of "per session".
 # 
 
+get_mport2sessdir()
+# arg:	session dir
+#	type - "smb"/"ipp"/""
+# returns cups listening port or samba mount port
+{
+    type=$2
+    smbport="$(cat $1/scripts/mport 2>/dev/null)" # check smb mount port
+    cport="$(cat $1/session 2>/dev/null | grep "Listening to CUPS" | tail -n1 | cut -d\' -f2)"
+    mport=""
+    if [ "$type" != "smb" -a -n "$cport" ]; then mport=$cport; type="ipp";
+    elif [ "$type" != "ipp" -a  -n "$smbport" ]; then mport=$smbport; type="smb";
+    fi
+    nxlog "$FUNCNAME ($$): sessdir \"$1\"; mport == $mport \"$type\"" &
+    echo $mport
+}
+
 get_sessdir4res()
-# arg: session's smb mount port OR filename of printer/share (flag-file)
+# args: port - session's smb/ipp mount port OR filename of printer/share (flag-file)
+#	fl_current - if set then includes in search current session-dir
 # if share is nx-controlled and nxagent from his session are leave,
 # then returns name of session dir (except dir of own sesson)
 # functuion used with $ENABLE_SHARE_MULTIMOUNT=1 or
@@ -179,13 +196,13 @@ get_sessdir4res()
     AGENT_PIDS="$(ps -wo pid=,cmd= -C "nxagent" | awk '{print($1)}')"
     for sessdir in $USER_FAKE_HOME/.nx/C-*
     do
-        [ "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
+        [ -z "$2" -a "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
  	NODE_AGENT_PID=$(cat "$sessdir/pids/agent" 2>/dev/null)
 	[ -z "$NODE_AGENT_PID" ] && continue
 	[ -z "$(echo "$AGENT_PIDS" | grep $NODE_AGENT_PID)" ] && continue
 	#nxlog "$FUNCNAME ($$): browse sessdir \"$sessdir\" for filename = \"$sessdir/scripts/$1\", digarg=$digarg" &
 	if [ "$digarg" = "1" ] ; then
-	    curport="$(cat $sessdir/scripts/mport 2>/dev/null)"
+	    curport=$(get_mport2sessdir "$sessdir")
 	    [ "$curport" = "$1" ] && { nxlog "$FUNCNAME ($$): found sessdir $sessdir for mport = $1" &
 		echo "$sessdir"; return; }
 	else
@@ -197,29 +214,36 @@ get_sessdir4res()
 }
 
 check_remote_printer()
-# args: short sharename
-#	port - nx controlled smb mount port
-#	name - smb user name
-#	pass - smb password (optional)
+# args:	type - "smb" or "ipp"
+#	short sharename/printername
+#	port - nx controlled mount port
+#	name - user name
+#	pass - password (optional)
 # if shared printer accessible, returns 1, else - 0
 {
     nxlog "$FUNCNAME ($$): starting with args \"$@\"" &
+    if [ "$1" = "ipp" ]; then # checking ipp printer
+	# temporary checks CUPS port only
+	[ -n "$(get_sessdir4res $3 "current")" ] && res=1 || res=0
+	nxlog "$FUNCNAME ($$): end with res = $res" &
+	echo $res; return 0;
+    fi
     PATH_LIB="/usr/lib/freenx-server" # this is correct on all systems?
     NXREDIR_LIBRARY="$PATH_LIB/libnxredir.so.0"
-    [ -n "$4" ] && upass="$3%$4" || upass="$3 -N"
+    [ -n "$5" ] && upass="$4%$5" || upass="$4 -N"
     [ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
-    CMDSTR="/usr/bin/rpcclient -U $upass -c 'openprinter $1' -p $dport -I 127.0.0.1 127.0.0.1 2>&1"
+    CMDSTR="/usr/bin/rpcclient -U $upass -c 'openprinter $2' -p $dport -I 127.0.0.1 127.0.0.1 2>&1"
     nxlog "$FUNCNAME ($$): invoke command \"$CMDSTR\"" &
     res=""; numa="0"; ret="0"
     while [ "$ret" = "0" ] ; do
     # addprinter and addmount try to use one mport at the same time, we need to endure ;)
 	(( numa++ ))
-	res="$(NXSAMBA_PORT=$2 LD_PRELOAD=$NXREDIR_LIBRARY eval $CMDSTR)"
+	res="$(NXSAMBA_PORT=$3 LD_PRELOAD=$NXREDIR_LIBRARY eval $CMDSTR)"
 	nxlog "$FUNCNAME ($$): on attempt $numa says \"$res\"" &
 	[ -n "$(echo "$res" | grep successfully)" ] && { ret="1"; continue; }
 	[ "$numa" -gt 4 ] && ret="1" && res="timeout"
     done
-    [ -n "$(echo $res | grep successfully)" ] && res=0 || res=1
+    [ -n "$(echo $res | grep successfully)" ] && res=1 || res=0
     nxlog "$FUNCNAME ($$): end with res = $res" &
     echo $res
 }
@@ -885,19 +909,24 @@ node_start_agent()
 try_remount_printers()
 {
 # args: none
-# if found another running session with same printers, 
+# if found another running session with same smb/ipp-printers,
 # try to remount from current, else - umount
-    scr_dir="$USER_FAKE_HOME/.nx/C-$sess_id/scripts"
-    [ ! -d "$scr_dir" ] && { nxlog "$FUNCNAME ($$): Session dir NOT FOUND! Calling twice? Why?" &
+    sessdir="$USER_FAKE_HOME/.nx/C-$sess_id"
+    scr_dir="$sessdir/scripts"
+    [ ! -d "$sessdir" ] && { nxlog "$FUNCNAME ($$): Session dir NOT FOUND! Calling twice? Why?" &
 	return 1; }
     nxlog "$FUNCNAME ($$): starting." &
-    mport="$(cat "$scr_dir/mport" 2>/dev/null)"
     for spname in $scr_dir/@p@* ; do
 	PNAME="$(echo "$spname" | awk 'BEGIN {FS="@p@"} {i=2; print $i}')"
 	[ "$spname" = "*" ] && { nxlog "$FUNCNAME ($$): No printers, stop." &
 	    return 1; }
-        nxlog "$FUNCNAME ($$): process printer \"$PNAME\", search in system cups on port = $mport." &
-	[ -z "$(LC_ALL=C /usr/bin/lpstat -v | grep "$PNAME" | grep ":$mport")" ] && { nxlog "$FUNCNAME ($$): printer \"$PNAME\" NOT FOUND in system cups on port = $mport." &
+        nxlog "$FUNCNAME ($$): process printer \"$PNAME\", search in system cups." &
+        prstr="$(LC_ALL=C /usr/bin/lpstat -v 2>/dev/null| grep "$PNAME")"
+	[ -z "$prstr" ] && { nxlog "$FUNCNAME ($$): printer \"$PNAME\" NOT FOUND in system cups" &
+	    continue; }
+        [ -n "$(echo "$prstr" | grep "ipp://")" ] && type="ipp" || type="smb"
+        mport=$(get_mport2sessdir "$sessdir" "$type")
+	[ -z "$(echo "$prstr" | grep ":$mport")" ] && { nxlog "$FUNCNAME ($$): printer \"$PNAME\" has mport rather than $mport, skiping." &
 	    continue; }
 	# printer already present at own mport
 	nxlog "$FUNCNAME ($$): printer \"$PNAME\" (port:$mport) found - deleting" &
@@ -905,15 +934,22 @@ try_remount_printers()
 	new_dir="$(get_sessdir4res "@p@$PNAME")"
 	[ -z "$new_dir" ] && { nxlog "$FUNCNAME ($$): no running sessions found for printer \"$PNAME\", stop remounting" &
 	    continue; }
-	new_port="$(cat "$new_dir/scripts/mport" 2>/dev/null)"
+	new_port="$(get_mport2sessdir "$new_dir" "$type")"
 	desc_fn="$USER_FAKE_HOME/.nx/shares_priv/@p@$PNAME"
-	[ ! -r "$desc_fn" ] && { nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for printer \"$PNAME\" NOT ACCESSIBLE, stop remounting" &
+	[ -r "$desc_fn" ] || { nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for printer \"$PNAME\" NOT ACCESSIBLE, stop remounting" &
 	    continue; }
-	descstr="$(cat "$desc_fn")"
+	descstr="$(cat "$desc_fn" 2>/dev/null)"
 	DEVICE_URI="$(echo "$descstr" | cut -d\& -f2 | sed 's/:'$mport'/:'$new_port'/')"
 	share="$(echo "$DEVICE_URI" |  awk 'BEGIN {FS="/"} {i=NF; print $i}')"
 	upass="$(echo "$DEVICE_URI" | cut -d\/ -f3 | cut -d@ -f1)" && username="$(echo "$upass"| cut -d: -f1)" && password="$(echo "$upass"| cut -d: -f2)"
-	[ "$(check_remote_printer $share $new_port $username $password)" != "0" ] && { nxlog "$FUNCNAME ($$): smb/cifs-share \"$share\" for printer \"$PNAME\" NOT ACCESSIBLE, stop remounting" &
+	#[ "$type" = "ipp" ] && {
+	#    newpass="$(cat "$new_dir/scripts/@p@$PNAME" 2>/dev/null)"
+	#    [ ! -z "$newpass" ] && { nxlog "$FUNCNAME ($$): new password for printer \"$PNAME\" ARE LOST, stop remounting" &
+	#    continue; }
+	#    DEVICE_URI="$(echo "$DEVICE_URI" | sed 's/:'$password'/:'$newpass'/')"
+	#    password="$newpass"
+	#}
+	[ "$(check_remote_printer $type $share $new_port $username $password)" = "0" ] && { nxlog "$FUNCNAME ($$): smb/cifs-share \"$share\" for printer \"$PNAME\" NOT ACCESSIBLE, stop remounting" &
 	    continue; }
 	MODEL="$(echo "$descstr" | cut -d\& -f1)"
 	defaultPrinter="$(echo "$descstr" | cut -d\& -f4)"
@@ -922,12 +958,16 @@ try_remount_printers()
 	else # foomatic
 	    ID="$MODEL"
 	    DRV="$(echo "$descstr" | cut -d\& -f5)"
-	    CMDSTR="/usr/bin/sudo /usr/bin/foomatic-configure -s cups -n $PNAME -p $ID -d $DRV -c $DEVICE_URI -q 1>/dev/null 2>&1"
+	    CMDSTR="/usr/bin/sudo /usr/bin/foomatic-configure -s cups -n $PNAME -p $ID -d $DRV -c $DEVICE_URI -q"
 	fi
 	nxlog "$FUNCNAME ($$): invoke $CMDSTR" &
 	$CMDSTR
 	if [ $? -eq 0 ] ; then
 	    nxlog "$FUNCNAME ($$): printer \"$PNAME\" installed" &
+	    [ "$type" = "ipp" ] && {
+		descstr="$(echo "$descstr" | sed 's/:'$mport'/:'$new_port'/')"
+		echo "$descstr" > "$desc_fn"
+	    }
 	    PUBLIC="$(echo "$descstr" | cut -d\& -f3)"
 	    [ -n "$PUBLIC" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $PNAME $PUBLIC;
 		[ $? -ne 0 ] && nxlog "$FUNCNAME ($$): FAILED to set options \"$PUBLIC\" for printer \"$PNAME\"" &
@@ -937,7 +977,7 @@ try_remount_printers()
 		}
 	else
 	    nxlog "$FUNCNAME ($$): FAILED to reinstall printer \"$PNAME\"" &
-    	fi
+        fi
     done
     nxlog "$FUNCNAME ($$): end." &
 }
@@ -2205,11 +2245,13 @@ cmd_node_addprinter()
 	    fi
 	    NAME="$share"
 	    ENABLE_CUPS_SEAMLESS="0"
+	    nxlog "$FUNCNAME ($$): set NAME = $NAME; smbport=$smbport; DEVICE_URI=$DEVICE_URI" &
 	else
-		DEVICE_URI="ipp://$username:$password@127.0.0.1:$port/printers/$printer"
-		NAME="$printer"
+	    printer=$(norm_param $printer)
+	    DEVICE_URI="ipp://$username:$password@127.0.0.1:$port/printers/$printer"
+	    NAME="$printer"
+	    nxlog "$FUNCNAME ($$): set NAME = $NAME; DEVICE_URI=$DEVICE_URI" &
 	fi
-        nxlog "$FUNCNAME ($$): set NAME = $NAME; smbport=$smbport; DEVICE_URI=$DEVICE_URI" &
 	
 #JJK: I like to also allow 'guest' so you can do things like print
 #JJK: testpages from the CUPS web interface. Note this is required
@@ -2217,14 +2259,17 @@ cmd_node_addprinter()
 #JJK:	PUBLIC="-u allow:$USER"
 	PUBLIC="-u allow:$USER,guest,root"	
 	[ "$public" == "1" ] && PUBLIC=""
-
 	export PATH_BIN
+	USER_PPD_DIR="$USER_FAKE_HOME/.nx/config/ppd"
+	mkdir -p "$USER_PPD_DIR"
 	nxlog "$FUNCNAME ($$): run with ENABLE_CUPS_SERVER_MODE=$ENABLE_CUPS_SERVER_MODE" &
-   # dimbor: We use system cupsd    
-   if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ] ; then
-    	# dimbor: Name of windows share may be set to name of driver.ppd from
-	# $NX_ETC_DIR/ppd/ (without ".ppd"). 
-	# In case of ENABLE_FOOMATIC="1" share name may set to
+    # dimbor: We use system cupsd
+    if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ] ; then
+	# dimbor: Name of windows share or ipp-printer may be set to name
+	# of driver.ppd from $NX_ETC_DIR/ppd/ (without ".ppd"). Also checks
+	# $USER_FAKE_HOME/.nx/config/ppd/  For ipp if driver not found
+	# we try it to download like oriiginal behaviour.
+	# In case of ENABLE_FOOMATIC="1" share/printer name may set to
 	# [@]<printer id>[#<N>][__<driver>]
 	# <printer id>: printer id from foomatic db.
 	# <N>:Number of printer instance
@@ -2232,12 +2277,25 @@ cmd_node_addprinter()
 	# <driver>: driver from foomatic db.
 	# @: if sharename started with char "@", force setup to anyone
 	# share name  printer id "HP-LaserJet_4M" and driver "Postscript-HP"
-	# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)		  
-	# Have any ideas? Then do it!
+	# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)
 	MODEL="$NX_ETC_DIR/ppd/$NAME.ppd"
+	[ -r "$MODEL" ] || { # check cached users driver
+	    MODEL="$USER_PPD_DIR/$NAME.ppd"
+	    [ -r "$MODEL" ] && [ -n "$(head -n1 "$MODEL" | grep "*PPD-Adobe")" ] || rm -f "$MODEL"
+	}
+	[ "$type" = "smb" ] || [ -r "$MODEL" ] || {
+	    # try to download "left-nx" ppd (original scheme), needs to use
+	    # wrapper for nxprint on client side
+	    curl --proxy "" --digest -o "$MODEL" "http://$username:$password@127.0.0.1:$port/ppd/${NAME}_nxdl.ppd" 2>&1 > /dev/null
+	    [ -r "$MODEL" -a -n "$(head -n1 "$MODEL" 2>/dev/null | grep "*PPD-Adobe")" ] && {
+		nxlog "$FUNCNAME ($$): $MODEL download SUCCESSFUL."
+	    } || { nxlog "$FUNCNAME ($$): $MODEL is NOT a PPD-file! Contents: \"$(cat $MODEL 2>/dev/null)\""
+		rm -f "$MODEL"
+	    }
+	}
 	if [ -r "$MODEL" ] ; then
 	    PNAME="$USER""_""$NAME" # user's printer name
-    	    nxlog "$FUNCNAME ($$): set PNAME = \"$PNAME\", try to install \"$NAME.ppd\"" &
+	    nxlog "$FUNCNAME ($$): set PNAME = \"$PNAME\", try to install \"$MODEL\"" &
 	elif [ "$ENABLE_FOOMATIC" != "0" ] ; then  # calculated
 	    PRE="$(echo "$NAME" | grep "@")"
 	    HASDRV="$(echo "$NAME" | grep "__")"
@@ -2275,32 +2333,35 @@ cmd_node_addprinter()
 	sess_dir="$USER_FAKE_HOME/.nx/C-$sess_id"
 	desc_dir="$USER_FAKE_HOME/.nx/shares_priv" # directory with connection parameters to use sessions together
 	[ -d "$desc_dir" ] || { mkdir "$desc_dir" && chmod 700 "$desc_dir"; }
-	# wait up to 30 sec until nxagent has opened the listener port for samba connections
-	for (( i=30; $i; --i )) ; do
-	    [ -f "$sess_dir/scripts/mport" ] && break
-	    sleep 1
-	done
+	[ "$type" = "smb" ] && {
+	    for (( i=30; $i; --i )) ; do
+		nxlog "$FUNCNAME ($$): wait for smb-port $((30-i))"
+		[ -f "$sess_dir/scripts/mport" ] && break
+		sleep 1
+	    done
+	} || share=$printer
 	# check existing printers
-	pstr="$(LC_ALL=C lpstat -v | grep "$PNAME")"
+	pstr="$(LC_ALL=C /usr/bin/lpstat -v 2>/dev/null| grep "$PNAME")"
 	if [ -n "$pstr" ] ; then # printer present
 	    iport=$(echo "$pstr" | cut -d/ -f3 | cut -d: -f2)
 	    [ "$iport" -gt 0 2>/dev/null ] && drop=0 || { drop=1; dbs="wrong port"; }
 	    if [ "$drop" = "0" ] ; then
-	     [ "$(check_remote_printer $share $iport $username $password)" != "0" ] && { drop=1; dbs="not accessible"; }
+	     [ "$(check_remote_printer $type $share $iport $username $password)" = "0" ] && { drop=1; dbs="not accessible"; }
 	    fi
-	    [ "$drop" = "0" -a "$iport" = "$port" ] && { drop=1; dbs="for reinstall"; }
+	    [ "$drop" = "0" ] && [ "$type" = "ipp" -o "$iport" = "$port" ] && { drop=1; dbs="for reinstall"; }
 	    if [ "$drop" = "1" ] ; then
 		nxlog "$FUNCNAME ($$): delete printer \"$PNAME\" (port:$iport) - $dbs" &
 		/usr/bin/sudo /usr/sbin/lpadmin -x "$PNAME"
 	    else
 		nxlog "$FUNCNAME ($$): printer \"$PNAME\" already exist at port:$iport - stop adding, mark only" &
-		touch "$sess_dir/scripts/$PFN"
+		echo $password > "$sess_dir/scripts/$PFN"; chmod 600 "$sess_dir/scripts/$PFN"
 		return 0
 	    fi
-    	fi
-	touch "$sess_dir/scripts/$PFN" # set share present flag
-	[ "$(check_remote_printer $share $port $username $password)" != "0" ] && { nxlog "$FUNCNAME ($$): smb/cifs share \"$share\" (mport:$port) NOT ACCESSIBLE stop adding." &
+	fi
+	[ "$(check_remote_printer $type $share $port $username $password)" = "0" ] && {
+	    nxlog "$FUNCNAME ($$): \"$share\" (mport:$port) NOT ACCESSIBLE stop adding." &
 	    return 1; }
+	echo $password > "$sess_dir/scripts/$PFN"; chmod 600 "$sess_dir/scripts/$PFN" # set share present flag
 	if [ -r "$MODEL" ] ; then
 	    [ ! -e "$desc_dir/$PFN" ] && touch "$desc_dir/$PFN" && chmod 600 "$desc_dir/$PFN" # create "top-secret" description file
 	    echo "$MODEL&$DEVICE_URI&$PUBLIC&$defaultPrinter" > "$desc_dir/$PFN" # confidential access data
