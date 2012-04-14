@@ -1178,19 +1178,19 @@ usermount_enable()
     ret=1; logstr0="$FUNCNAME ($$):"
     ostr="$(stat -c %a "$COMMAND_SMBMOUNT" 2>&1)"; RC=$?
     [ $RC -ne 0 ] && { nxlog "$logstr0 $ostr" &
-	ret=0; }
-    [ $ret -ne 0 -a "$ostr" -ne 4711 ] && { ret=0
+	ret="0"; }
+    [ "$ret" != "0" -a "$ostr" != "4711" ] && { ret="0"
 	nxlog "$logstr0 Permissions of  $COMMAND_SMBMOUNT ($ostr) != 4711. mounting in user-mode is disabled." &
     }
-    [ $ret -ne 0 -a $RC -eq 0 ] && {
+    [ "$ret" != "0" -a $RC -eq 0 ] && {
 	ostr="$($COMMAND_SMBMOUNT 2>&1)"
 	[ -n "$(echo "$ostr" | grep "setuid root program disabled")" ] && { nxlog "$logstr0 $ostr" &
-	    ret=0; }
+	    ret="0"; }
     }
     ostr="$(stat -c %a "$COMMAND_SMBUMOUNT" 2>&1)"; RC2=$?
     [ $RC2 -ne 0 ] && { nxlog "$logstr0 $ostr" &
-	ret=0; RC=$RC2; }
-    [ $ret -ne 0 -a "$ostr" -ne 4711 ] && { ret=0
+	ret="0"; RC=$RC2; }
+    [ "$ret" != "0" -a "$ostr" != "4711" ] && { ret=0
 	nxlog "$logstr0 Permissions of  $COMMAND_SMBUMOUNT ($ostr) != 4711. umounting in user-mode is disabled." &
     }
     echo $ret; return $RC
