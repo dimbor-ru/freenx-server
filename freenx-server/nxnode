@@ -176,7 +176,7 @@ get_sessdir4res()
 {
     nxlog "$FUNCNAME ($$): starting with args \"$@\"; sess_id == \"$sess_id\"" &
     [ "$1" -gt 0 2>/dev/null ] && digarg=1 || digarg=0 
-    AGENT_PIDS="$(ps -wo pid=,cmd= -C "nxagent" | cut -d' ' -f1)"
+    AGENT_PIDS="$(ps -wo pid=,cmd= -C "nxagent" | awk '{print($1)}')"
     for sessdir in $USER_FAKE_HOME/.nx/C-*
     do
         [ "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
@@ -234,7 +234,7 @@ node_terminate_agent()
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
 	[ -n "$NODE_AGENT_PID" ] && { nxlog "$FUNCNAME ($$): killing NODE_AGENT_PID" &
 	    kill $NODE_AGENT_PID 2>/dev/null; }
-	if [ -z $(ps x| grep "nxagent" | cut -d" " -f1 | grep $NODE_AGENT_PID) ] ; then
+	if [ -z $(ps x| grep "nxagent" | awk '{print($1)}' | grep $NODE_AGENT_PID) ] ; then #'
 		nxlog "$FUNCNAME ($$): process list for 'nxagent' empty" &
 	else
 		nxlog "$FUNCNAME ($$): killing NODE_AGENT_PID. Try #2" &
@@ -2114,7 +2114,7 @@ cmd_node_smbmount()
 	
 	#do not mount twice
 	if [ -n "$(mount | grep "$dir")" ] ; then
-    	    nxlog "$FUNCNAME ($$): share $(mount | grep "$dir" | cut -d" " -f1) already mounted on $dir" &
+    	    nxlog "$FUNCNAME ($$): share $(mount | grep "$dir" | awk '{print($1)}') already mounted on $dir" &
 	    if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ] ; then
 		if [ -z "$(get_sessdir4res "@s@$share")" ] ; then
 		    nxlog "$FUNCNAME ($$): Try to force umount dead mountpoint \"$dir\"" &
