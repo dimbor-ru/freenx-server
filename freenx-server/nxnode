@@ -227,8 +227,7 @@ check_remote_printer()
 	nxlog "$FUNCNAME ($$): end with res = $res" &
 	echo $res; return 0;
     fi
-    PATH_LIB="/usr/lib/freenx-server" # this is correct on all systems?
-    NXREDIR_LIBRARY="$PATH_LIB/libnxredir.so.0"
+    NXREDIR_LIBRARY="$PATH_LIB/freenx-server/libnxredir.so.0"
     [ -n "$5" ] && upass="$4%$5" || upass="$4 -N"
     [ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
     CMDSTR="/usr/bin/rpcclient -U $upass -c 'openprinter $2' -p $dport -I 127.0.0.1 127.0.0.1 2>&1"
