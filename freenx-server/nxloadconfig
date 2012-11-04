@@ -448,6 +448,10 @@ then
 	[ ! -x "$COMMAND_NXAGENT" ] && \
 		ERROR="yes" && echo "Error: Could not find nxagent in $PATH_BIN. Please install some OSS components."
 	
+	[ -n "$(which xdpyinfo 2>/dev/null)" ] || {
+	    ERROR="yes" && echo "Error: Could not find xdpyinfo in $PATH_BIN. Please install it!"
+	}
+	
 	if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" ]
 	then
 		[ ! mywhich "$COMMAND_RDESKTOP" >/dev/null 2>&1 ] && \

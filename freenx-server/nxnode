@@ -484,12 +484,14 @@ node_start_applications()
 
 	nxlog "$FUNCNAME ($$): DISPLAY is $display" &
 	cntr=$AGENT_STARTUP_TIMEOUT
-	while [ -z "$(xdpyinfo  2> /dev/null | head)" ]; do
-		let "cntr -= 2"
-		[ $cntr -lt 0 ] && return
-		sleep 2
-		echo "sleep while get a valid DISPLAY"
-	done
+	[ -n "$(which xdpyinfo 2>/dev/null)" ] && {
+	    while [ -z "$(xdpyinfo  2>/dev/null | head)" ]; do
+		let "cntr -= 1"
+		[ $cntr -lt 0 ] && break
+		sleep 1
+		nxlog "$FUNCNAME ($$): Sleep while get a valid DISPLAY ($cntr)"
+	    done
+	} || nxlog "$FUNCNAME ($$): xdpyinfo not found. Waiting for DISPLAY is not possible!"
 
 	#numlockx
 	if [ "$NUMLOCKX_STATUS" != "system" ] ; then
