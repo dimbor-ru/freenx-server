@@ -2118,7 +2118,7 @@ cmd_node_smbmount()
 	username=$(getparam username)
 	password=$(getparam password)
 	share=$(getparam share)
-	computername=$(getparam computername)
+	computername=127.0.0.1 # http://bugs.etersoft.ru/show_bug.cgi?id=8841
 	dir=$(getparam dir | sed 's|$(SHARES)|MyShares|g')
 
 	# normalize '
@@ -2126,7 +2126,6 @@ cmd_node_smbmount()
     	password=$(norm_param $password)
 	share=$(norm_param $share)
 	dir=$(norm_param $dir)
-	computername=$(norm_param $computername)
 
 	[ -n "$(echo "$dir" | grep MyShares)" ] && dir="$HOME/$dir"
 
