@@ -447,6 +447,35 @@ node_find_application()
 	nxlog "$FUNCNAME ($$): end" &
 }
 
+get_pa_sound_mode() {
+# params:	port of pa server
+#		ipaddr
+    [ -z "$2" ] && {
+	nxlog "$FUNCNAME ($$): Client's IP-address is not defined." &
+	echo ""; return 1;
+    }
+    [ -z "$($COMMAND_NETCAT -nvz -w 1 $2 $1 2>&1 | grep "open")" ] && {
+	nxlog "$FUNCNAME ($$): Client's pulseaudio at $2:$1 is not reachable." &
+	echo ""; return 1;
+    }
+    pactl_bin="$(find_app "pactl")"
+    [ -z "$pactl_bin" ] && {
+	nxlog "$FUNCNAME ($$): pactl tool not found. Pulseaudio may be not installed." &
+	echo ""; return 1;
+    }
+    pactl_bin="$pactl_bin -s $2:$1"
+    nxlog "$FUNCNAME ($$): $pactl_bin list short"
+    cl_pa_mods="$($pactl_bin list short)"
+    #nxlog "$FUNCNAME ($$): $cl_pa_mods"
+    [ -n "$(echo "$cl_pa_mods" | grep "ts_receiver")" -a \
+      -n "$(echo "$cl_pa_mods" | grep "ts_sender")" ] && {
+	nxlog "$FUNCNAME ($$): Specials sink and source at $2:$1 are found."
+	echo "special"; return 0;
+    }
+    nxlog "$FUNCNAME ($$): Defaults sink and source at $2:$1 be used."
+    echo "default"; return 0;
+}
+
 #
 # node_start_applications
 #
@@ -519,7 +548,21 @@ node_start_applications()
 	# Check if we want to use a mediahelper
 	#
 
-	if [ "$mediahelper" = "esd" ]
+	if [ "$ENABLE_DIRECT_NATIVE_PA_CHECK" = "1" ] ; then
+	    native_sound_mode="$(get_pa_sound_mode 4713 $NXUSERIP)"
+	    if [ -n "$native_sound_mode" ] ; then
+		nxlog "$FUNCNAME ($$): Sound mode set to $native_sound_mode"
+		export PULSE_SERVER="$NXUSERIP:4713"
+		if [ "$native_sound_mode" = "special" ] ; then
+		    export PULSE_SINK="ts_receiver"
+		    export PULSE_SOURCE="ts_sender.monitor"
+		fi
+		PADSP_BIN_PRELOAD="$(find_app "padsp")"
+		[ -n "$PADSP_BIN_PRELOAD" ] && {
+		    NODE_APPLICATION="$PADSP_BIN_PRELOAD $NODE_APPLICATION"
+		} || nxlog "$FUNCNAME ($$): padsp script not found. Sound may be disabled." &
+	    fi
+	elif [ "$mediahelper" = "esd" ]
 	then
 		# Set Espeaker variable
 		let ESPEAKER=$display+7000
