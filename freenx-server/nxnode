@@ -232,6 +232,11 @@ check_remote_printer()
 	nxlog "$FUNCNAME ($$): end with res = $res" &
 	echo $res; return 0;
     fi
+    [ -n "$(echo "$2" | grep "-nocheck")" ] && {
+	res=1
+	nxlog "$FUNCNAME ($$): special sharename \"$2\" - stop checking, end with res = $res" &
+	echo $res; return 0;
+    }
     NXREDIR_LIBRARY="$PATH_LIB/freenx-server/libnxredir.so.0"
     [ -n "$5" ] && upass="$4%$5" || upass="$4 -N"
     [ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
@@ -2312,13 +2317,14 @@ cmd_node_addprinter()
 	# $USER_FAKE_HOME/.nx/config/ppd/  For ipp if driver not found
 	# we try it to download like oriiginal behaviour.
 	# In case of ENABLE_FOOMATIC="1" share/printer name may set to
-	# [@]<printer id>[#<N>][__<driver>]
+	# [@]<printer id>[#<N>][__<driver>][-nocheck]
 	# <printer id>: printer id from foomatic db.
 	# <N>:Number of printer instance
 	# "__": char "_" twice
 	# <driver>: driver from foomatic db.
 	# @: if sharename started with char "@", force setup to anyone
-	# share name  printer id "HP-LaserJet_4M" and driver "Postscript-HP"
+	# share name  printer id "HP-LaserJet_4M" and driver "Postscript"
+	# -nocheck: do not check remote smb-share by rpclient (to W7 Home clients)
 	# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)
 	MODEL="$NX_ETC_DIR/ppd/$NAME.ppd"
 	[ -r "$MODEL" ] || { # check cached users driver
@@ -2372,7 +2378,7 @@ cmd_node_addprinter()
 	    else
 		PNAME="$USER""_""$(echo $ID | cut -d"@" -f2 | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
 		ID="HP-LaserJet_4M"
-		DRV="Postscript-HP"
+		DRV="Postscript"
 	    fi
 	    nxlog "$FUNCNAME ($$): set PNAME = \"$PNAME\", try foomatic ID = \"$ID\"; DRV =\"$DRV\"" &
 	else
