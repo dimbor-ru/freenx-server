@@ -2393,8 +2393,9 @@ cmd_node_addprinter()
 	if [ -n "$pstr" ] ; then # printer present
 	    iport=$(echo "$pstr" | cut -d/ -f3 | cut -d: -f2)
 	    [ "$iport" -gt 0 2>/dev/null ] && drop=0 || { drop=1; dbs="wrong port"; }
+	    [ -n "$(echo "$NAME" | grep "nocheck")" ] && { drop=1; dbs="don't check remote printer"; }
 	    if [ "$drop" = "0" ] ; then
-	     [ "$(check_remote_printer $type $share $iport $username $password)" = "0" ] && { drop=1; dbs="not accessible"; }
+	     [ "$(check_remote_printer $type $NAME $iport $username $password)" = "0" ] && { drop=1; dbs="not accessible"; }
 	    fi
 	    [ "$drop" = "0" ] && [ "$type" = "ipp" -o "$iport" = "$port" ] && { drop=1; dbs="for reinstall"; }
 	    if [ "$drop" = "1" ] ; then
@@ -2406,8 +2407,8 @@ cmd_node_addprinter()
 		return 0
 	    fi
 	fi
-	[ "$(check_remote_printer $type $share $port $username $password)" = "0" ] && {
-	    nxlog "$FUNCNAME ($$): \"$share\" (mport:$port) NOT ACCESSIBLE stop adding." &
+	[ "$(check_remote_printer $type $NAME $port $username $password)" = "0" ] && {
+	    nxlog "$FUNCNAME ($$): \"$NAME\" (mport:$port) NOT ACCESSIBLE stop adding." &
 	    return 1; }
 	echo $password > "$sess_dir/scripts/$PFN"; chmod 600 "$sess_dir/scripts/$PFN" # set share present flag
 	if [ -r "$MODEL" ] ; then
