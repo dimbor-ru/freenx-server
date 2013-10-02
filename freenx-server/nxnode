@@ -232,7 +232,7 @@ check_remote_printer()
 	nxlog "$FUNCNAME ($$): end with res = $res" &
 	echo $res; return 0;
     fi
-    [ -n "$(echo "$2" | grep "-nocheck")" ] && {
+    [ -n "$(echo "$2" | grep "nocheck")" ] && {
 	res=1
 	nxlog "$FUNCNAME ($$): special sharename \"$2\" - stop checking, end with res = $res" &
 	echo $res; return 0;
@@ -2317,20 +2317,26 @@ cmd_node_addprinter()
 	# $USER_FAKE_HOME/.nx/config/ppd/  For ipp if driver not found
 	# we try it to download like oriiginal behaviour.
 	# In case of ENABLE_FOOMATIC="1" share/printer name may set to
-	# [@]<printer id>[#<N>][__<driver>][-nocheck]
-	# <printer id>: printer id from foomatic db.
-	# <N>:Number of printer instance
+	# [@]<printer id>[#<N>][__<driver_num>][-nocheck]
+	# <printer id>: significant part of drver's uri.
+	# <N>: number of printer instance
 	# "__": char "_" twice
-	# <driver>: driver from foomatic db.
+	# <driver_num>: number from drver's uri.
+	# Driver-uri is first field of output '/usr/lib/cups/driver/* list'
 	# @: if sharename started with char "@", force setup to anyone
 	# share name  printer id "HP-LaserJet_4M" and driver "Postscript"
 	# -nocheck: do not check remote smb-share by rpclient (to W7 Home clients)
 	# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)
-	MODEL="$NX_ETC_DIR/ppd/$NAME.ppd"
-	[ -r "$MODEL" ] || { # check cached users driver
-	    MODEL="$USER_PPD_DIR/$NAME.ppd"
-	    [ -r "$MODEL" ] && [ -n "$(head -n1 "$MODEL" | grep "*PPD-Adobe")" ] || rm -f "$MODEL"
-	}
+	PRE="$(echo "$NAME" | grep "@")"; HASDRV="$(echo "$NAME" | grep "__")"
+	HASNN="$(echo "$NAME" | grep "#")"; ID="$NAME"; NN=""
+	[ -n "$HASDRV" ] && ID="$(echo "$NAME" | awk 'BEGIN {FS="__"} {print $1}')"
+	[ -n "$HASNN" ] && {
+    	    NN="_""$(echo "$ID" | awk -F'#' '{ A=substr($2,1,1); printf("%s",A)}')"; ID="$(echo "$ID" | cut -d"#" -f1)"; }
+	[ -n "$HASDRV" ] && DRV="$(echo "$NAME" | awk 'BEGIN {FS="__"} {i=NF; print $i}' | sed -e 's/-nocheck//')"
+	PNAME="$USER""_""$ID$NN" # user's printer name
+	[ -n "$PRE" ] && { ID="HP-LaserJet_4M-Postscript"; DRV="0"; }
+	MODEL="$NX_ETC_DIR/ppd/$ID.ppd"
+	nxlog "$FUNCNAME ($$): set PNAME = \"$PNAME\", try to install \"$MODEL\" - N=$NN, DRV=$DRV, PNAME=$PNAME." &
 	[ "$type" = "smb" ] || [ -r "$MODEL" ] || {
 	    # try to download "left-nx" ppd (original scheme), needs to use
 	    # wrapper for nxprint on client side
@@ -2338,7 +2344,7 @@ cmd_node_addprinter()
 		nxlog "$FUNCNAME ($$): Remote CUPS not found!" &
 		return 1
 	    }
-	    errstr="$(curl --proxy "" --digest -o "$MODEL" "http://$username:$password@127.0.0.1:$port/ppd/${NAME}_nxdl.ppd" 2>&1)"
+	    errstr="$(curl --proxy "" --digest -o "$MODEL" "http://$username:****@127.0.0.1:$port/ppd/${NAME}_nxdl.ppd" 2>&1)"
 	    cmdstr="curl --proxy \"\" --digest -o $MODEL http://$username:$password@127.0.0.1:$port/ppd/${NAME}_nxdl.ppd"
 	    [ -r "$MODEL" -a -n "$(head -n1 "$MODEL" 2>/dev/null | grep "*PPD-Adobe")" ] && {
 		nxlog "$FUNCNAME ($$): $MODEL download SUCCESSFUL."
@@ -2349,42 +2355,28 @@ cmd_node_addprinter()
 		rm -f "$MODEL"
 	    }
 	}
-	if [ -r "$MODEL" ] ; then
-	    PNAME="$USER""_""$NAME" # user's printer name
-	    nxlog "$FUNCNAME ($$): set PNAME = \"$PNAME\", try to install \"$MODEL\"" &
-	elif [ "$ENABLE_FOOMATIC" != "0" ] ; then  # calculated
-	    PRE="$(echo "$NAME" | grep "@")"
-	    HASDRV="$(echo "$NAME" | grep "__")"
-	    HASNN="$(echo "$NAME" | grep "#")"
-	    ID="$NAME"
-	    NN=""
-	    [ -n "$HASDRV" ] && ID="$(echo "$NAME" | awk 'BEGIN {FS="__"} {print $1}')"
-	    if [ -n "$HASNN" ] ; then
-	        NN="_""$(echo "$ID" | cut -d"#" -f2)"
-	        ID="$(echo "$ID" | cut -d"#" -f1)"
-	    fi
-	    if [ -n "$HASDRV" ] ; then
-		DRV="$(echo "$NAME" | awk 'BEGIN {FS="__"} {i=NF; print $i}')"
-	    elif [ -z "$PRE" ] ; then
-		drvs="$(/usr/bin/sudo /usr/bin/foomatic-configure -X -p "$ID" -q)"
-		[ $? -ne 0 ] && { nxlog "$FUNCNAME ($$): FAILED getting list of drivers from foomatic db for printer id \"$ID\". Printer not installed." &
-		    return 1; }
-		DRV="$(echo "$drvs" | grep "<driver>" | head -1 | cut -d">" -f2 | cut -d"<" -f1)"
-		[ -z "$DRV" ] && { nxlog "$FUNCNAME ($$): Driver for printer id \"$ID\" NOT FOUND in foomatic db. Printer not installed." &
-		    return 1; }
-	    fi
-	    if [ -z "$PRE" ] ; then
-		PNAME="$USER""_""$(echo $ID | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
-	    else
-		PNAME="$USER""_""$(echo $ID | cut -d"@" -f2 | awk 'BEGIN {FS="_"} {i=NF; print $i}')$NN" # user's printer name
-		ID="HP-LaserJet_4M"
-		DRV="Postscript"
-	    fi
-	    nxlog "$FUNCNAME ($$): set PNAME = \"$PNAME\", try foomatic ID = \"$ID\"; DRV =\"$DRV\"" &
-	else
-	    nxlog "$FUNCNAME ($$): Name of driver for \"$NAME\" not defined. STOP installing." &
-	    return 1
-	fi
+	[ -r "$MODEL" ] || [ "$ENABLE_FOOMATIC" != "0" ] &&  { # search ppd-file in cups
+	    cups_driver_dir="/usr/lib/cups/driver"; uris=""
+	    for prog in $cups_driver_dir/* ; do
+		[ -x $prog ] || continue
+		[ -n "$(echo "$prog" | grep "gutenprint")" ] && mn="$ID"|| mn="$ID.ppd"
+		strs="$($prog list 2>/dev/null | grep "$mn")"
+		[ -z "$strs" ] && continue
+		strs="$(echo "$strs" |  awk -F'"' '{ printf("%s\n",$2)}')" #'
+		uris="$uris""$strs"
+	    done
+	    [ -n "$HASDRV" ] && uris="$(echo "$uris" |  awk -F'/' '{ nd=substr($1,index($1,":")+1); if (nd ~ '$DRV') { printf("%s\n",$0)}}')" #';
+	    drv_uri="$(echo "$uris" | head -n1)"
+	    [ -n "$drv_uri" ] && {
+		nxlog "$FUNCNAME ($$): Try to get \"$MODEL\" from URI \"$drv_uri\"" &
+		prog="$cups_driver_dir/$(echo "$drv_uri" |  awk -F':' '{ printf("%s",$1)}')" #'
+		cmdstr="$prog cat $drv_uri"
+		$cmdstr > $MODEL
+	    } || {
+		nxlog "$FUNCNAME ($$): Driver for \"$NAME\" not found in CUPS. STOP installing." &
+	        return 1
+	    }
+	}
 	PFN="@p@$PNAME" # filename of flag and description files
 	sess_dir="$USER_FAKE_HOME/.nx/C-$sess_id"
 	desc_dir="$USER_FAKE_HOME/.nx/shares_priv" # directory with connection parameters to use sessions together
@@ -2422,10 +2414,6 @@ cmd_node_addprinter()
 	    [ ! -e "$desc_dir/$PFN" ] && touch "$desc_dir/$PFN" && chmod 600 "$desc_dir/$PFN" # create "top-secret" description file
 	    echo "$MODEL&$DEVICE_URI&$PUBLIC&$defaultPrinter" > "$desc_dir/$PFN" # confidential access data
 	    CMDSTR="/usr/bin/sudo /usr/sbin/lpadmin -p $PNAME -P $MODEL -v $DEVICE_URI -E"
-	elif [ "$ENABLE_FOOMATIC" != "0" ] ; then # foomatic printer is here
-	    [ ! -e "$desc_dir/$PFN" ] && touch "$desc_dir/$PFN" && chmod 600 "$desc_dir/$PFN" # create "top-secret" description file
-	    echo "$ID&$DEVICE_URI&$PUBLIC&$defaultPrinter&$DRV" > "$desc_dir/$PFN" # confidential access data
-	    CMDSTR="/usr/bin/sudo /usr/bin/foomatic-configure -s cups -n $PNAME -p $ID -d $DRV -c $DEVICE_URI -q 1>/dev/null 2>&1"
 	else
 	    nxlog "$FUNCNAME ($$): $MODEL driver not found! Printer $NAME not installed." &
 	    return 1
