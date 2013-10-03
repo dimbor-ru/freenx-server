@@ -696,6 +696,8 @@ node_start_applications()
 
 	sleep "$NODE_APP_WAIT_TIMEOUT"s
 
+	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && node_terminate_session "$sess_id"
+
 	# Do not terminate agent in case of rootless agent mode.
 	# The agent times out after a while by itself anyway.
 	
