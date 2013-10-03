@@ -2315,20 +2315,20 @@ cmd_node_addprinter()
     # dimbor: We use system cupsd
     if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ] ; then
 	# dimbor: Name of windows share or ipp-printer may be set to name
-	# of driver.ppd from $NX_ETC_DIR/ppd/ (without ".ppd"). Also checks
-	# $USER_FAKE_HOME/.nx/config/ppd/  For ipp if driver not found
-	# we try it to download like oriiginal behaviour.
+	# of driver.ppd from $NX_ETC_DIR/ppd/ (without ".ppd").
+	# For ipp if driver not found we try it to download like
+	# oriiginal behaviour (need installed curl).
 	# In case of ENABLE_FOOMATIC="1" share/printer name may set to
 	# [@]<printer id>[#<N>][__<driver_num>][-nocheck]
+	# @: if sharename started with char "@", force setup to anyone
+	# share name driver "HP-LaserJet_4M-Postscript.ppd"
+	# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)
 	# <printer id>: significant part of drver's uri.
 	# <N>: number of printer instance
 	# "__": char "_" twice
 	# <driver_num>: number from drver's uri.
 	# Driver-uri is first field of output '/usr/lib/cups/driver/* list'
-	# @: if sharename started with char "@", force setup to anyone
-	# share name  printer id "HP-LaserJet_4M" and driver "Postscript"
 	# -nocheck: do not check remote smb-share by rpclient (to W7 Home clients)
-	# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)
 	PRE="$(echo "$NAME" | grep "@")"; HASDRV="$(echo "$NAME" | grep "__")"
 	HASNN="$(echo "$NAME" | grep "#")"; ID="$NAME"; NN=""
 	[ -n "$HASDRV" ] && ID="$(echo "$NAME" | awk 'BEGIN {FS="__"} {print $1}')"
