@@ -2357,7 +2357,8 @@ cmd_node_addprinter()
 		rm -f "$MODEL"
 	    }
 	}
-	[ -r "$MODEL" ] || [ "$ENABLE_FOOMATIC" != "0" ] &&  { # search ppd-file in cups
+        if [ ! -r "$MODEL" ] ; then
+	 [ "$ENABLE_FOOMATIC" != "0" ] &&  { # search ppd-file in cups
 	    cups_driver_dir="/usr/lib/cups/driver"; uris=""
 	    for prog in $cups_driver_dir/* ; do
 		[ -x $prog ] || continue
@@ -2378,7 +2379,8 @@ cmd_node_addprinter()
 		nxlog "$FUNCNAME ($$): Driver for \"$NAME\" not found in CUPS. STOP installing." &
 	        return 1
 	    }
-	}
+	  }
+	fi
 	PFN="@p@$PNAME" # filename of flag and description files
 	sess_dir="$USER_FAKE_HOME/.nx/C-$sess_id"
 	desc_dir="$USER_FAKE_HOME/.nx/shares_priv" # directory with connection parameters to use sessions together
