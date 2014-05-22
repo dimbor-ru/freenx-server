@@ -1,0 +1,7 @@
+# ACL for user named <filename>
+
+# start KDE-session only once, else warn.
+startkde %%% !startkde %%% "You can have only one KDE-session!"
+
+# start KDE-session only once, else start your script
+#startkde %%% !startkde %%% /usr/bin/super-puper-start-with-control KDE
