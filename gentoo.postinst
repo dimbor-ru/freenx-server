@@ -1,7 +1,0 @@
-#!/bin/bash
-chmod 711 "/usr/libexec/cups/backend/ipp"
-chmod 755 "/usr/sbin/cupsd"
-chmod 4711 "/sbin/mount.cifs"
-ln -s /usr/share/cups/mime/mime.convs /etc/cups
-ln -s /usr/share/cups/mime/mime.types /etc/cups
-

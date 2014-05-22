@@ -1,6 +1,0 @@
-# ACL for group named <filename>
-
-# could start app 1c.sh if "Alliance" present in own parameters
-1c\\.sh.*Alliance
-
-#1c\\.sh

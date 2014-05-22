@@ -1,8 +1,0 @@
-/var/log/nxserver.log {
-    rotate 4
-    size=1M
-    notifempty
-    missingok
-    sharedscripts
-    copytruncate
-}
