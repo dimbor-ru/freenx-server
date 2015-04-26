@@ -558,7 +558,22 @@ node_start_applications()
 	# Check if we want to use a mediahelper
 	#
 
-	if [ "$ENABLE_DIRECT_NATIVE_PA_CHECK" = "1" ] ; then
+	if [ -r "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport" ] ; then
+	    PA_PORT=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport")
+	    native_sound_mode="$(get_pa_sound_mode $PA_PORT 127.0.0.1)"
+	    if [ -n "$native_sound_mode" ] ; then
+		nxlog "$FUNCNAME ($$): Sound mode set to $native_sound_mode"
+		export PULSE_SERVER="127.0.0.1:$PA_PORT"
+		if [ "$native_sound_mode" = "special" ] ; then
+		    export PULSE_SINK="ts_receiver"
+		    export PULSE_SOURCE="ts_sender.monitor"
+		fi
+		PADSP_BIN_PRELOAD="$(find_app "padsp")"
+		[ -n "$PADSP_BIN_PRELOAD" ] && {
+		    NODE_APPLICATION="$PADSP_BIN_PRELOAD $NODE_APPLICATION"
+		} || nxlog "$FUNCNAME ($$): padsp script not found. Sound may be disabled." &
+	    fi
+	elif [ "$ENABLE_DIRECT_NATIVE_PA_CHECK" = "1" ] ; then
 	    native_sound_mode="$(get_pa_sound_mode 4713 $NXUSERIP)"
 	    if [ -n "$native_sound_mode" ] ; then
 		nxlog "$FUNCNAME ($$): Sound mode set to $native_sound_mode"
@@ -1497,6 +1512,16 @@ node_start_monitor_2_0_0()
 		then
 			SMBMOUNT_PORT=$(echo $line | cut -d"'" -f2)
 			echo "$SMBMOUNT_PORT" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mport"
+		fi
+
+		#
+		# Catch NXAGENT Multimedia Port
+		#
+
+		if stringinstring "Info: Listening * multimedia connections on port" "$line"
+		then
+			MEDIA_PORT=$(echo $line | cut -d"'" -f2)
+			echo "$MEDIA_PORT" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport"
 		fi
 
 		#
