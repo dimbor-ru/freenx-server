@@ -256,6 +256,120 @@ check_remote_printer()
     echo $res
 }
 
+check_local_pa_tunnel() {
+# params:	tunnel ip:port
+#		resample rate
+#		amount of channels
+# return:	pid of pa process
+# This starts user's local pulseaudio server if not running and tune its own
+# modules - (re)create tunneled sink and source to remote pa
+    PA_BIN="$(which pulseaudio 2>/dev/null)"
+    [ -z "$PA_BIN" ] && {
+	nxlog "$FUNCNAME ($$): Local pulseaudio binary not found." &
+	echo ""; return 1;
+    }
+    unset PULSE_SERVER
+    unset PULSE_SINK
+    unset PULSE_SOURCE
+    # automatic start user's pa is here (pa starting with default system settings)
+    errstr="$(pactl info 2>&1 | grep "failure")"
+    [ -n "$errstr" ] && {
+	nxlog "$FUNCNAME ($$): Local PA is not reachable ($errstr)." &
+	echo ""; return 1;
+    }
+    retpid="$(ps -wo pid=,cmd= -U $USER | awk '($2=="'$PA_BIN'") {print($1)}')"
+    lpa_mods="$(pactl list short 2>/dev/null)"
+    tunn_opts="server=$1"
+    tunn_exists="$(echo "$lpa_mods" | awk '/'$tunn_opts'/ {print($0)}')"
+    [ -n "$tunn_exists" ] && {
+        nxlog "$FUNCNAME ($$): Right modules already exists: $tunn_exists"
+        echo $retpid; return 0;
+    }
+    mname="module-always-sink" # automatic null-sinks will be disabled
+    rmids="$(echo "$lpa_mods" | awk '($2=="'$mname'") {print($1)}')"
+    # any sinks and sources will be unloaded too
+    rmids="$rmids $(echo "$lpa_mods" | awk '/sink_name|source_name/ {print($1)}')"
+    [ -n "$rmids" ] && {
+	errids=""; errstr=""
+        for i in $rmids; do
+    	    errstr2="$(pactl unload-module $i 2>&1)"
+    	    [ $? -ne 0 ] && {
+        	errids="$errids $i"
+        	errstr="$errstr; $errstr2"
+            }
+	done
+    }
+    [ -n "$errids" ] && {
+	nxlog "$FUNCNAME ($$): Removing PA modules error. ids=\"$errids\"; \"$errstr\" " &
+    }
+    mname_tunn_sink="module-tunnel-sink"; mname_tunn_source="module-tunnel-source"
+    rpa_info="$(pactl -s $1 info 2>/dev/null)"
+    [ -z "$rpa_info" ] && {
+	nxlog "$FUNCNAME ($$): Couldn't get defaults from REMOTE pulseaudio $1."
+	echo ""; return 1;
+    }
+    [ -n "$2" ] && {
+	tunn_opts="$tunn_opts rate=$2"
+	[ -n "$3" ] && {
+	    tunn_opts="$tunn_opts channels=$3"
+	    [ "$3" == "1" ] && tunn_opts="$tunn_opts channel_map=mono"
+	}
+    }
+    success=""
+    def_rsink="$(echo "$rpa_info" | awk -F": " '($1~/Default Sink/) {print($2)}')"
+    [ -z "$def_rsink" -o "$def_rsink" == "(null)" ] && {
+	nxlog "$FUNCNAME ($$): Couldn't get default sink from REMOTE pulseaudio $1."
+    } || { # load module-tunnel-sink
+	rsi_args="sink_name=tcl_out sink=$def_rsink $tunn_opts"
+	errstr="$(pactl load-module $mname_tunn_sink $rsi_args 2>&1)"
+	[ $? -ne 0 ] && {
+	    nxlog "$FUNCNAME ($$): Loading module $mname_tunn_sink error (\"$rsi_args\"); \"$errstr\"" &
+	} || {
+	    success="1"
+	    nxlog "$FUNCNAME ($$): Successfully loadded module $mname_tunn_sink  (\"$rsi_args\")." &
+	}
+    }
+    def_rsource="$(echo "$rpa_info" | awk -F": " '($1~/Default Source/) {print($2)}')"
+    [ -z "$def_rsource" -o "$def_rsource" == "(null)" -o "$def_rsource" == "$def_rsink.monitor" ] && {
+	nxlog "$FUNCNAME ($$): Couldn't get default source from REMOTE pulseaudio $1."
+    } || { # load module-tunnel-source
+	rso_args="source_name=tcl_in source=$def_rsource $tunn_opts"
+	errstr="$(pactl load-module $mname_tunn_source $rso_args 2>&1)"
+	[ $? -ne 0 ] && {
+	    nxlog "$FUNCNAME ($$): Loading module $mname_tunn_source error (\"$rso_args\"); \"$errstr\"" &
+	} || {
+	    success="1"
+	    nxlog "$FUNCNAME ($$): Successfully loadded module $mname_tunn_source  (\"$rso_args\")." &
+	}
+    }
+    [ -n "$success" ] && echo $retpid || echo ""
+}
+
+reconnect_pa() {
+    papid=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid" 2>/dev/null)
+    [ -z "$papid" ] && return
+    mmport=""; papars="";
+    AGENT_PIDS="$(ps -wo pid=,cmd= -C "nxagent" | awk '{print($1)}')"
+    for sessdir in $USER_FAKE_HOME/.nx/C-* ; do # start port search
+	[ "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
+	NODE_AGENT_PID=$(cat "$sessdir/pids/agent" 2>/dev/null)
+	[ -z "$NODE_AGENT_PID" ] && continue
+	[ -z "$(echo "$AGENT_PIDS" | grep $NODE_AGENT_PID)" ] && continue
+	mmport=$(cat "$sessdir/scripts/mmport" 2>/dev/null)
+	[ -n "$mmport" ] && break
+    done
+    [ -n "$mmport" ] && { # try reconnect
+        papars=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/params.pa" 2>/dev/null)
+	rate="$(echo "$papars" |  awk -F":" '{print($1)}')"
+	channels="$(echo "$papars" |  awk -F":" '{print($2)}')"
+	[ -z "$(check_local_pa_tunnel 127.0.0.1:$mmport $rate $channels)" ] && {
+	    nxlog "$FUNCNAME ($$): Couldn't reconnect PA tunnel to port $mmport."
+	}
+    } || { # kill local PA
+	kill $papid 2>/dev/null
+    }
+}
+
 #
 # node_terminate_agent <session id>
 #
@@ -557,26 +671,28 @@ node_start_applications()
 	#
 	# Check if we want to use a mediahelper
 	#
+	mmode="$(echo "$mediahelper" |  awk -F"-" '{print($1)}')"
+	rate="$(echo "$mediahelper" |  awk -F"-" '{print($2)}')"
+	channels="$(echo "$mediahelper" |  awk -F"-" '{print($3)}')"
+	mmport="$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport" 2>/dev/null)"
 
-	if [ -r "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport" ] ; then
-	    PA_PORT=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport")
-	    native_sound_mode="$(get_pa_sound_mode $PA_PORT 127.0.0.1)"
-	    if [ -n "$native_sound_mode" ] ; then
-		nxlog "$FUNCNAME ($$): Sound mode set to $native_sound_mode"
-		export PULSE_SERVER="127.0.0.1:$PA_PORT"
-		if [ "$native_sound_mode" = "special" ] ; then
-		    export PULSE_SINK="ts_receiver"
-		    export PULSE_SOURCE="ts_sender.monitor"
-		fi
-		PADSP_BIN_PRELOAD="$(find_app "padsp")"
-		[ -n "$PADSP_BIN_PRELOAD" ] && {
-		    NODE_APPLICATION="$PADSP_BIN_PRELOAD $NODE_APPLICATION"
-		} || nxlog "$FUNCNAME ($$): padsp script not found. Sound may be disabled." &
-	    fi
+	if [ "$mmode" == "pa" -a -n "$mmport" ] ; then
+		pa_remote="127.0.0.1:$mmport"
+		pa_pid="$(check_local_pa_tunnel $pa_remote $rate $channels)"
+		[ -n "$pa_pid" ] && {
+		    nxlog "$FUNCNAME ($$): Local pulseaudio is started ($pa_pid). Sound mode set to tunneled."
+		    echo "$pa_pid" > "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid"
+		    params=$rate
+		    [ -n "$channels" ] && params="$params:$channels"
+		    [ -n "$params" ] && echo "$params" > "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/params.pa"
+		} || {
+		    nxlog "$FUNCNAME ($$): Local pulseaudio NOT STARTED. Set PULSE_SERVER=127.0.0.1:$mmport"
+		    export PULSE_SERVER="127.0.0.1:$mmport"
+		}
 	elif [ "$ENABLE_DIRECT_NATIVE_PA_CHECK" = "1" ] ; then
 	    native_sound_mode="$(get_pa_sound_mode 4713 $NXUSERIP)"
 	    if [ -n "$native_sound_mode" ] ; then
-		nxlog "$FUNCNAME ($$): Sound mode set to $native_sound_mode"
+		nxlog "$FUNCNAME ($$): Sound mode set to direct $native_sound_mode"
 		export PULSE_SERVER="$NXUSERIP:4713"
 		if [ "$native_sound_mode" = "special" ] ; then
 		    export PULSE_SINK="ts_receiver"
@@ -1462,6 +1578,8 @@ node_stop_services()
 	node_umount_smb
 	nxlog "$FUNCNAME ($$): call node_cupsd_stop" &
 	node_cupsd_stop
+	nxlog "$FUNCNAME ($$): call reconnect_pa" &
+	reconnect_pa
 	nxlog "$FUNCNAME ($$): end" &
 }
 
