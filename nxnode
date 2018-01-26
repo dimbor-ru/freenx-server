@@ -161,6 +161,20 @@ norm_param()
     echo $res
 }
 
+#
+# dimbor: nxcomp from Arctica project returns supplemented description
+# of (listening) port. It's string like "tcp:localhost:6001". While we only
+# need a numeric value.
+#
+
+port2port_val()
+# arg: string with port description
+# returns numerical port value
+{
+    port="$(basename $(echo $1 | sed 's/:/\//g') 2>/dev/null)"
+    echo $port
+}
+
 
 #
 # dimbor: functions to control user's shares and printers in mode "per user"
@@ -1629,6 +1643,7 @@ node_start_monitor_2_0_0()
 		if stringinstring "Info: Listening * SMB connections on port" "$line"
 		then
 			SMBMOUNT_PORT=$(echo $line | cut -d"'" -f2)
+			SMBMOUNT_PORT=$(port2port_val $SMBMOUNT_PORT)
 			echo "$SMBMOUNT_PORT" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mport"
 		fi
 
