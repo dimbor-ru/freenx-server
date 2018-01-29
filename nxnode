@@ -1721,12 +1721,15 @@ node_start_monitor_2_0_0()
 		# Session is running
 		#
 		
-		if stringinstring "Info: Waiting for connection from" "$line"
-		then
-			echo "NX> 710 Session status: running"
-			echo "NX> 1002 Commit"
-			echo "NX> 1006 Session status: running"
-		fi
+        # dimbor: with nx-libs 3.5.99 node_monitor catch of startsession restore
+        # too fast
+
+        #if stringinstring "Info: Waiting for connection from" "$line"
+        #then
+        #	echo "NX> 710 Session status: running"
+        #	echo "NX> 1002 Commit"
+        #	echo "NX> 1006 Session status: running"
+        #fi
 
 		#
 		# Reconnection success!
@@ -2287,6 +2290,12 @@ then
 	echo "NX> 709 File-sharing port: $smbport"
 	echo "$smbport" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport"
 fi
+
+# dimbor: with nx-libs 3.5.99 node_monitor catch of startsession restore
+# too fast
+echo "NX> 710 Session status: running"
+echo "NX> 1002 Commit"
+echo "NX> 1006 Session status: running"
 
 # collection ...
 
