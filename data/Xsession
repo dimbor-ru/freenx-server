@@ -121,8 +121,12 @@ MergeResources()
 }
 
 # Merge in defaults and keymaps.
-[ -d /etc/X11/Xresources ] && Xresources_d=$(ls /etc/X11/Xresources)
-MergeResources /etc/X11/Xresources $Xresources_d "$HOME/.Xresources" "$HOME/.Xdefaults"
+if [ -d /etc/X11/Xresources ]; then
+    Xresources_d=$(ls /etc/X11/Xresources)
+    MergeResources $Xresources_d "$HOME/.Xresources" "$HOME/.Xdefaults"
+else
+    MergeResources /etc/X11/Xresources "$HOME/.Xresources" "$HOME/.Xdefaults"
+fi
 
 TryXBrowser()
 {
