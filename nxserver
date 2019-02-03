@@ -56,7 +56,7 @@ log()
 
 echo_secure()
 {
-	echo "$@ " | $COMMAND_PERL -pi -e 's/--cookie=".+?"/--cookie="******"/g; s/--agent_password=".+?"/agent_password="******"/g; s/--password=".+?"/password="******"/g; s/cookie=.+?&/cookie=******&/g; s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;'
+	echo "$@ " | $COMMAND_PERL -p -e 's/--cookie=".+?"/--cookie="******"/g; s/--agent_password=".+?"/agent_password="******"/g; s/--password=".+?"/password="******"/g; s/cookie=.+?&/cookie=******&/g; s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;'
 }
 
 log_secure()
@@ -125,7 +125,7 @@ passdb_chpass()
 	PASSDB_CHUSER="$1"
 	PASSDB_ENC_PASS="$2"
 	cp -f $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	$COMMAND_PERL -pi -e "s/$PASSDB_CHUSER:.*/$PASSDB_CHUSER:$PASSDB_ENC_PASS/g" $NX_ETC_DIR/passwords
+	$COMMAND_PERL -p -e "s/$PASSDB_CHUSER:.*/$PASSDB_CHUSER:$PASSDB_ENC_PASS/g" $NX_ETC_DIR/passwords
 }
 
 passdb_user_exists()
@@ -139,7 +139,7 @@ passdb_remove_user()
 {
 	PASSDB_CHUSER="$1"
 	cp -f $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	$COMMAND_PERL -pi -e "s/$PASSDB_CHUSER:.*\n//g" $NX_ETC_DIR/passwords
+	$COMMAND_PERL -p -e "s/$PASSDB_CHUSER:.*\n//g" $NX_ETC_DIR/passwords 2>/dev/null
 }
 
 passdb_add_user()
@@ -466,7 +466,7 @@ session_add()
 
 session_change()
 {
-	[ -f $NX_SESS_DIR/running/sessionId'{'$1'}' ] && $COMMAND_PERL -pi -e "s/$2=.*/$2=$3/" $NX_SESS_DIR/running/sessionId'{'$1'}'
+	[ -f $NX_SESS_DIR/running/sessionId'{'$1'}' ] && $COMMAND_PERL -p -e "s/$2=.*/$2=$3/" $NX_SESS_DIR/running/sessionId'{'$1'}'
 }
 
 # session_id <new status>
@@ -488,7 +488,7 @@ session_running()
 
 session_close()
 {
-	$COMMAND_PERL -pi -e "s/startTime=\(.*\)/startTime=\1\nendTime=$(date +%s)/" $NX_SESS_DIR/running/sessionId'{'$1'}'
+	$COMMAND_PERL -p -e "s/startTime=\(.*\)/startTime=\1\nendTime=$(date +%s)/" $NX_SESS_DIR/running/sessionId'{'$1'}'
 	session_status $1 "Finished"
 	[ "$SESSION_HISTORY" = "0" ] && rm -f $NX_SESS_DIR/running/sessionId'{'$1'}'
 	[ "$SESSION_HISTORY" = "0" ] || mv -f $NX_SESS_DIR/running/sessionId'{'$1'}' $NX_SESS_DIR/closed/sessionId'{'$1'}'
@@ -496,7 +496,7 @@ session_close()
 
 session_fail()
 {
-	$COMMAND_PERL -pi -e "s/startTime=\(.*\)/startTime=\1\nendTime=$(date +%s)/" $NX_SESS_DIR/running/sessionId'{'$1'}'
+	$COMMAND_PERL -p -e "s/startTime=\(.*\)/startTime=\1\nendTime=$(date +%s)/" $NX_SESS_DIR/running/sessionId'{'$1'}'
 	session_status $1 "Failed"
 	[ "$SESSION_HISTORY" = "0" ] && rm -f $NX_SESS_DIR/running/sessionId'{'$1'}'
 	[ "$SESSION_HISTORY" = "0" ] || mv -f $NX_SESS_DIR/running/sessionId'{'$1'}' $NX_SESS_DIR/failed/sessionId'{'$1'}'

@@ -105,18 +105,18 @@ if [ "$NX_LOG_LEVEL" -ge 6 ] ; then
 	[ -n "$sessionid" ] || sessionid=$sess_id
 	if [ "$USER" = "nx" ] ; then
 		#guest
-		echo "$(date "+%d.%m %X"): $@" | $COMMAND_PERL -pi -e 's/--cookie=".+?"/--cookie="******"/g;  s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;' >> "/var/log/nx/nxnode.log"
+		echo "$(date "+%d.%m %X"): $@" | $COMMAND_PERL -p -e 's/--cookie=".+?"/--cookie="******"/g;  s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;' >> "/var/log/nx/nxnode.log"
 	else
 		mkdir -p "$USER_FAKE_HOME/.nx"
 		if [ -n "$sessionid" ] ; then
 			sessionid="$(echo "$sessionid" |  awk 'BEGIN {FS="-"} {i=NF; print $i}')"
 			if [ -n "$password" ] ; then
-			    echo "$(date "+%d.%m %X"): $@" | $COMMAND_PERL -pi -e 's/--cookie=".+?"/--cookie="******"/g;  s/agent_password=.+?&/agent_password=******&/g; s/'$password'/****/g' >> "$USER_FAKE_HOME/.nx/nxnode-$sessionid.log"
+			    echo "$(date "+%d.%m %X"): $@" | $COMMAND_PERL -p -e 's/--cookie=".+?"/--cookie="******"/g;  s/agent_password=.+?&/agent_password=******&/g; s/'$password'/****/g' >> "$USER_FAKE_HOME/.nx/nxnode-$sessionid.log"
 			else
-			    echo "$(date "+%d.%m %X"): $@" | $COMMAND_PERL -pi -e 's/--cookie=".+?"/--cookie="******"/g;  s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;' >> "$USER_FAKE_HOME/.nx/nxnode-$sessionid.log"
+			    echo "$(date "+%d.%m %X"): $@" | $COMMAND_PERL -p -e 's/--cookie=".+?"/--cookie="******"/g;  s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;' >> "$USER_FAKE_HOME/.nx/nxnode-$sessionid.log"
 			fi
 		else
-			echo "$(date "+%d.%m %X"): $@" | $COMMAND_PERL -pi -e 's/--cookie=".+?"/--cookie="******"/g;  s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;' >> "$USER_FAKE_HOME/.nx/nxnode.log"
+			echo "$(date "+%d.%m %X"): $@" | $COMMAND_PERL -p -e 's/--cookie=".+?"/--cookie="******"/g;  s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;' >> "$USER_FAKE_HOME/.nx/nxnode.log"
 		fi
 	fi
 fi
@@ -1351,8 +1351,8 @@ EOF
 	then
 		if egrep -q "^Host=" "$KDE_PRINTRC"
 		then
-			[ "$ENABLE_KDE_CUPS_DYNAMIC" = "1" ] && $COMMAND_PERL -pi -e 's,^Host=.*,Host[\$ie]=\$\('"$PATH_BIN/nxcups-gethost"'),g' "$KDE_PRINTRC"
-			[ "$ENABLE_KDE_CUPS_DYNAMIC" != "1" ] && $COMMAND_PERL -pi -e 's,^Host=.*,Host='"$NODE_CUPSD_SOCKET"',g' "$KDE_PRINTRC"
+			[ "$ENABLE_KDE_CUPS_DYNAMIC" = "1" ] && $COMMAND_PERL -p -e 's,^Host=.*,Host[\$ie]=\$\('"$PATH_BIN/nxcups-gethost"'),g' "$KDE_PRINTRC"
+			[ "$ENABLE_KDE_CUPS_DYNAMIC" != "1" ] && $COMMAND_PERL -p -e 's,^Host=.*,Host='"$NODE_CUPSD_SOCKET"',g' "$KDE_PRINTRC"
 		else
 			echo "[CUPS]" >> "$KDE_PRINTRC"
 			[ "$ENABLE_KDE_CUPS_DYNAMIC" = "1" ] && echo "Host[\$ie]=\$($PATH_BIN/nxcups-gethost)" >> "$KDE_PRINTRC"
