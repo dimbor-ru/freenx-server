@@ -1,0 +1,16 @@
+nx-session-launcher/nx-session-launcher-suid
+nxredir/libnxredir.so.0
+nxredir/nxredir.o
+nxserver-helper/nxserver-helper
+nxserver-suid/nxserver-suid
+nxviewer-passwd/Makefile
+nxviewer-passwd/Makefile.bak
+nxviewer-passwd/libvncauth/Makefile
+nxviewer-passwd/libvncauth/Makefile.bak
+nxviewer-passwd/libvncauth/d3des.o
+nxviewer-passwd/libvncauth/libvncauth.a
+nxviewer-passwd/libvncauth/vncauth.o
+nxviewer-passwd/nxpasswd/Makefile
+nxviewer-passwd/nxpasswd/Makefile.bak
+nxviewer-passwd/nxpasswd/nxpasswd
+nxviewer-passwd/nxpasswd/vncpasswd.o
