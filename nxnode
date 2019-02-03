@@ -425,6 +425,11 @@ node_terminate_session()
 	# Kill nxagent
 	
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
+
+	# JJK: Kill running services
+	# FF: Seems this is needed also here ...
+	nxlog "$FUNCNAME ($$): call node_stop_services" &
+	node_stop_services
 	
 	if [ -n "$NODE_AGENT_PID" ]
 	then
@@ -443,11 +448,6 @@ node_terminate_session()
 	NODE_TAIL_PID=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail" 2>/dev/null)
 	[ -n "$NODE_TAIL_PID" ] && { nxlog "$FUNCNAME ($$): kill tail process" &
 	    kill $NODE_TAIL_PID 2>/dev/null; }
-
-	# JJK: Kill running services
-	# FF: Seems this is needed also here ...
-	nxlog "$FUNCNAME ($$): call node_stop_services" &
-	node_stop_services
 
 	# Remove display information
 	
