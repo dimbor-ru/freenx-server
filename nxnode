@@ -193,6 +193,7 @@ get_mport2sessdir()
     if [ "$type" != "smb" -a -n "$cport" ]; then mport=$cport; type="ipp";
     elif [ "$type" != "ipp" -a  -n "$smbport" ]; then mport=$smbport; type="smb";
     fi
+    mport="$(echo "$mport" | awk -F: '{print $NF}')"
     nxlog "$FUNCNAME ($$): sessdir \"$1\"; mport == $mport \"$type\"" &
     echo $mport
 }
