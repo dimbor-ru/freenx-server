@@ -408,7 +408,7 @@ esac
 [ -z "$APPLICATION_LIBRARY_PATH" ] && APPLICATION_LIBRARY_PATH=$PATH_LIB
 [ -z "$APPLICATION_LIBRARY_PRELOAD" ] && APPLICATION_LIBRARY_PRELOAD="$APPLICATION_LIBRARY_PATH/libX11-nx.so.6:$APPLICATION_LIBRARY_PATH/libXext-nx.so.6:$APPLICATION_LIBRARY_PATH/libXcomp.so.3:$APPLICATION_LIBRARY_PATH/libXcompext.so.3:$APPLICATION_LIBRARY_PATH/libXrender.so.1"
 
-NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | egrep 'NXAGENT - Version' | sed 's/.*Version //g')
+NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | egrep 'NXAGENT - Version' | head -1 | sed 's/.*Version //g')
 
 [ "$ENABLE_1_5_0_BACKEND" = "1" ] && NX_BACKEND_VERSION="1.5.0" # forced the backend
 
