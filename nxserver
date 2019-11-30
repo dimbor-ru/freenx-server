@@ -53,10 +53,10 @@ log()
 }
 
 # Log in a way that is secure for passwords / cookies / ...
-
-echo_secure()
-{
-	echo "$@ " | $COMMAND_PERL -p -e 's/--cookie=".+?"/--cookie="******"/g; s/--agent_password=".+?"/agent_password="******"/g; s/--password=".+?"/password="******"/g; s/cookie=.+?&/cookie=******&/g; s/agent_password=.+?&/agent_password=******&/g; s/password=.+?&/password=******&/g;'
+echo_secure() {
+	echo "$@ " | sed	-e 's/--cookie="[^"]*"/--cookie="******"/g' \
+							-e 's/\(--.*password=\)"[^"]*"/\1"******"/g'\
+							-e 's/password=[^&]*/password=******/g;'
 }
 
 log_secure()
@@ -125,7 +125,7 @@ passdb_chpass()
 	PASSDB_CHUSER="$1"
 	PASSDB_ENC_PASS="$2"
 	cp -f $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	$COMMAND_PERL -pi -e "s/$PASSDB_CHUSER:.*/$PASSDB_CHUSER:$PASSDB_ENC_PASS/g" $NX_ETC_DIR/passwords
+	sed -i -e "s/$PASSDB_CHUSER:.*/$PASSDB_CHUSER:$PASSDB_ENC_PASS/g" $NX_ETC_DIR/passwords
 }
 
 passdb_user_exists()
@@ -139,7 +139,7 @@ passdb_remove_user()
 {
 	PASSDB_CHUSER="$1"
 	cp -f $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	$COMMAND_PERL -pi -e "s/$PASSDB_CHUSER:.*\n//g" $NX_ETC_DIR/passwords
+	sed -i -e "/$PASSDB_CHUSER:/d" $NX_ETC_DIR/passwords
 }
 
 passdb_add_user()
