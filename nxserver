@@ -167,101 +167,192 @@ passdb_list_user()
 
 # Needed global vars: $NX_SESS_DIR
 
-session_list()
-{
-	cat $NX_SESS_DIR/running/sessionId"{$1}"
+# drop types from filds str
+flds_wo_types() { echo "$1" | sed 's/[ \t]*INT//g'; }
+
+# ============== structure of sessions db ================
+ssid="sessionId"
+fls0_t="sessionName,\
+ display,\
+ status,\
+ startTime INT,\
+ foreignAddress,\
+ sessionRootlessMode INT,\
+ type,\
+ creationTime INT,\
+ userName,\
+ serverPid,\
+ screeninfo,\
+ geometry,\
+ host,\
+ shadowcookie"
+fls0=$(flds_wo_types "$fls0_t")
+fls_ext_t="endTime INT"
+fls_ext=$(flds_wo_types "$fls_ext_t")
+fls_orig="$ssid, $fls0"
+fls_full="$fls_orig, $fls_ext"
+
+# =================== sqlite3 stuff =====================
+
+sqcmd="$(which sqlite3)"; sqbd="$NX_SESS_DIR/sessions.sq3"; sqtname="sess"
+
+# sqlite3 main query function
+q_db() { echo -e ".timeout $SQ3_TIMEOUT\n$@" | $sqcmd $sqbd; }
+
+ins_sess_file() {
+	txt="$(cat $1)"
+	fields=""; vals=""
+	txt="$(echo "$txt" | tr '=' ' ')"
+	while read field val; do
+		fields="$fields${fields:+,}$field"
+		vals="$vals${vals:+,}'$val'"
+	done <<< "$txt"
+	q_db "INSERT INTO $sqtname($fields) VALUES($vals);"
 }
 
-# Find all running session-filenames 
-
-session_find_all()
-{
-	for i in $NX_SESS_DIR/running/*
-	do
-		[ -f $i ] || break
-		echo $i
-	done
+init_db() {
+	isdb=""; [ -f $sqbd ] && isdb="1"
+   q_db "CREATE TABLE IF NOT EXISTS $sqtname($ssid TEXT UNIQUE, $fls0_t, $fls_ext_t);"
+	[ -n "$isdb" ] && return
+   for fn in $NX_SESS_DIR/{closed,failed,running}/*; do
+		ins_sess_file $fn;
+	done >/dev/null 2>&1
+	log 1 "Info: Sessions db migrated to sqlite3 format."
+	rm -rf $NX_SESS_DIR/{closed,failed,running}
 }
+
+str_eq_cond() {
+#params: cond,"A|B|C..."
+#ret: "cond IN ('A','B','C'...)" OR "cond='A'"
+	[ -z "$2" ] && return
+	comma=""; vals=""
+	txt="$(echo -n "$2" | tr '|' '\n')"
+	while read val; do
+		comma="${vals:+,}"
+		vals="$vals$comma'$val'"
+	done <<< "$txt"
+	if [ -n "$comma" ]; then echo "$1 IN ($vals)"
+	else echo "$1=$vals"
+	fi
+}
+
+fls_timeformat() {
+	echo "$@" | sed -e \
+	"s/,[ \t]\(\w*Time\)/, datetime(\1,'unixepoch','localtime') AS \1/g" #"
+}
+
+qtxt2cmdstrs() {
+#params: text from sqlite3 query (.mode line)
+#ret: nx command strings
+	echo "$@" | awk 'BEGIN{FS="\n"; RS=""; OFS="&"; ORS="\n"}
+	{for (i=1;i<=NF;i++) {
+		split($i,a,"=");
+		for (j=1;j<=2;j++) {
+			e=length(a[j]);
+			for (bi=1;bi<e;bi++) if (substr(a[j],bi,1)""!~"[ \t]") break;
+			for (ei=e;ei>bi;ei--) if (substr(a[j],ei,1)""!~"[ \t]") break;
+			a[j]=substr(a[j],bi,ei-bi+1);
+			if (a[j]==" ") a[j]="";
+		};
+		$i=a[1]"" "=" a[2];
+	}
+	print "a=b&" $0 "&";
+	}'
+}
+
+#-------------------------------------------------------------------
+
+session_list() {
+#params: sessId  ["format_times"]
+#if you need to humane output put something in $2
+	if [ -n "$2" ]; then fls=$(fls_timeformat "$fls_full")
+	else # original order of fields
+		fls="sessionName, display, status, startTime, foreignAddress,\
+ sessionRootlessMode, type, sessionId, creationTime, userName,\
+ serverPid, screeninfo,geometry, host, shadowcookie"
+	fi
+	res=$(q_db ".mode line\n SELECT $fls FROM $sqtname WHERE sessionId='$1'")
+	if [ -z "$2" ]; then
+		echo "$res" | sed -e 's/^[ \t]*//g' -e 's/[ \t]*=[ \t]*/=/g'
+	else
+		echo "$res" | sed -e 's/^[ \t]*//g'
+	fi
+}
+
+session_find_cmdstrs() {
+#params: [sessid] [user] [display] [status="Running|Suspended"]
+#ret: sessions command strings delimited by \n
+	st="Running|Suspended"; [ -n "$4" ] && st="$4"
+	wstr="WHERE $(str_eq_cond status $st)"
+	[ -n "$1" ] && wstr="$wstr AND $(str_eq_cond sessionId $1)"
+	[ -n "$2" -a "$2" != "all" -a "$2" != ".*" ] && \
+		wstr="$wstr AND $(str_eq_cond userName $2)"
+	[ -n "$3" ] && wstr="$wstr AND $(str_eq_cond display $3)"
+	res="$(q_db ".mode line\nSELECT $fls_full" "FROM $sqtname" "$wstr" "ORDER BY startTime DESC;")"
+	qtxt2cmdstrs "$res"
+}
+
+# Find all running session-filenames
+session_find_all() { session_find_cmdstrs; }
 
 # Find all running sessions of a id
-session_find_id()
-{
-	[ -f $NX_SESS_DIR/running/sessionId"{$1}" ] && echo $NX_SESS_DIR/running/sessionId"{$1}"
-}
+session_find_id() { session_find_cmdstrs "$1"; }
 
-# finds out if a session belongs to a user
+# Finds out if a session belongs to a user
+session_find_user() { session_find_cmdstrs "" "$1"; }
 
-session_find_id_user()
-{
-	[ -f $NX_SESS_DIR/running/sessionId"{$1}" ] && egrep -q "^userName=$2$" $NX_SESS_DIR/running/sessionId"{$1}" && return 0
+# Find all running sessions of a display
+session_find_display() { session_find_cmdstrs "" "" "$1"; }
+
+# Finds out if a session belongs to a user
+session_find_id_user() {
+#params: sessid user
+	wstr="WHERE status IN ('Running', 'Suspended') AND sessionId='$1' AND username='$2'"
+	res=$(q_db "SELECT sessionId FROM $sqtname" "$wstr" ";")
+	[ -n "$res" ] && return 0
 	return 1
 }
 
-# Find all running sessions of a user
-session_find_user()
-{
-	for i in $NX_SESS_DIR/running/*
-	do
-		[ -f $i ] || break
-		egrep -q "^userName=$1$" $i && echo $i
-	done
-}
-
-# Find all running sessions of a display
-session_find_display()
-{	
-	for i in $NX_SESS_DIR/running/*
-	do
-		[ -f $i ] || break
-		egrep -q "^display=$1$" $i && echo $i
-	done
-}
+# session_get <uniqueid>
+session_get()  { session_find_cmdstrs "$1"; }
 
 # session_get_cmdline <session filename>
-
-session_get_cmdline()
-{
-	echo "a=b&$(tr '\n' '&' <"$1")"
-}
-
-# session_get <uniqueid>
-
-session_get()
-{
-	session_get_cmdline $NX_SESS_DIR/running/sessionId"{$1}"
-}
-
+#session_get_cmdline() #cmdl
+#{
+#	echo "a=b&$(tr '\n' '&' <"$1")"
+#}
 
 # Get the first session, which can be resumed
-
-session_get_user_suspended()
-{
-	for i in $NX_SESS_DIR/running/*
-	do
-		[ -f $i ] || break
-		if egrep -q "^userName=$1$" $i && egrep -q "^status=$2$" $i
-		then
-			CMDLINE=$(session_get_cmdline $i)
-			echo "$(getparam sessionId)"
-			break
-		fi
-	done
+session_get_user_suspended() {
+#params: user status
+#ret: sessionId line[s] or empty
+	wstr="WHERE status='$2'AND username='$1'"
+	q_db "SELECT sessionId FROM $sqtname" "$wstr" "ORDER BY startTime DESC;" \
+		| head -1
 }
 
 # Count all sessions of a user
 # and save it in SESSION_COUNT and SESSION_COUNT_USER
 
-session_count_user()
-{
-	SESSION_COUNT=0
-	SESSION_COUNT_USER=0
+session_count_user() {
+#params: userName [status]
+	SESSION_COUNT=0; SESSION_COUNT_USER=0
+	st="Running|Suspended"; [ -n "$2" ] && st="$2"
+	wstr="WHERE $(str_eq_cond status $st)"
+	if [ "$1" = ".*" -o "$1" = "all" ]; then
+		SESSION_COUNT=$(q_db "SELECT count(*) FROM $sqtname" "$wstr" ";") #"
+		SESSION_COUNT_USER=$SESSION_COUNT
+		return 0
+	fi
 
-	for i in $NX_SESS_DIR/running/*
-	do
-		[ -f $i ] || break
-		let SESSION_COUNT=$SESSION_COUNT+1
-		egrep -q "^userName=$1$" $i && let SESSION_COUNT_USER=$SESSION_COUNT_USER+1
-	done
+	txt=$(q_db ".mode tabs\nSELECT userName,count(*) FROM $sqtname" "$wstr" " GROUP BY userName;") #"
+	u=""; sc=""
+	while read u sc; do
+		[ -z "$sc" ] && continue
+		let SESSION_COUNT=SESSION_COUNT+$sc
+		[ "$u" = "$1" ] && SESSION_COUNT_USER=$sc
+	done <<< "$txt"
+	return 0
 }
 
 # List all sessions of a user
@@ -278,234 +369,178 @@ session_list_user_suspended() {
        echo "$SESSION_LIST_CACHE_DATA"
 }
 
-_session_list_user_suspended()
-{
-	SESSION_COUNT=0
-	SESSION_COUNT_USER=0
-
+_session_list_user_suspended() {
 	TMPFILE=$(mktemp /tmp/nxserver_tmp.XXXXXXXXX)
 	echo "NX> 127 Sessions list of user '$1' for reconnect:" > $TMPFILE
 	echo >> $TMPFILE
-	if [ -z "$4" ]
-	then
-		
+	if [ -z "$4" ]; then
 		echo "Display Type             Session ID                       Options  Depth Screensize     Available Session Name" >> $TMPFILE
 		echo "------- ---------------- -------------------------------- -------- ----- -------------- --------- ----------------------" >> $TMPFILE
 	else
 		echo "Display Type             Session ID                       Options  Depth Screen         Status      Session Name" >> $TMPFILE
 		echo "------- ---------------- -------------------------------- -------- ----- -------------- ----------- ------------------------------" >> $TMPFILE
 	fi
-	for i in $NX_SESS_DIR/running/*
-	do
-		[ -f $i ] || break
-		let SESSION_COUNT=$SESSION_COUNT+1
-		CMDLINE=$(session_get_cmdline $i)
-		if [[ ( "$1" == ".*" || "$(getparam userName)" == "$1" ) && $(getparam status) =~ $2 ]]
-		then
-			if [ "$4" = "shadow" ]
-			then
-				if [ "$(getparam userName)" != "$USER" ]
-				then 
-					[ -z "$(getparam shadowcookie)" ] && continue
-					
-					if [ -x "$COMMAND_NXSHADOWACL" ]
-					then
-						$COMMAND_NXSHADOWACL "$(getparam userName)" "$USER" || continue
-					fi
-				fi
-			fi
+	cmdstrs=$(session_find_cmdstrs "" "$1" "" "$2")
 
-			pattern='^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)'
-			[[ $(getparam screeninfo) =~ $pattern ]]
-			geom=${BASH_REMATCH[1]}
-			depth=${BASH_REMATCH[2]}
-			render=${BASH_REMATCH[3]}
-			[[ $3 =~ $pattern ]]
-			udepth=${BASH_REMATCH[2]}
-			urender=${BASH_REMATCH[3]}
-
-			mode="D"
-			[ "$(getparam sessionRootlessMode)" = "1" ] && mode="-"
-			
-			options="-"
-			stringinstring "fullscreen" "$3" && options="F"
-			[ "$(getparam geometry)" = "fullscreen" ] || options="-"
-			[ "$urender" = "render" ] && options="${options}R${mode}--PSA"
-			[ "$urender" = "render" ] || options="${options}-${mode}--PSA"
-			[ "$udepth" = "$depth" -a "$urender" = "$render" ] && available=$(getparam status)
-			# FIXME: HACK !!! to keep compatibility with old snapshot version (Knoppix 3.6 based for example)
-			if [ -z "$4" -a "$available" != "N/A" ] 
-			then
-				available="Yes"
-			fi
-			
-			# We automatically offer VNC shadowed sessions for "remote" support
-			if [ "$4" = "vnc" -a "$ENABLE_MIRROR_VIA_VNC" = "1" ] && stringinstring "unix-" "$(getparam type)"
-			then
-				available=$(getparam status)
-				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "vnc-shadowed" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) (Mirrored)" >> $TMPFILE
-			elif [ "$4" = "shadow" ]
-			then
-				available=$(getparam status)
-				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "$(getparam type)" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) ($(getparam userName)) (Shadowed)" >> $TMPFILE
-			else
-				# only unix-* sessions can be resumed, but other session types can still be terminated
-				stringinstring "unix-" "$4" || available="N/A"
-				printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "$(getparam type)" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName)" >> $TMPFILE
+	while read CMDLINE; do
+		[ -z "$CMDLINE" ] && continue
+		if [ "$4" = "shadow" -a "$(getparam userName)" != "$USER" ]; then
+			[ -z "$(getparam shadowcookie)" ] && continue
+			if [ -x "$COMMAND_NXSHADOWACL" ]; then
+				$COMMAND_NXSHADOWACL "$(getparam userName)" "$USER" || continue
 			fi
 		fi
-		[ "$1" = ".*" -o "$(getparam userName)" = "$1" ] && let SESSION_COUNT_USER=$SESSION_COUNT_USER+1
-	done
-	
-	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]
-	then
+
+		pattern='^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)'
+		[[ $(getparam screeninfo) =~ $pattern ]]
+		geom=${BASH_REMATCH[1]}; depth=${BASH_REMATCH[2]}; render=${BASH_REMATCH[3]}
+		[[ $3 =~ $pattern ]]
+		udepth=${BASH_REMATCH[2]}; urender=${BASH_REMATCH[3]}
+		mode="D"; [ "$(getparam sessionRootlessMode)" = "1" ] && mode="-"
+		options="-"; stringinstring "fullscreen" "$3" && options="F"
+		[ "$(getparam geometry)" = "fullscreen" ] || options="-"
+		[ "$urender" = "render" ] && options="${options}R${mode}--PSA"
+		[ "$urender" = "render" ] || options="${options}-${mode}--PSA"
+		[ "$udepth" = "$depth" -a "$urender" = "$render" ] && available=$(getparam status)
+		# FIXME: HACK !!! to keep compatibility with old snapshot version (Knoppix 3.6 based for example)
+		if [ -z "$4" -a "$available" != "N/A" ]; then
+			available="Yes"
+		fi
+		# We automatically offer VNC shadowed sessions for "remote" support
+		if [ "$4" = "vnc" -a "$ENABLE_MIRROR_VIA_VNC" = "1" ] \
+					&& stringinstring "unix-" "$(getparam type)"; then
+			available=$(getparam status)
+			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "vnc-shadowed" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) (Mirrored)" >> $TMPFILE
+		elif [ "$4" = "shadow" ]; then
+			available=$(getparam status)
+			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "$(getparam type)" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName) ($(getparam userName)) (Shadowed)" >> $TMPFILE
+		else
+			# only unix-* sessions can be resumed, but other session types can still be terminated
+			stringinstring "unix-" "$4" || available="N/A"
+			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$(getparam display)" "$(getparam type)" "$(getparam sessionId)" "$options" "$depth" "$geom" "$available" "$(getparam sessionName)" >> $TMPFILE
+		fi
+	done <<< "$cmdstrs"
+
+	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]; then
 		export DESKTOP_SHARING_IDS=""
-		for i in $(LC_ALL=C netstat -ln --protocol=unix | egrep 'X11-unix/X[0-9]$' | sed 's/.*X\(.*\)/\1/g')
-		do
-	# '
+		for i in $(LC_ALL=C netstat -ln --protocol=unix | egrep 'X11-unix/X[0-9]$' | sed 's/.*X\(.*\)/\1/g'); do  #'
 			uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM | cut -d" " -f1 | tr "[a-z]" "[A-Z]")
 			DESKTOP_SHARING_IDS="$DESKTOP_SHARING_IDS $uniqueid=$i"
 			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$uniqueid" "--------" "$udepth" "$(echo $3 | cut -d'x' -f1,2)" "Running" "X$i (Local)" >> $TMPFILE
 		done
 	fi
-	
 	echo "" >> $TMPFILE
 	echo "" >> $TMPFILE
-	
-	if [ "$SESSION_COUNT" -ge "$SESSION_LIMIT" -o "$SESSION_COUNT_USER" -ge "$SESSION_USER_LIMIT" ]
-	then
+
+	#SESSION_COUNT=0; SESSION_COUNT_USER=0
+	session_count_user "$1"
+	if [ "$SESSION_COUNT" -ge "$SESSION_LIMIT" -o \
+			"$SESSION_COUNT_USER" -ge "$SESSION_USER_LIMIT" ]; then
 		echo "NX> 147 Server capacity: reached for user: $1" >> $TMPFILE
 	else
 		echo "NX> 148 Server capacity: not reached for user: $1" >> $TMPFILE
 	fi
-	
+
 	cat $TMPFILE | log_tee
 	rm -f $TMPFILE
 }
 
-session_list_user()
-{
-	echo "NX> 127 Sessions list of user '$1'"
+session_list_user() {
+#params: userName [status="Running|Suspended"]
+	echo -n "NX> 127 Sessions list"
+	if [ -n "$1" -a "$1" != "all" ]; then echo " of user '$1'"
+	else echo ":"
+	fi
 	echo
-	echo "Server     Display Username        Remote IP       Session ID"
+	echo "Server	 Display Username		Remote IP	   Session ID"
 	echo "------ ------- --------------- --------------- --------------------------------"
-	for i in $NX_SESS_DIR/running/*
-	do
-		[ -f $i ] || break
-		if egrep -q "^userName=$1$" $i
-		then
-			CMDLINE=$(session_get_cmdline $i)
-			echo -e "$(getparam host)\t$(getparam display)\t$(getparam userName)\t$(getparam foreignAddress)\t$(getparam sessionId)"
-		fi
-	done
+
+	st="Running|Suspended"; [ -n "$2" ] && st="$2"
+	wstr="WHERE $(str_eq_cond status $st)"
+	[ -n "$1" -a "$1" != "all" ] && wstr="$wstr AND $(str_eq_cond userName $1)"
+	q_db ".mode tabs\nSELECT host,display,userName,foreignAddress,sessionId\
+			FROM $sqtname" "$wstr" "ORDER BY startTime DESC;" # ! check order !
 }
 
-session_history()
-{
-	userName=$1
-	sessionId=$2
+session_history() {
+#params: userName sessionId
 	echo "NX> 127 Session list:"
 	echo
 	echo "Display Username        Remote IP       Session ID                       Date                Status"
 	echo "------- --------------- --------------- -------------------------------- ------------------- -----------"
-	for j in $(ls --time-style +%s -la "$NX_SESS_DIR"/{closed,failed,running} | awk '/sessionId/ { print $6 " " $7 }' | sort -n | cut -d" " -f2)
-	do
-		if [ -n "$sessionId" ]
-		then
-			[ "$j" = "sessionId{$sessionId}" ] || continue
-		fi
-		i="$NX_SESS_DIR"/*/"$j"
-		[ -f $i ] || break
-		CMDLINE=$(session_get_cmdline $i)
-		if [ -n "$userName" ]
-		then
-			[ "$userName" = "$(getparam userName)" ] || continue
-		fi
-		echo -e "$(getparam display)\t$(getparam userName)\t$(getparam foreignAddress)\t$(getparam sessionId)\t$(ls --time-style="+%F %X" -l $i | awk '/sessionId/ { print $6 " " $7 }')\t$(getparam status)"
-	done
+
+	wstr=""
+	[ -n "$1" -a "$1" != "all" ] && wstr="$(str_eq_cond userName $1)"
+	[ -n "$wstr" -a -n "$2" ] && wstr="$wstr AND "
+	[ -n "$2" ] && wstr="$wstr sessionId='$2'"
+	[ -n "$wstr" ] && wstr="WHERE $wstr"
+	q_db ".mode tabs\nSELECT display,userName,foreignAddress,sessionId,\
+			datetime(startTime,'unixepoch','localtime'),status\
+			FROM $sqtname" "$wstr" "ORDER BY startTime;"
+
 }
 
 # remove all sessions older than $SESSION_HISTORY seconds in failed/closed.
-
-session_cleanup()
-{
+session_cleanup() {
 	[ "$SESSION_HISTORY" -gt "-1" ] || return
-	let SESSION_HISTORY_MINUTES=$SESSION_HISTORY/60
-
-	# If you need posix find compatibility, use the outcommented variant below.
-	find $NX_SESS_DIR/closed/ $NX_SESS_DIR/failed/ -type f -mmin +"$SESSION_HISTORY_MINUTES" -exec rm -f '{}' ';'
-	#let SESSION_HISTORY_DAYS=$SESSION_HISTORY_MINUTES/1440
-	#find $NX_SESS_DIR/closed/ $NX_SESS_DIR/failed/ -type f -mtime +"$SESSION_HISTORY_DAYS" -exec rm -f '{}' ';'
+	let checkTime=$(date +%s)-$SESSION_HISTORY
+	st="Finished|Failed";
+	wstr="WHERE $(str_eq_cond status $st) AND startTime < $checkTime"
+	q_db "DELETE FROM $sqtname" "$wstr" ";"
 }
 
-session_list_all()
-{
-	echo "NX> 127 Sessions list:"
-	echo
-	echo "Server     Display Username        Remote IP       Session ID"
-	echo "------ ------- --------------- --------------- --------------------------------"
-	for i in $NX_SESS_DIR/running/*
-	do
-		[ -f $i ] || break
-		CMDLINE=$(session_get_cmdline $i)
-		echo -e "$(getparam host)\t$(getparam display)\t$(getparam userName)\t$(getparam foreignAddress)\t$(getparam sessionId)"
+session_list_all() { session_list_user "all"; }
+
+session_add() {
+#params: <session_id> <options>
+	shift #sessid present separately for compat only
+	txt=$(echo "$@" | tr '&' '\n' | tr '=' ' ')
+	fields=""; vals=""
+	while read field val; do
+		fields="$fields${fields:+,}$field"; vals="$vals${vals:+,}'$val'"
+	done <<< "$txt"
+	q_db "INSERT INTO $sqtname($fields) VALUES($vals);"
+}
+
+session_change() {
+# <session_id> <parameter> <new_value> [<parameter> <new_value>]...
+	ssid="$1"; shift
+	setls=""
+	while [ -n "$1" -a  -n "$2" ]; do
+		setls="$setls${setls:+,}$1='$2'"
+		shift; shift
 	done
+	q_db "UPDATE $sqtname SET $setls WHERE sessionId='$ssid'"
 }
 
+# session_set_status <session_id> <new status>
+session_set_status() { session_change "$1" "status" "$2"; }
 
-# session_add <session_id> <options>
-
-session_add()
-{
-	id=$1
-	shift
-	echo "$@" | tr '&' '\n' > $NX_SESS_DIR/running/sessionId'{'$id'}'
-}
-
-# session_change <session_id> <parameter> <new_value>
-
-session_change()
-{
-	[ -f $NX_SESS_DIR/running/sessionId'{'$1'}' ] && $COMMAND_PERL -pi -e "s/$2=.*/$2=$3/" $NX_SESS_DIR/running/sessionId'{'$1'}'
-}
-
-# session_id <new status>
-
-session_status()
-{
-	session_change "$1" "status" "$2"
-}
-
-# session_running <session_id>
+# session_running <session_id> (? now dublicated session_find_id_user ?)
 # return: true if running, false if not
+session_running() { session_find_id_user "$1"; }
 
-session_running()
-{
-	test -f $NX_SESS_DIR/running/sessionId'{'$1'}'
+session_close() {
+#param: <session_id>
+	if [ "$SESSION_HISTORY" = "0" ] ; then
+		q_db "DELETE FROM $sqtname WHERE sessionId='$1'"
+	else
+		session_change "$1" "status" "Finished" "endTime" "$(date +%s)"
+	fi
 }
 
-# session_close <session_id> <end-time>
-
-session_close()
-{
-	$COMMAND_PERL -pi -e "s/startTime=\(.*\)/startTime=\1\nendTime=$(date +%s)/" $NX_SESS_DIR/running/sessionId'{'$1'}'
-	session_status $1 "Finished"
-	[ "$SESSION_HISTORY" = "0" ] && rm -f $NX_SESS_DIR/running/sessionId'{'$1'}'
-	[ "$SESSION_HISTORY" = "0" ] || mv -f $NX_SESS_DIR/running/sessionId'{'$1'}' $NX_SESS_DIR/closed/sessionId'{'$1'}'
+session_fail() {
+#param: <session_id>
+	if [ "$SESSION_HISTORY" = "0" ] ; then
+		q_db "DELETE FROM $sqtname WHERE sessionId='$1'"
+	else
+		session_change "$1" "status" "Failed" "endTime" "$(date +%s)"
+	fi
 }
 
-session_fail()
-{
-	$COMMAND_PERL -pi -e "s/startTime=\(.*\)/startTime=\1\nendTime=$(date +%s)/" $NX_SESS_DIR/running/sessionId'{'$1'}'
-	session_status $1 "Failed"
-	[ "$SESSION_HISTORY" = "0" ] && rm -f $NX_SESS_DIR/running/sessionId'{'$1'}'
-	[ "$SESSION_HISTORY" = "0" ] || mv -f $NX_SESS_DIR/running/sessionId'{'$1'}' $NX_SESS_DIR/failed/sessionId'{'$1'}'
-}
-
-session_suspend()
-{
-	session_status $1 "Suspended"
-	session_change $1 foreignAddress "-"
+session_suspend() {
+#param: <session_id>
+	session_change "$1" "status" "Suspended" "foreignAddress" "-"
 }
 
 #
@@ -545,8 +580,8 @@ then
 	export NX_SESS_DIR="$USER_FAKE_HOME/.nx/db/"
 	export NX_LOGFILE="$USER_FAKE_HOME/.nx/temp/nxserver.log"
 	mkdir -p $(dirname $NX_LOGFILE)
-	mkdir -p $NX_SESS_DIR/{closed,running,failed}
-	
+	init_db
+
 	# we are logged in already 
 	LOGIN_SUCCESS="1"
 	LOGIN_METHOD="USERMODE"
@@ -663,7 +698,8 @@ nxnode_login_register_reader()
 }
 
 # Start!
-[ "$NX_LOG_LEVEL" -ge "1" ] && touch "$NX_LOGFILE" >/dev/null 2>&1
+init_db
+
 log 3 "-- NX SERVER START: $@ - ORIG_COMMAND=$SSH_ORIGINAL_COMMAND"
 
 if [ "$ENABLE_SERVER_FORWARD" = "1" -a -n "$SERVER_FORWARD_HOST" ]
@@ -769,7 +805,7 @@ do
 			exit 0
 		;;
 		hello*|HELLO*)
-			PROTO=$(echo $CMD | sed 's/.*Version \(.*\)/\1/g')
+			PROTO=$(echo $CMD | sed 's/.*Version \(.*\)/\1/g') #'
 			echo_x "NX> 134 Accepted protocol: $PROTO"
 			if [ "$PROTO" = "1.3.0" -o "$PROTO" = "1.3.2" ]
 			then
@@ -981,7 +1017,7 @@ server_nxnode_start()
 server_add_usession()
 {
 	[ "$ENABLE_USESSION" = "1" ] || return
-	
+
 	$COMMAND_SESSREG -l ":$SESS_DISPLAY" -h "$USERIP" -a $USER 2>&1 | log_error
 }
 
@@ -1019,7 +1055,7 @@ server_nxnode_start_wait()
 	then
 	
 	server_add_usession
-
+	
 	# We need to stop sending things when a SIGPIPE arrives
 	trap "SERVER_CHANNEL=0" SIGPIPE
 	
@@ -1048,8 +1084,8 @@ server_nxnode_start_wait()
 					*running*)
 						[ "$KILL_WAIT_PID" = "1" ] && kill $SERVER_WAIT_PID
 						KILL_WAIT_PID=0
-						log 6 session_status $uniqueid "Running"
-						session_status $uniqueid "Running"
+						log 6 session_set_status $uniqueid "Running"
+						session_set_status $uniqueid "Running"
 						[ "$SERVER_CHANNEL" = "1" ] && SERVER_CHANNEL=2
 					;;
 					*closed*)
@@ -1063,16 +1099,16 @@ server_nxnode_start_wait()
 						session_suspend $uniqueid
 					;;
 					*suspending*)
-						log 6 session_status $uniqueid "Suspending"
-						session_status $uniqueid "Suspending"
+						log 6 session_set_status $uniqueid "Suspending"
+						session_set_status $uniqueid "Suspending"
 						# we need to stop sending to client as it will have already
 						# closed his side of the channel and this will lead to not 
 						# closed sessions.
 						SERVER_CHANNEL=0
 					;;
 					*terminating*)
-						log 6 session_status $uniqueid "Terminating"
-						session_status $uniqueid "Terminating"
+						log 6 session_set_status $uniqueid "Terminating"
+						session_set_status $uniqueid "Terminating"
 						# we need to stop sending to client as it will have already
 						# closed his side of the channel and this will lead to not 
 						# closed sessions.
@@ -1932,27 +1968,22 @@ cmd_parse_2_params()
 
 cmd_parse_3_params()
 {
-	if [ ${#1} -eq 32 ]
-	then
-		CMD_APARAMS=$(session_find_id $1)
-		[ -n "$CMD_APARAMS" ] || cmd_abort "Error: Session $1 could not be found."
-	elif [ "${1:0:1}" = ":" ]
-	then
-		CMD_APARAMS=$(session_find_display "${1:1}")
-		[ -n "$CMD_APARAMS" ] || cmd_abort "Error: No running sessions found for display $1."
-	elif [ "$1" = "*" ]
-	then
-		CMD_APARAMS=$(session_find_all)
-		[ -n "$CMD_APARAMS" ] || cmd_abort "Error: No running sessions found."
-	elif [ "$1" != "" ]
-	then
-		#egrep -q "^$1:" $NX_ETC_DIR/passwords || cmd_abort "Error: User $1 not found in database."
-		CMD_APARAMS=$(session_find_user "$1")
-		[ -n "$CMD_APARAMS" ] || cmd_abort "Error: No running sessions found for user $1."
+	if [ ${#1} -eq 32 ]; then
+		CMD_PARAMS=$(session_find_id $1)
+		[ -n "$CMD_PARAMS" ] || cmd_abort "Error: Session $1 could not be found."
+	elif [ "${1:0:1}" = ":" ]; then
+		CMD_PARAMS=$(session_find_display "${1:1}")
+		[ -n "$CMD_PARAMS" ] || cmd_abort "Error: No running sessions found for display $1."
+	elif [ "$1" = "*" ]; then
+		CMD_PARAMS=$(session_find_all)
+		[ -n "$CMD_PARAMS" ] || cmd_abort "Error: No running sessions found."
+	elif [ "$1" != "" ]; then
+		CMD_PARAMS=$(session_find_user "$1")
+		[ -n "$CMD_PARAMS" ] || cmd_abort "Error: No running sessions found for user $1."
 	else
 		cmd_abort "Error: Not enough parameters."
 	fi
-	echo $CMD_APARAMS
+	echo $CMD_PARAMS
 }
 
 cmd_list_suspended()
@@ -1982,10 +2013,8 @@ cmd_list()
 	esac
 }
 
-cmd_history_clear()
-{
-	rm -f $NX_SESS_DIR/closed/*
-	rm -f $NX_SESS_DIR/failed/*
+cmd_history_clear() {
+	q_db "DELETE FROM $sqtname WHERE status IN ('Finished','Failed');"
 }
 
 cmd_history()
@@ -2042,9 +2071,8 @@ cmd_terminate_or_send()
 	fi
 	shift
 
-	for i in $CMD_PARAMS
-	do
-			CMDLINE=$(session_get_cmdline $i)
+	while read CMDLINE; do
+		[ -z "$CMDLINE" ] && continue
 			cmd_sessionid=$(getparam sessionId)
 			cmd_display=$(getparam display)
 			cmd_user=$(getparam userName)
@@ -2074,8 +2102,17 @@ cmd_terminate_or_send()
 					cmd_execute "$cmd_host" "$cmd_user" "$PATH_BIN/nxdialog --dialog ok --caption \"NX Administrator Message\" --message \"$@\" -display \":$cmd_display\" &"
 				fi
 			esac
-	done
+	done <<< "$CMD_PARAMS"
 }
+
+if [ "$NX_LOG_LEVEL" -ge "1" -a ! -f "$NX_LOGFILE" ]; then
+	touch "$NX_LOGFILE" >/dev/null 2>&1
+fi
+init_db
+if [ $UID -eq 0 ]; then 
+	chown nx "$NX_LOGFILE"; chmod 660 "$NX_LOGFILE"
+	chown nx "$sqbd"; chmod 660 "$sqbd"
+fi
 
 #
 # normal user available functions

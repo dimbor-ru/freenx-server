@@ -274,6 +274,7 @@ SMB_MOUNT_OPTIONS=""
 NUMLOCKX="numlockx"
 NODE_APP_WAIT_TIMEOUT="5"
 KDE4_ENABLE="1"
+SQ3_TIMEOUT=500
 
 ############################################################################
 # OS specific directives
@@ -443,6 +444,11 @@ then
 	
 	[ ! -d "$PATH_BIN" ] && \
 		ERROR="yes" && echo "Error: Invalid value \"PATH_BIN=$PATH_BIN\""
+
+	[ -n "$(which sqlite3 2>/dev/null)" ] || {
+	    ERROR="yes" && echo "Error: Could not find sqlite3 $PATH_BIN. Please install it!"
+	}
+
 	# Check for NX agents ...
 	
 	[ ! -x "$COMMAND_NXAGENT" ] && \
