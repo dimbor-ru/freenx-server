@@ -18,22 +18,19 @@ PORT=$(echo $DEVICE_URI | cut -d/ -f3 | cut -d@ -f2 | cut -d: -f2)
 PROTOCOL=$(echo $DEVICE_URI | cut -d/ -f4)
 PRINTER=$(echo $DEVICE_URI | cut -d/ -f5)
 
-if [ -z "$PRINTER" ] # old style setup
-then
+if [ -z "$PRINTER" ]; then # old style setup
 	echo "Warning: Not using nxredir library. The DEVICE_URI is not in the right format."
 	exec "$COMMAND_SMB" "$@"
 fi
 
-if [ ! -x "$NXREDIR_LIBRARY" ]
-then
+if [ ! -x "$NXREDIR_LIBRARY" ]; then
 	# repair DEVICE_URI
 	DEVICE_URI=$(echo $DEVICE_URI | sed "s|/$PROTOCOL||g")
 	echo "Error: Not using nxredir library. $NXREDIR_LIBRARY could not be found or is not executable."
 	exec "$COMMAND_SMB" "$@"
 fi
 
-if [ "$PROTOCOL" = "cifs" -o "$PROTOCOL" = "CIFS" ]
-then
+if [ "$PROTOCOL" = "cifs" -o "$PROTOCOL" = "CIFS" ]; then
 	REAL_PORT="445"
 else
 	REAL_PORT="139"

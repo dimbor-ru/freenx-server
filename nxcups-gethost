@@ -9,13 +9,17 @@ CUPS_HOST=""
 [ -n "$CUPS_SERVER" ] && CUPS_HOST=$CUPS_SERVER
 
 # no, lets see if the user has a cups config file
-[ -z "$CUPS_HOST" -a -f "$HOME/.cups/client.conf" ] && CUPS_HOST=$(grep "^ServerName " "$HOME/.cups/client.conf" | sed 's/^ServerName //g; s/#.*//g')
+[ -z "$CUPS_HOST" -a -f "$HOME/.cups/client.conf" ] && \
+	CUPS_HOST=$(grep "^ServerName " "$HOME/.cups/client.conf" | \
+		sed 's/^ServerName //g; s/#.*//g')
 
 # not even close, so lets use the kdeprintrcs configuration key
-[ -z "$CUPS_HOST" ] && CUPS_HOST=$(grep "^Host=" "$KDE_PRINTRC" | cut -d'=' -f2)
+[ -z "$CUPS_HOST" ] && \
+	CUPS_HOST=$(grep "^Host=" "$KDE_PRINTRC" | cut -d'=' -f2)
 
 # Hm, perhaps there is a global cupsd running on this host
-[ -z "$CUPS_HOST" -a -S "$CUPS_DEFAULT_SOCK" ] && CUPS_HOST="$CUPS_DEFAULT_SOCK" 
+[ -z "$CUPS_HOST" -a -S "$CUPS_DEFAULT_SOCK" ] && \
+	CUPS_HOST="$CUPS_DEFAULT_SOCK"
 
 # no, no, no - so we fallback to localhost
 [ -z "$CUPS_HOST" ] && CUPS_HOST="127.0.0.1"

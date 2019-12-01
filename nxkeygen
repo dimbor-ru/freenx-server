@@ -23,14 +23,13 @@ DATE="`date '+%Y%m%d-%H%M%S'`"
 NX_CLIENT_KEY="${NX_KEY_DIR}/client.id_dsa.key"
 NX_SERVER_KEY="${NX_KEY_DIR}/server.id_dsa.pub.key"
 
-main ()
-{
+main () {
 	# create a new key
 	umask 177
 	$COMMAND_SSH_KEYGEN -q -t dsa -N '' -f ${NX_KEY_DIR}/local.id_dsa
 
 	# backup the existing keys
-	
+
 	if [ -f "${NX_SERVER_KEY}" ]; then
 		echo "Backing up existing server key to ${NX_SERVER_KEY}.${DATE}"
 		mv -f "${NX_SERVER_KEY}" "${NX_SERVER_KEY}.${DATE}"
@@ -50,7 +49,7 @@ main ()
 		chmod 600 $x
 		chown nx:root $x
 	done
-	
+
 	# copy the key to the authorized_keys2 file
 	rm -f $NX_KEY_DIR/$SSH_AUTHORIZED_KEYS
 	echo -n "no-port-forwarding,no-agent-forwarding,command=\"$PATH_BIN/nxserver\" " >$NX_KEY_DIR/$SSH_AUTHORIZED_KEYS
@@ -69,10 +68,10 @@ main ()
 	echo "on their computers."
 }
 
-if [ -f "${NX_SERVER_KEY}" -a -f "${NX_CLIENT_KEY}" -a ! -z "$NX_DONT_OVERRIDE" ]; then
+if [ -f "${NX_SERVER_KEY}" -a -f "${NX_CLIENT_KEY}" -a \
+		! -z "$NX_DONT_OVERRIDE" ]; then
 	echo "Not overriding the existing key"
 	exit
 fi
 
 main "$@"
-

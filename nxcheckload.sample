@@ -21,27 +21,26 @@
 #   - SMP support.
 #
 
-if [ "$1" != "" ]
-then
+if [ "$1" != "" ]; then
 	# Connect to a remote node
-	
+
 	# Note: This is a ssh sample, you'll need to tweak it for your setup
 	#       and setup the secret keys for yourself.
-	
+
 	#exec $COMMAND_SSH nxcal@"$1" "$PATH_BIN/nxcheckload"
-	
+
 	# Note: This is a netcat example. You need to have nxcheckload running through 
 	# netpipes or netcat like follows:
 	# 	node1:~$ faucet 9876 -io $PATH_BIN/nxcheckload
 	#
 	# Connect to another node running the load-service on some port.
 	#
-	
+
 	#exec $COMMAND_NETCAT "$1" 9876
 
 	# Same as loadbalance_rr_random
 	# pick a node by random.
-	
+
 	echo $RANDOM
 	exit 0
 fi
@@ -50,7 +49,7 @@ fi
 export LC_NUMERIC=C
 
 # The 3 variables of load from uptime
-LOADXX=$(awk '{ printf("(100-%s)+(100-%s)+(100-%s)\n", $1, $2, $3); }' /proc/loadavg | bc -q)
+LOADXX=$(awk '{ printf("(100-%s)+(100-%s)+(100-%s)\n", $1, $2, $3); }' /proc/loadavg | bc -q) #"
 
 # Add of total memory and free memory
 Mt=$(awk 'BEGIN { N=0 } /MemTotal|MemFree/ { N+=$2; } END { print N }' /proc/meminfo)
