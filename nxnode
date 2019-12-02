@@ -83,30 +83,26 @@ echo_secure() {
 }
 
 nxlog() {
-	if [ "$NX_LOG_LEVEL" -ge 6 ]; then
-		[ -n "$password" ] || password=$(getparam password)
-		[ -n "$sessionid" ] || sessionid=$(getparam sessionid)
-		[ -n "$sessionid" ] || sessionid=$(getparam session_id)
-		[ -n "$sessionid" ] || sessionid=$sess_id
-		if [ "$USER" = "nx" ] ; then #guest
-			echo_secure "$(date "+%d.%m %X"): $@" >> "/var/log/nx/nxnode.log"
-		else
-			mkdir -p "$USER_FAKE_HOME/.nx"
-			if [ -n "$sessionid" ]; then
-				sessionid=$(echo "$sessionid" | \
-					awk 'BEGIN {FS="-"} {i=NF; print $i}')
-			echo_secure "$(date "+%d.%m %X"): $@" >> \
-				"$USER_FAKE_HOME/.nx/nxnode-$sessionid.log"
-			else
-				echo_secure "$(date "+%d.%m %X"): $@" >> \
-					"$USER_FAKE_HOME/.nx/nxnode.log"
-			fi
-		fi
-	fi
-	return 0
+	[ "$NX_LOG_LEVEL" -lt 6 ] && return 0
+	echo_secure "$(date "+%d.%m %X"): $@" >> "$NX_USER_LOG_FILE"
 }
 
+if [ "$USER" = "nx" ]; then NX_USER_LOG_FILE="/var/log/nx/nxnode.log"
+else
+	NX_USER_LOG_FILE="$USER_FAKE_HOME/.nx/nxnode.log"
+	mkdir -p "$USER_FAKE_HOME/.nx"
+fi
+
 if [ -n "$CMDLINE" ]; then
+	if [ "$USER" != "nx" ]; then
+		ssid4log=$(getparam uniqueid)
+		[ -z "$ssid4log" ] && ssid4log=$(getparam session_id)
+		[ -z "$ssid4log" ] && ssid4log=$(getparam sess_id)
+		[ -z "$ssid4log" ] && ssid4log=$(getparam sessionid)
+		ssid4log=$(echo "$ssid4log" | awk 'BEGIN {FS="-"} {i=NF; print $i}')
+		[ -n "$ssid4log" ] && \
+			NX_USER_LOG_FILE="$USER_FAKE_HOME/.nx/nxnode-$ssid4log.log"
+	fi
 	nxlog "$0 ($$): run nxnode with CMDLINE \"$CMDLINE\""
 else
 	nxlog "$0 ($$): run nxnode with \"$@\""
