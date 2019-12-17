@@ -589,7 +589,7 @@ node_start_applications() {
 		while [ -z "$(xdpyinfo  2>/dev/null | head)" ]; do
 			let "cntr -= 1"
 			[ $cntr -lt 0 ] && break
-			sleep 1
+			sleep 0.3s
 			nxlog "$FUNCNAME ($$): Sleep while get a valid DISPLAY ($cntr)"
 		done
 	else
@@ -1525,13 +1525,14 @@ node_start_monitor_2_0_0() {
 		elif stringinstring "Info: Waiting the watchdog process to complete." "$line"; then
 			# Kill the watchdog
 			kill $NODE_WATCHDOG_PID 2>/dev/null
-		#elif stringinstring "Info: Waiting for connection from" "$line"; then
+		elif stringinstring "Info: Waiting for connection from" "$line"; then
 			# Session is running
 			# dimbor: with nx-libs 3.5.99 node_monitor catch of startsession
 			# restore too fast
-			#echo "NX> 710 Session status: running"
-			#echo "NX> 1002 Commit"
-			#echo "NX> 1006 Session status: running"
+			sleep 0.5s
+			echo "NX> 710 Session status: running"
+			echo "NX> 1002 Commit"
+			echo "NX> 1006 Session status: running"
 		elif stringinstring "Session: Session resumed at" "$line"; then
 			# Reconnection success!
 			echo "NX> 718 Session restore succeded"
@@ -1955,12 +1956,6 @@ EOF
 		echo "NX> 709 File-sharing port: $smbport"
 		echo "$smbport" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport"
 	fi
-
-	# dimbor: with nx-libs 3.5.99 node_monitor catch of startsession restore
-	# too fast
-	echo "NX> 710 Session status: running"
-	echo "NX> 1002 Commit"
-	echo "NX> 1006 Session status: running"
 
 	# collection ...
 	# NX> 1004 Error:

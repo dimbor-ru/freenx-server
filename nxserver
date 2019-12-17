@@ -1058,8 +1058,6 @@ server_nxnode_start_wait() {
 						*running*)
 							[ "$KILL_WAIT_PID" = "1" ] && kill $SERVER_WAIT_PID
 							KILL_WAIT_PID=0
-							log 6 session_set_status $uniqueid "Running"
-							session_set_status $uniqueid "Running"
 							SERVER_CHANNEL=2
 						;;
 					esac
