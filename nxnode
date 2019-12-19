@@ -1497,6 +1497,7 @@ node_start_monitor_2_0_0() {
 		elif stringinstring "Info: Listening * multimedia connections on port" "$line"; then
 			# Catch NXAGENT Multimedia Port
 			MEDIA_PORT=$(echo $line | cut -d"'" -f2)
+			MEDIA_PORT=$(port2port_val $MEDIA_PORT)
 			echo "$MEDIA_PORT" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport"
 		elif stringinstring "Session: Starting session at" "$line"; then
 		# Session messages
