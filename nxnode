@@ -253,6 +253,12 @@ check_local_pa_tunnel() {
 # return:	pid of pa process
 # This starts user's local pulseaudio server if not running and tune its own
 # modules - (re)create tunneled sink and source to remote pa
+	pactl_bin=$(find_app "pactl")
+	[ -z "$pactl_bin" ] && {
+		nxlog "$FUNCNAME ($$): pactl tool not found. Pulseaudio may be not installed."
+		echo ""; return 1;
+	}
+	pactl_bin="env LANG=C $pactl_bin"
 	PA_BIN="$(which pulseaudio 2>/dev/null)"
 	[ -z "$PA_BIN" ] && {
 		nxlog "$FUNCNAME ($$): Local pulseaudio binary not found."
@@ -260,13 +266,13 @@ check_local_pa_tunnel() {
 	}
 	unset PULSE_SERVER; unset PULSE_SINK; unset PULSE_SOURCE
 	# automatic start user's pa is here (pa starting with default system settings)
-	errstr=$(pactl info 2>&1 | grep "failure")
+	errstr=$($pactl_bin info 2>&1 | grep "failure")
 	[ -n "$errstr" ] && {
 		nxlog "$FUNCNAME ($$): Local PA is not reachable ($errstr)."
 		echo ""; return 1;
 	}
 	retpid=$(ps -wo pid=,cmd= -U $USER | awk '($2=="'$PA_BIN'") {print $1}') #'
-	lpa_mods=$(pactl list short 2>/dev/null)
+	lpa_mods=$($pactl_bin list short 2>/dev/null)
 	tunn_opts="server=$1"
 	tunn_exists= $(echo "$lpa_mods" | awk '/'$tunn_opts'/ {print $0}')
 	[ -n "$tunn_exists" ] && {
@@ -280,7 +286,7 @@ check_local_pa_tunnel() {
 	[ -n "$rmids" ] && {
 		errids=""; errstr=""
 		for i in $rmids; do
-			errstr2=$(pactl unload-module $i 2>&1)
+			errstr2=$($pactl_bin unload-module $i 2>&1)
 			[ $? -ne 0 ] && { errids="$errids $i"; errstr="$errstr; $errstr2"; }
 		done
 	}
@@ -289,7 +295,7 @@ check_local_pa_tunnel() {
 	}
 	mname_tunn_sink="module-tunnel-sink";
 	mname_tunn_source="module-tunnel-source"
-	rpa_info=$(pactl -s $1 info 2>/dev/null)
+	rpa_info=$($pactl_bin -s $1 info 2>/dev/null)
 	[ -z "$rpa_info" ] && {
 		nxlog "$FUNCNAME ($$): Couldn't get defaults from REMOTE pulseaudio $1."
 		echo ""; return 1;
@@ -308,7 +314,7 @@ check_local_pa_tunnel() {
 		nxlog "$FUNCNAME ($$): Couldn't get default sink from REMOTE pulseaudio $1."
 	else # load module-tunnel-sink
 		rsi_args="sink_name=tcl_out sink=$def_rsink $tunn_opts"
-		errstr=$(pactl load-module $mname_tunn_sink $rsi_args 2>&1)
+		errstr=$($pactl_bin load-module $mname_tunn_sink $rsi_args 2>&1)
 		[ $? -ne 0 ] && {
 			nxlog "$FUNCNAME ($$): Loading module $mname_tunn_sink error (\"$rsi_args\"); \"$errstr\""
 		} || {
@@ -323,7 +329,7 @@ check_local_pa_tunnel() {
 		nxlog "$FUNCNAME ($$): Couldn't get default source from REMOTE pulseaudio $1."
 	else # load module-tunnel-source
 		rso_args="source_name=tcl_in source=$def_rsource $tunn_opts"
-		errstr=$(pactl load-module $mname_tunn_source $rso_args 2>&1)
+		errstr=$($pactl_bin load-module $mname_tunn_source $rso_args 2>&1)
 		[ $? -ne 0 ] && {
 			nxlog "$FUNCNAME ($$): Loading module $mname_tunn_source error (\"$rso_args\"); \"$errstr\""
 		} || {
@@ -547,7 +553,7 @@ get_pa_sound_mode() {
 		nxlog "$FUNCNAME ($$): pactl tool not found. Pulseaudio may be not installed."
 		echo ""; return 1;
 	}
-	pactl_bin="$pactl_bin -s $2:$1"
+	pactl_bin="env LANG=C $pactl_bin -s $2:$1"
 	nxlog "$FUNCNAME ($$): $pactl_bin list short"
 	cl_pa_mods=$($pactl_bin list short)
 	#nxlog "$FUNCNAME ($$): $cl_pa_mods"
