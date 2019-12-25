@@ -182,6 +182,7 @@ ins_sess_file() {
 }
 
 init_db() {
+	[ ! -r "$NX_SESS_DIR" ] && return
 	isdb=""; [ -f $sqbd ] && isdb="1"
    q_db "CREATE TABLE IF NOT EXISTS $sqtname($ssid TEXT UNIQUE, $fls0_t, $fls_ext_t);"
 	[ -n "$isdb" ] && return
