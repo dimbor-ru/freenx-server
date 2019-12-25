@@ -726,6 +726,16 @@ node_start_applications() {
 		;;
 	esac
 
+	SECOND_APP=""; NX_SAPP_PIDS0=""
+	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1" ] && {
+		NAPP=$(basename $(echo "$NODE_APPLICATION" | awk '{print $1}'))
+		SECOND_APP="$(echo "$APP_WAIT_MAP" | awk -F';' '($1=="'$NAPP'") {print $2}')"
+		[ -n "$SECOND_APP" ] && {
+			NX_SAPP_PIDS0=$(ps -w -o pid=,cmd= -C "$SECOND_APP" | awk '{print $1}')
+			nxlog "$FUNCNAME ($$): PID of $SECOND_APP will be waiting too. Initial: \"$NX_SAPP_PIDS0\""
+		}
+	}
+
 	# Startup the application
 	nxlog "$FUNCNAME ($$): Starting NODE_APPLICATION with /etc/nxserver/Xsession"
 	DISPLAY=:$display /etc/nxserver/Xsession $NODE_APPLICATION >> \
@@ -754,7 +764,23 @@ node_start_applications() {
 
 	sleep "$NODE_APP_WAIT_TIMEOUT"s
 
-	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && node_terminate_session "$sess_id"
+	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && {
+		if [ -n "$SECOND_APP" ] ; then
+			NX_SAPP_PIDS=""
+			NX_SAPP_PIDS1=$(ps -w -o pid=,cmd= -C "$SECOND_APP" | awk '{print $1}')
+			while read SPID; do
+				[ -z "$(echo "$NX_SAPP_PIDS0" | grep $SPID)" ] && \
+						NX_SAPP_PIDS="$NX_SAPP_PIDS${NX_SAPP_PIDS:+$' '}$SPID"
+			done <<< "$NX_SAPP_PIDS1"
+			nxlog "$FUNCNAME ($$): Waiting for $SECOND_APP PID(S) \"$NX_SAPP_PIDS\""
+			while [ -n "$(ps -o pid= -p $NX_SAPP_PIDS 2>/dev/null)" ]; do
+				sleep 1s
+			done
+			nxlog "$FUNCNAME ($$): PID(S) \"$NX_SAPP_PIDS\" finished"
+			node_terminate_agent "$sess_id"
+		else  node_terminate_agent "$sess_id"
+		fi
+	}
 
 	# Do not terminate agent in case of rootless agent mode.
 	# The agent times out after a while by itself anyway.

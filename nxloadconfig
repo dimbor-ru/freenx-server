@@ -262,6 +262,7 @@ NUMLOCKX="numlockx"
 NODE_APP_WAIT_TIMEOUT="5"
 KDE4_ENABLE="1"
 SQ3_TIMEOUT=500
+APP_WAIT_MAP=""
 
 # OS specific directives
 OS="$(uname -sr)"
