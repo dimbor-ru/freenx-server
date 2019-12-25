@@ -386,6 +386,10 @@ esac
 NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | \
 	egrep 'NXAGENT - Version' | head -1 | sed 's/.*Version //g')
 
+# Arctica nx-libs does not use LD_PRELOAD (for rootless only???)
+[ -n "$(echo "$NX_BACKEND_VERSION" | cut -d. -f4)" ] && \
+	APPLICATION_LIBRARY_PRELOAD="" && SET_LD_LIBRARY_PATH="0"
+
 [ "$ENABLE_1_5_0_BACKEND" = "1" ] && NX_BACKEND_VERSION="1.5.0" # forced the backend
 
 [ -z "$NX_BACKEND_VERSION" ] && NX_BACKEND_VERSION="not detected"
