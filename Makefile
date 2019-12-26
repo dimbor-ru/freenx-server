@@ -17,7 +17,8 @@ CUPS_BACKEND    ?= $(PREFIX)/lib/cups/backend
 NX_VERSION=`cat VERSION 2>/dev/null`
 
 SUBDIRS=nxredir nxviewer-passwd nxserver-helper nxserver-suid nx-session-launcher
-PROGRAMS=nxacl.sample nxacl.app nxcheckload.sample nxcups-gethost nxdesktop_helper nxdialog nxkeygen nxloadconfig nxnode nxnode-login nxprint nxserver nxserver-helper/nxserver-helper nxsetup nxviewer_helper nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher nx-session-launcher/nx-session-launcher-suid nxserver-usermode nxserver-suid/nxserver-suid
+PROGRAMS=nxacl.sample nxacl.app nxcheckload.sample nxcups-gethost nxdesktop_helper nxdialog nxkeygen nxloadconfig nxnode nxnode-login nxprint nxserver nxsetup nxviewer_helper nx-session-launcher/nx-session-launcher nxserver-usermode
+PROGRAMS_BIN=nxserver-helper/nxserver-helper nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher-suid nxserver-suid/nxserver-suid
 
 all:
 	cd nxviewer-passwd && xmkmf && make Makefiles && make depend
@@ -65,6 +66,10 @@ nxenv_install:
 	for i in $(PROGRAMS) ;\
 	do\
 	        $(INSTALL_PROGRAM) $$i $(DESTDIR)/$(PATH_BIN)/ || exit 1;\
+	done
+	for i in $(PROGRAMS_BIN) ;\
+	do\
+	        $(INSTALL_PROGRAM) -s $$i $(DESTDIR)/$(PATH_BIN)/ || exit 1;\
 	done
 	sed -i -e 's|NX_VERSION=.*|NX_VERSION='$(NX_VERSION)'|' \
 			 -e 's|PATH_LIB=.*|PATH_LIB='$(PATH_LIB)'|' $(DESTDIR)/$(PATH_BIN)/nxloadconfig
