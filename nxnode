@@ -394,6 +394,12 @@ node_terminate_session() {
 		nxlog "$FUNCNAME ($$): Session directory not found."
 		return;
 	}
+	[ -e "$USER_FAKE_HOME/.nx/C-$1/terminating" ] && {\
+		nxlog "$FUNCNAME ($$): Terminating still in progress. Bye/"
+		return;
+	}
+	touch "$USER_FAKE_HOME/.nx/C-$1/terminating"
+
 	nxlog "$FUNCNAME ($$): Start terminating session \"$1\" with status \"$2\""
 
 	# Kill nxagent
@@ -439,9 +445,11 @@ node_terminate_session() {
 	if [ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] ; then
 		nxlog "$FUNCNAME ($$): Session failed. Rename session directory from \"$USER_FAKE_HOME/.nx/C-$1/\" to \"$USER_FAKE_HOME/.nx/F-C-$1\""
 		mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/F-C-$1"
+		rm -f "$USER_FAKE_HOME/.nx/F-C-$1/terminating"
 	elif [ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] ; then
 		nxlog "$FUNCNAME ($$): Session terminated. Rename session directory from \"$USER_FAKE_HOME/.nx/C-$1/\" to \"$USER_FAKE_HOME/.nx/T-C-$1\""
 		mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/T-C-$1"
+		rm -f "$USER_FAKE_HOME/.nx/T-C-$1/terminating"
 	fi
 	nxlog "$FUNCNAME ($$): end"
 }
