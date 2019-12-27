@@ -19,7 +19,7 @@ clean:
 	rm -f *.o
 
 install:
-	install -m755 -s $(LIBNAME).$(VERSION) $(DESTDIR)/$(PATH_LIB)/
+	install -m755 -s $(LIBNAME).$(VERSION) $(DESTDIR)/$(PATH_LIB)/freenx-server/
 	install -m755 nxredir $(DESTDIR)/$(PATH_BIN)/
 	install -m755 nxsmb $(DESTDIR)/$(CUPS_BACKEND)/
 	sed -i -e 's|PATH_LIB=.*|PATH_LIB='$(PATH_LIB)'|' $(DESTDIR)/$(PATH_BIN)/nxredir

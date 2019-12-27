@@ -42,7 +42,7 @@ suid_install:
 
 nxenv_install:
 	$(INSTALL_DIR) $(DESTDIR)/$(PATH_BIN)/
-	$(INSTALL_DIR) $(DESTDIR)/$(PATH_LIB)/
+	$(INSTALL_DIR) $(DESTDIR)/$(PATH_LIB)/freenx-server/
 	$(INSTALL_DIR) $(DESTDIR)/$(NX_ETC_DIR)/
 	$(INSTALL_FILE) conf/node.conf $(DESTDIR)/$(NX_ETC_DIR)/
 	$(INSTALL_FILE) data/Xkbmap $(DESTDIR)/$(NX_ETC_DIR)/
