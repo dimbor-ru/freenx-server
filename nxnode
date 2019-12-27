@@ -407,16 +407,14 @@ node_terminate_session() {
 
 	# JJK: Kill running services
 	# FF: Seems this is needed also here ...
+	# dimbor: ... but have to be a little more tender ;)
 	nxlog "$FUNCNAME ($$): call node_stop_services"
 	node_stop_services
 	if [ -n "$NODE_AGENT_PID" ]; then
-		nxlog "$FUNCNAME ($$): kill nxagent"
+		nxlog "$FUNCNAME ($$): start killing of nxagent"
 		kill $NODE_AGENT_PID 2>/dev/null
-		if ! [ "$virtualdesktop" = "0" -a "$rootless" != "1" ]; then
-			nxlog "$FUNCNAME ($$): force kill nxagent"
-			sleep 1
-			kill -0 $NODE_AGENT_PID 2>/dev/null && kill -9 $NODE_AGENT_PID 2>/dev/null
-		fi
+		wait $NODE_AGENT_PID
+		nxlog "$FUNCNAME ($$): nxagent ($NODE_AGENT_PID) is dead now"
 	fi
 
 	# Kill tail process
