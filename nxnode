@@ -1588,8 +1588,8 @@ node_start_monitor_2_0_0() {
 
 	trap "" EXIT
 
-	[ "$1" = "restore" ] || {
-		nxlog "$FUNCNAME ($$): call node_stop_services"
+	[ "$1" != "restore" -a "$rootless" != "1" ] && {
+		nxlog "$FUNCNAME ($$): call node_stop_services at ending"
 		node_stop_services;
 	}
 	# close all open file descriptors
