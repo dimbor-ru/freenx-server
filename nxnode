@@ -230,7 +230,7 @@ check_remote_printer() {
 	NXREDIR_LIBRARY="$PATH_LIB/freenx-server/libnxredir.so.0"
 	[ -n "$5" ] && upass="$4%$5" || upass="$4 -N"
 	[ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
-	CMDSTR="/usr/bin/rpcclient -U $upass -c 'openprinter $2' -p $dport -I 127.0.0.1 127.0.0.1 2>&1"
+	CMDSTR="/usr/bin/rpcclient -U '$upass' -c 'openprinter $2' -p $dport -I 127.0.0.1 127.0.0.1 2>&1"
 	nxlog "$FUNCNAME ($$): invoke command \"$CMDSTR\""
 	res=""; numa="0"; ret="0"
 	while [ "$ret" = "0" ]; do
