@@ -1308,8 +1308,8 @@ usermount_enable() {
 	ostr=$(stat -c %a "$COMMAND_SMBMOUNT" 2>&1); RC=$?
 	[ $RC -ne 0 ] && { nxlog "$logstr0 $ostr"
 		ret="0"; }
-	[ "$ret" != "0" -a "$ostr" != "4711" ] && { ret="0"
-		nxlog "$logstr0 Permissions of  $COMMAND_SMBMOUNT ($ostr) != 4711. mounting in user-mode is disabled."
+	[ "$ret" != "0" ] && [ "$ostr" != "4711" -a "$ostr" != "4755" ] && { ret="0"
+		nxlog "$logstr0 Permissions of  $COMMAND_SMBMOUNT ($ostr) != 4711 or 4755. Mounting in user-mode is disabled."
 	}
 	[ "$ret" != "0" -a $RC -eq 0 ] && {
 		ostr=$($COMMAND_SMBMOUNT 2>&1)
@@ -1321,8 +1321,8 @@ usermount_enable() {
 	ostr=$(stat -c %a "$COMMAND_SMBUMOUNT" 2>&1); RC2=$?
 	[ $RC2 -ne 0 ] && { nxlog "$logstr0 $ostr"
 		ret="0"; RC=$RC2; }
-	[ "$ret" != "0" -a "$ostr" != "4711" ] && { ret=0
-		nxlog "$logstr0 Permissions of  $COMMAND_SMBUMOUNT ($ostr) != 4711. umounting in user-mode is disabled."
+	[ "$ret" != "0" ] && [ "$ostr" != "4711" -a "$ostr" != "4755" ] && { ret="0"
+		nxlog "$logstr0 Permissions of  $COMMAND_SMBUMOUNT ($ostr) != 4711 or 4755. Umounting in user-mode is disabled."
 	}
 	echo $ret; return $RC
 }
@@ -1331,16 +1331,18 @@ sudomount_enable() {
 # checks available starting mode with sudo of mount/umount.cifs
 	ret=1; logstr0="$FUNCNAME ($$):"
 	ostr=$(/usr/bin/sudo -l 2>&1); RC=$?
-	[ $RC -ne 0 ] && {
-		nxlog "$logstr0 $ostr"
-		ret=0;
-	} || {
-		ret=0
-		[ -z "$(echo "$ostr" | grep "$COMMAND_SMBMOUNT" | grep NOPASSWD)" ] && \
+	if [ $RC -ne 0 ]; then
+		nxlog "$logstr0 $ostr"; ret=0
+	else
+		[ -z "$(echo "$ostr" | grep "$COMMAND_SMBMOUNT" | grep NOPASSWD)" ] && {
+			ret=0
 			nxlog "$logstr0 Mounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
-		[ -z "$(echo "$ostr" | grep "$COMMAND_SMBUMOUNT" | grep NOPASSWD)" ] && \
+		}
+		[ -z "$(echo "$ostr" | grep "$COMMAND_SMBUMOUNT" | grep NOPASSWD)" ] && {
+			ret=0
 			nxlog "$logstr0 Umounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
-	}
+		}
+	fi
 	echo $ret; return $RC
 }
 
