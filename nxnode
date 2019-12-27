@@ -778,8 +778,8 @@ node_start_applications() {
 				sleep 1s
 			done
 			nxlog "$FUNCNAME ($$): PID(S) \"$NX_SAPP_PIDS\" finished"
-			node_terminate_agent "$sess_id"
-		else  node_terminate_agent "$sess_id"
+			node_terminate_session "$sess_id"
+		else  node_terminate_session "$sess_id"
 		fi
 	}
 
@@ -788,7 +788,7 @@ node_start_applications() {
 	if [ "$virtualdesktop" = "1" -o "$rootless" != "1" ] ; then
 		nxlog "$FUNCNAME ($$): Call node_terminate_agent for non-rootless or virtualdesktop session type"
 		nxlog "$FUNCNAME ($$): Call 'node_terminate_agent \"$sess_id\"'"
-		node_terminate_agent "$sess_id"
+		node_terminate_session "$sess_id"
 	fi
 	nxlog "$FUNCNAME ($$): end"
 }
