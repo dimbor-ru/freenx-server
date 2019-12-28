@@ -14,3 +14,9 @@ nxviewer-passwd/nxpasswd/Makefile
 nxviewer-passwd/nxpasswd/Makefile.bak
 nxviewer-passwd/nxpasswd/nxpasswd
 nxviewer-passwd/nxpasswd/vncpasswd.o
+
+debian/.debhelper/
+debian/files
+debian/freenx-server.debhelper.log
+debian/freenx-server.substvars
+debian/freenx-server/

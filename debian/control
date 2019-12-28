@@ -1,0 +1,35 @@
+Source: freenx-server
+Section: x11
+Priority: optional
+Maintainer: Dmitry Borisov <i@dimbor.ru>
+Build-Depends: debhelper (>=9)
+Standards-Version: 3.9.8
+Homepage: https://unixforum.org/viewforum.php?f=89
+
+Package: freenx-server
+Architecture: any
+Multi-Arch: foreign
+Depends:
+ libnx-x11-6 (>= 3.5.0),
+ libxcomp3 (>= 3.5.0),
+ nxagent (>= 3.5.0),
+ nxproxy (>= 3.5.0),
+ expect,
+ sudo,
+ zenity,
+ x11-xserver-utils,
+ x11-xkb-utils,
+ x11-utils,
+ gettext,
+ sqlite3
+Recommends: cups, samba, pulseaudio
+Description: Evolution of Freenx application/thin-client server
+ Freenx is an application/thin-client server based on nx technology.
+ NoMachine nx is the next-generation X compression and roundtrip suppression
+ scheme. It can operate remote X11 sessions over 56k modem dialup links
+ or anything better. This package contains a free (GPL) implementation
+ of the nxserver component.
+ Added features of community: printers/shares multimount, cups-server
+ system mode, direct and tunnelled pulseaudio sound, acls on user's level
+ ... etc. Thats all worked with opennx ce client, but original nxclient
+ basicaly alive too.
