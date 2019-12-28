@@ -3,8 +3,7 @@
 All these years, the classic nx was not as dead as it seemed ;)
 It is used in production and develops as fast as it can.
 
-I am very grateful to the developers of the [ArcticaProject/nx-libs]
-(https://github.com/ArcticaProject/nx-libs) for maintaining backward
+I am very grateful to the developers of the [ArcticaProject/nx-libs](https://github.com/ArcticaProject/nx-libs) for maintaining backward
 compatibility and the opportunity to use their libraries instead
 of self-assembly.
 
@@ -22,14 +21,14 @@ session;
 
 - Pulseaudio sound: direct, tunnelled, with or without resampling;
 
-- Localisztion of windows sharenames;
+- Localization of windows sharenames;
 
 - Control of rootles sessions ending: based on application-process
 internal customizable map.
 
 - ...
 
-Thats all worked with opennx ce liux/windows client, but original nxclient
+Thats all worked with [opennx ce](https://github.com/dimbor-ru/opennx) liux/windows client, but original nxclient
 basicaly alive too (with restrictions).
 
 Debian package home-maded for Devuan ASCII now. There is a suspicion that
