@@ -72,7 +72,7 @@ nxenv_install:
 	        $(INSTALL_PROGRAM) -s $$i $(DESTDIR)/$(PATH_BIN)/ || exit 1;\
 	done
 	sed -i -e 's|NX_VERSION=.*|NX_VERSION='$(NX_VERSION)'|' \
-			 -e 's|PATH_LIB=.*|PATH_LIB='$(PATH_LIB)'|' $(DESTDIR)/$(PATH_BIN)/nxloadconfig
+			 -e 's|^PATH_LIB=.*|PATH_LIB='$(PATH_LIB)'|' $(DESTDIR)/$(PATH_BIN)/nxloadconfig
 	$(MAKE) -C nxredir install
 	#$(MAKE) suid_install
 
