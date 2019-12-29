@@ -244,7 +244,7 @@ session_list() {
  sessionRootlessMode, type, sessionId, creationTime, userName,\
  serverPid, screeninfo,geometry, host, shadowcookie"
 	fi
-	res=$(q_db ".mode line\n SELECT $fls FROM $sqtname WHERE sessionId='$1'")
+	res=$(q_db ".mode line\n SELECT $fls FROM $sqtname WHERE sessionId='$1';")
 	if [ -z "$2" ]; then
 		echo "$res" | sed -e 's/^[ \t]*//g' -e 's/[ \t]*=[ \t]*/=/g'
 	else
@@ -475,7 +475,7 @@ session_change() {
 		setls="$setls${setls:+,}$1='$2'"
 		shift; shift
 	done
-	q_db "UPDATE $sqtname SET $setls WHERE sessionId='$ssid'"
+	q_db "UPDATE $sqtname SET $setls WHERE sessionId='$ssid';"
 }
 
 # session_set_status <session_id> <new status>
@@ -488,7 +488,7 @@ session_running() { session_find_id_user "$1"; }
 session_close() {
 #param: <session_id>
 	if [ "$SESSION_HISTORY" = "0" ] ; then
-		q_db "DELETE FROM $sqtname WHERE sessionId='$1'"
+		q_db "DELETE FROM $sqtname WHERE sessionId='$1';"
 	else
 		session_change "$1" "status" "Finished" "endTime" "$(date +%s)"
 	fi
@@ -497,7 +497,7 @@ session_close() {
 session_fail() {
 #param: <session_id>
 	if [ "$SESSION_HISTORY" = "0" ] ; then
-		q_db "DELETE FROM $sqtname WHERE sessionId='$1'"
+		q_db "DELETE FROM $sqtname WHERE sessionId='$1';"
 	else
 		session_change "$1" "status" "Failed" "endTime" "$(date +%s)"
 	fi
