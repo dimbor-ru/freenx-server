@@ -185,13 +185,16 @@ ins_sess_file() {
 init_db() {
 	[ ! -r "$NX_SESS_DIR" ] && return
 	isdb=""; [ -f $sqbd ] && isdb="1"
-   q_db "CREATE TABLE IF NOT EXISTS $sqtname($ssid TEXT UNIQUE, $fls0_t, $fls_ext_t);"
+	qstr="CREATE TABLE IF NOT EXISTS $sqtname($ssid TEXT PRIMARY KEY, $fls0_t, $fls_ext_t);"
+	qstr="$qstr CREATE INDEX IF NOT EXISTS idx_userName ON $sqtname(userName);"
+	qstr="$qstr CREATE INDEX IF NOT EXISTS idx_status ON $sqtname(status);"
+   q_db "$qstr"
 	[ -n "$isdb" ] && return
    for fn in $NX_SESS_DIR/{closed,failed,running}/*; do
 		ins_sess_file $fn;
 	done >/dev/null 2>&1
 	log 1 "Info: Sessions db migrated to sqlite3 format."
-	rm -rf $NX_SESS_DIR/{closed,failed,running}
+	rm -rf $NX_SESS_DIR/{closed,failed,running} >/dev/null 2>&1
 }
 
 str_eq_cond() {
