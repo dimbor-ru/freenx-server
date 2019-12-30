@@ -29,6 +29,8 @@ case "$1" in
 			chown :users /etc/nxserver/ppd
 			chown nx:nx /var/lib/nxserver/home
 			chown nx:nx /var/lib/nxserver/db
+			sessdb="/var/lib/nxserver/db/sessions.sq3"
+			[ -f "$sessdb" ] && rm -f "$sessdb" 2>/dev/null
         ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
