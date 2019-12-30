@@ -186,8 +186,7 @@ init_db() {
 	[ ! -r "$NX_SESS_DIR" ] && return
 	isdb=""; [ -f $sqbd ] && isdb="1"
 	qstr="CREATE TABLE IF NOT EXISTS $sqtname($ssid TEXT PRIMARY KEY, $fls0_t, $fls_ext_t);"
-	qstr="$qstr CREATE INDEX IF NOT EXISTS idx_userName ON $sqtname(userName);"
-	qstr="$qstr CREATE INDEX IF NOT EXISTS idx_status ON $sqtname(status);"
+	qstr="$qstr CREATE INDEX IF NOT EXISTS idx_statusUserName ON $sqtname(status,userName);"
    q_db "$qstr"
 	[ -n "$isdb" ] && return
    for fn in $NX_SESS_DIR/{closed,failed,running}/*; do
