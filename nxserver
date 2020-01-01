@@ -45,14 +45,20 @@ getparam(){
 # 7: stderror-channel of some applications
 
 log() {
-	[ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ] && shift && echo "$@" >> "$NX_LOGFILE"
+	[ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ] && shift && {
+		[ -n "$1" ] &&
+			echo -n "[$(date "+%d.%m %X")] " >> "$NX_LOGFILE"
+		echo $@ >> "$NX_LOGFILE"
+	}
 }
 
 # Log in a way that is secure for passwords / cookies / ...
 echo_secure() {
-	echo "$@ " | sed	-e 's/--cookie="[^"]*"/--cookie="******"/g' \
-							-e 's/\(--.*password=\)"[^"]*"/\1"******"/g'\
-							-e 's/password=[^&]*/password=******/g;'
+	[ -n "$1" ] &&
+		echo -n "[$(date "+%d.%m %X")] " >> "$NX_LOGFILE"
+	echo $@ | sed	-e 's/--cookie="[^"]*"/--cookie="******"/g' \
+						-e 's/\(--.*password=\)"[^"]*"/\1"******"/g'\
+						-e 's/password=[^&]*/password=******/g;'
 }
 
 log_secure() {
