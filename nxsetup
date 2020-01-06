@@ -179,14 +179,13 @@ install_nx() {
 	echo "done"
 
 	echo -n "Setting up $NX_SESS_DIR ..."
-	mkdir -p $NX_SESS_DIR/closed $NX_SESS_DIR/running $NX_SESS_DIR/failed
-	chmod 700 $NX_SESS_DIR/*
+	chmod 770 $NX_SESS_DIR
 	echo "done"
 
 	echo -n "Setting up $NX_LOGFILE ..."
 	mkdir -p $(dirname "$NX_LOGFILE")
 	touch "$NX_LOGFILE"
-	chmod 600 "$NX_LOGFILE"
+	chmod 660 "$NX_LOGFILE"
 	echo "done"
 
 	echo -n "Setting up known_hosts and $SSH_AUTHORIZED_KEYS ..."
@@ -269,10 +268,11 @@ EOF
 	echo "done"
 
 	echo -n "Setting up permissions ..."
-	chown -R nx:root $NX_SESS_DIR
-	chown -R nx:root $NX_ETC_DIR
-	chown -R nx:root $NX_HOME_DIR
-	chown nx:root "$NX_LOGFILE"
+	chown -R nx:nx /var/lib/nxserver
+	chown -R nx:nx $NX_SESS_DIR
+	chown -R nx:nx $NX_ETC_DIR
+	chown -R nx:nx $NX_HOME_DIR
+	chown nx:nx "$NX_LOGFILE"
 
 	echo "done"
 }
