@@ -736,7 +736,8 @@ node_start_applications() {
 	SECOND_APP=""; NX_SAPP_PIDS0=""
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1" ] && {
 		NAPP=$(basename $(echo "$NODE_APPLICATION" | awk '{print $1}'))
-		SECOND_APP="$(echo "$APP_WAIT_MAP" | awk -F';' '($1=="'$NAPP'") {print $2}')"
+		SECOND_APP=$(echo "$APP_WAIT_MAP" | awk 'BEGIN{FS=":"; RS=";"; ORS=""}
+			 ($1=="'$NAPP'") {print $2}')
 		[ -n "$SECOND_APP" ] && {
 			NX_SAPP_PIDS0=$(ps -w -o pid=,cmd= -C "$SECOND_APP" | awk '{print $1}')
 			nxlog "$FUNCNAME ($$): PID of $SECOND_APP will be waiting too. Initial: \"$NX_SAPP_PIDS0\""
