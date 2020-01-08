@@ -13,6 +13,7 @@ PREFIX          ?= /usr
 PATH_BIN        ?= $(PREFIX)/bin
 PATH_LIB        ?= $(PREFIX)/lib
 CUPS_BACKEND    ?= $(PREFIX)/lib/cups/backend
+PATH_SHARE      ?= $(PREFIX)/share
 
 NX_VERSION=`cat VERSION 2>/dev/null`
 
@@ -53,6 +54,8 @@ nxenv_install:
 	$(INSTALL_DIR) $(DESTDIR)/$(NX_ETC_DIR)/acls/
 	$(INSTALL_FILE) conf/acls/* $(DESTDIR)/$(NX_ETC_DIR)/acls/
 	install -m775 -gusers -d  $(DESTDIR)/$(NX_ETC_DIR)/ppd/
+	$(INSTALL_DIR) $(DESTDIR)/$(PATH_SHARE)/freenx-server/node.conf.def
+	$(INSTALL_FILE) conf/conf.d/* $(DESTDIR)/$(PATH_SHARE)/freenx-server/node.conf.def/
 	$(INSTALL_DIR) $(DESTDIR)/$(CUPS_BACKEND)/
 	$(INSTALL_DIR) $(DESTDIR)/etc/logrotate.d/
 	$(INSTALL_FILE) data/logrotate $(DESTDIR)/etc/logrotate.d/freenx-server
