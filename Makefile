@@ -50,7 +50,7 @@ nxenv_install:
 	$(INSTALL_PROGRAM) data/fixkeyboard $(DESTDIR)/$(NX_ETC_DIR)/
 	$(INSTALL_PROGRAM) data/Xsession $(DESTDIR)/$(NX_ETC_DIR)/
 	$(INSTALL_DIR) $(DESTDIR)/$(NX_ETC_DIR)/node.conf.d/
-	$(INSTALL_FILE) conf/conf.d/* $(DESTDIR)/$(NX_ETC_DIR)/node.conf.d/
+	$(INSTALL_FILE) conf/conf.d/*.conf $(DESTDIR)/$(NX_ETC_DIR)/node.conf.d/
 	$(INSTALL_DIR) $(DESTDIR)/$(NX_ETC_DIR)/acls/
 	$(INSTALL_FILE) conf/acls/* $(DESTDIR)/$(NX_ETC_DIR)/acls/
 	install -m775 -gusers -d  $(DESTDIR)/$(NX_ETC_DIR)/ppd/
