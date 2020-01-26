@@ -395,13 +395,8 @@ NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | \
 [ -n "$(echo "$NX_BACKEND_VERSION" | cut -d. -f4)" ] && \
 	APPLICATION_LIBRARY_PRELOAD="" && SET_LD_LIBRARY_PATH="0"
 
-[ "$ENABLE_1_5_0_BACKEND" = "1" ] && NX_BACKEND_VERSION="1.5.0" # forced the backend
-
 [ -z "$NX_BACKEND_VERSION" ] && NX_BACKEND_VERSION="not detected"
 NX_LICENSE=$(echo $NX_LICENSE | sed "s/%BACKEND%/$NX_BACKEND_VERSION/g")
-
-[ -z "$ENABLE_1_5_0_BACKEND" -a "$NX_BACKEND_VERSION" = "1.5.0" ] && \
-	ENABLE_1_5_0_BACKEND="1"
 
 if [ "$ENABLE_KDE_CUPS" = "1" ]; then
 	[ -z "$KDE_PRINTRC" -a -n "$KDEHOME" ] && \
@@ -694,8 +689,8 @@ if [ "$CHECK" = "yes" ]; then
 			&& echo "         No autostart will be performed."
 	[ -z $(echo "$ENABLE_ROOTLESS_MODE" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_ROOTLESS_MODE=$ENABLE_ROOTLESS_MODE\""
-	[ -z "$(strings $COMMAND_NXAGENT | egrep 'NXAGENT - Version 1.5.0|NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[012345]')" ] && \
-		WARNING="yes" && echo "Error: Could not find 1.5.0 or 2.[01].0 or 3.[012345] version string in nxagent. NX 1.5.0 or 2.[01].0 or 3.[0123].0 backend is needed for this version of FreeNX."
+	[ -z "$(strings $COMMAND_NXAGENT | egrep 'NXAGENT - Version 2.[01].0|NXAGENT - Version 3.[012345]')" ] && \
+		WARNING="yes" && echo "Error: Could not find 2.[01].0 or 3.[012345] version string in nxagent. NX 2.[01].0 or 3.[0123].0 backend is needed for this version of FreeNX."
 	[ -z $(echo "$ENABLE_USESSION" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_USESSION=$ENABLE_USESSION\""
 	[ "$ENABLE_USESSION" = "1" ] && ! mywhich "$COMMAND_SESSREG" >/dev/null 2>&1 && \

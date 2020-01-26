@@ -1518,10 +1518,11 @@ node_emergency_exit() {
 	nxlog "$FUNCNAME ($$): end"
 }
 
+# node_start_monitor <start|restore> <Running|Suspended>
 # Monitoring the nxagent: Its also kind of a "state-machine"
 #                         as it has to keep track of different
 #                         connection states and react differently.
-node_start_monitor_2_0_0() {
+node_start_monitor() {
 	nxlog "$FUNCNAME ($$): starting"
 	NODE_TAIL_PID=""
 	NODE_SUSPEND_STATUS="$2"
@@ -1605,94 +1606,6 @@ node_start_monitor_2_0_0() {
 	exec 2>&-
 	nxlog "$FUNCNAME ($$): end"
 	exit 0
-}
-
-node_start_monitor_1_5_0() {
-	nxlog "$FUNCNAME ($$): starting"
-	NODE_RUNNING=0; NODE_TAIL_PID=""; NODE_SUSPEND_STATUS="$2"
-
-	while read line; do
-		if stringinstring "Info: tail -f running with pid" "$line"; then
-			# Catch tail pid
-			NODE_TAIL_PID=$(echo $line | cut -d"'" -f2)
-			echo "$NODE_TAIL_PID" >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail"
-		elif stringinstring "Info: Listening for SMB connections on port" "$line"; then
-			# Catch NXAGENT SMB Port (sometimes the port differs from what we got from nxserver)
-			SMBMOUNT_PORT=$(echo $line | cut -d"'" -f2)
-			echo "$SMBMOUNT_PORT" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mport"
-		elif stringinstring "Info: Session suspended." "$line"; then
-			# Session suspend
-			echo "NX> 1005 Session status: suspended"
-			# umount shares & stop printers
-			if [ "$NODE_SUSPEND_STATUS" = "Running" ]; then
-				node_suspend_session "$sess_id"
-				NODE_SUSPEND_STATUS=""
-			else
-				nxlog "$FUNCNAME ($$): call node_stop_services"
-				node_stop_services
-			fi
-		elif stringinstring "Info: Waiting for a further signal to complete." "$line"; then
-			# Proxy termination
-			# Kill the proxy
-			kill -HUP $NODE_PROXY_PID 2>/dev/null
-		elif stringinstring "Info: End of session requested by " "$line" && [ "$RECONNECT" = "0" ] && ! stringinstring "'SIGHUP'" "$line"; then
-			# Session end
-			echo "NX> 1009 Session status: terminating"
-			kill -HUP $NODE_PROXY_PID 2>/dev/null
-		elif stringinstring "Info: Waiting for connection from" "$line"; then
-			# Session is running
-			echo "NX> 710 Session status: running"
-			echo "NX> 1002 Commit"
-			echo "NX> 1006 Session status: running"
-		elif stringinstring "Info: Connection with remote proxy established." "$line"; then
-			# Status = Running - Do _not_ fail anymore.
-			NODE_RUNNING=1
-		elif stringinstring "Info: Proxy running in server mode with pid" "$line"; then
-			# Catch proxy pid
-			NODE_PROXY_PID=$(echo $line | cut -d"'" -f2)
-		elif stringinstring "Info: Reconnection succeded." "$line"; then
-			# Reconnection success!
-			echo "NX> 718 Session restore succeded"
-			if [ "$1" = "restore" ]; then
-				kill $NODE_TAIL_PID
-				break
-			fi
-		elif stringinstring "Info: Reconnection failed:" "$line"; then
-			# Reconnection failure
-			echo "NX> 1005 Session status: suspended"
-			echo "NX> 596 Error: Session restore failed. Reason was: $line"
-			if [ "$1" = "restore" ]; then
-				kill $NODE_TAIL_PID
-				break
-			fi
-		fi
-	done
-
-	trap "" EXIT
-
-	[ "$1" = "restore" ] || {
-		nxlog "$FUNCNAME ($$): call node_stop_services"
-		node_stop_services;
-	}
-	# close all open file descriptors
-	exec 0<&-
-	exec 1>&-
-	exec 2>&-
-	nxlog "$FUNCNAME ($$): end"
-	exit 0
-}
-
-# node_start_monitor <start|restore> <Running|Suspended>
-node_start_monitor() {
-	nxlog "$FUNCNAME ($$): staring"
-	if [ "$ENABLE_1_5_0_BACKEND" = "1" ]; then
-		nxlog "$FUNCNAME ($$): call 'node_start_monitor_1_5_0 \"$@\"'"
-		node_start_monitor_1_5_0 "$@"
-	else
-		nxlog "$FUNCNAME ($$): call 'node_start_monitor_2_0_0 \"$@\"'"
-		node_start_monitor_2_0_0 "$@"
-	fi
-	nxlog "$FUNCNAME ($$): end"
 }
 
 #
