@@ -56,10 +56,9 @@ fi
 stringinstring() { case "$2" in *$1*) return 0 ;; esac; return 1; }
 
 getparam() {
-	stringinstring "&$1=" "$CMDLINE" || return 1
-	echo "$CMDLINE" |  tr "&" "\n" | egrep "^"$1"=" | \
-		awk -F= '{ VAL=$2 } END { print VAL }' | sed 's|%24|$|'
-	return 0
+	pat=".*&$1=([^&]*)";	str="&$CMDLINE"
+	[[ "$str" =~ $pat ]]; local r=${BASH_REMATCH[1]}
+	echo -e "${r//\%/\\x}"; [ "$BASH_REMATCH" != "" ]
 }
 
 find_app() { set -- $*; which $1 2>/dev/null; }
