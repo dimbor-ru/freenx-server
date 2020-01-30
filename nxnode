@@ -81,7 +81,7 @@ echo_secure() {
 
 nxlog() {
 	[ "$NX_LOG_LEVEL" -lt 6 ] && return 0
-	echo_secure "$(date "+%d.%m %X"): $@" >> "$NX_USER_LOG_FILE"
+	echo_secure "$(date "+%X"): $@" >> "$NX_USER_LOG_FILE"
 }
 
 if [ "$USER" = "nx" ]; then NX_USER_LOG_FILE="/var/log/nx/nxnode.log"
