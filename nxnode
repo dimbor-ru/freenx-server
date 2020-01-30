@@ -61,6 +61,43 @@ getparam() {
 	echo -e "${r//\%/\\x}"; [ "$BASH_REMATCH" != "" ]
 }
 
+cutfn() {
+#args: line delim field_num_start_at_0
+	local IFS="$2"; local a=($1);
+	#echo "${a[($3)]}" # negative values works on all systems?
+	echo "${a[@]:($3):1}"
+}
+
+rematchfn(){
+#args: (pattern) <text> [match_num=0] [reversive]
+# if match_num == "all" returns all found matches delimited by newlines
+	local pat="$1"; local n; [ -z "$3" -o "$3" = "all" ] && n=0 || n="$3"
+	local OIFS=$IFS local IFS=$'\n'; local a=($2); IFS=$OIFS
+	local ntl=${#a[@]}; local nr=0; local r=()
+	if [ -z "$4" ]; then
+		for ((i=0;i<$ntl;i++)) {
+			[[ "${a[$i]}" =~ $pat ]] || continue
+			((nr++)); r+=(${BASH_REMATCH[1]})
+			[ "$nr" = "$n" ] && break
+		}
+	else
+		for ((i=$ntl;i>=0;i--)) {
+			[[ "${a[$i]}" =~ $pat ]] || continue
+			((nr++)); r+=(${BASH_REMATCH[1]})
+			[ "$nr" = "$n" ] && break
+		}
+	fi
+	if [ "$3" = "all" ]; then
+		local res=""; local r;
+		for r in ${r[@]}; do res+="${res:+$'\n'}$r"; done
+		echo "$res"
+	else echo "${r[($n)]}"
+	fi
+	[ "$nr" != "0" ]
+}
+
+ip4_pattern='[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+'
+
 find_app() { set -- $*; which $1 2>/dev/null; }
 
 getparam_sessionid() {
@@ -96,11 +133,11 @@ if [ -n "$CMDLINE" ]; then
 		[ -z "$ssid4log" ] && ssid4log=$(getparam session_id)
 		[ -z "$ssid4log" ] && ssid4log=$(getparam sess_id)
 		[ -z "$ssid4log" ] && ssid4log=$(getparam sessionid)
-		ssid4log=$(echo "$ssid4log" | awk 'BEGIN {FS="-"} {i=NF; print $i}')
+		ssid4log=${ssid4log##*-}
 		[ -n "$ssid4log" ] && \
 			NX_USER_LOG_FILE="$USER_FAKE_HOME/.nx/nxnode-$ssid4log.log"
 	fi
-	nxlog "$0 ($$): run nxnode with CMDLINE \"$CMDLINE\""
+	nxlog "$0 ($$): run nxnode with PARAMS:\"$@\"; CMDLINE:\"$CMDLINE\""
 else
 	nxlog "$0 ($$): run nxnode with \"$@\""
 fi
@@ -116,34 +153,22 @@ norm_param() {
 # dimbor: normalize string from hex (thnx 2Civil at unixforum.org) and convert
 # charset if needed
 	#nxlog "$FUNCNAME ($$): starting with args \"$@\""
-	res=$(echo -e `echo $1 | sed -e 's/+/ /g;s/%/\\\\x/g;'`)
-	#nxlog "$FUNCNAME ($$): after normalize res == \"$res\""
-	#nxlog "$FUNCNAME ($$): WIN_CP_CONVERT_CHAIN== \"$WIN_CP_CONVERT_CHAIN\""
-	which iconv 1>/dev/null 2>&1; RC=$?
-	[ -n "$WIN_CP_CONVERT_CHAIN" -a $RC -ne 0 ] && {
-		nxlog "$FUNCNAME ($$): iconv not found, codepages converting is disabled."
-		echo $res; return
-	}
+	res=${1/+/ }
+	#which iconv 1>/dev/null 2>&1; RC=$?
+	#[ -n "$WIN_CP_CONVERT_CHAIN" -a $RC -ne 0 ] && {
+	#	nxlog "$FUNCNAME ($$): iconv not found, codepages converting is disabled."
+	#	echo $res; return
+	#}
 	for cp_pair in $WIN_CP_CONVERT_CHAIN ; do
-		cp_from=$(echo "$cp_pair" | cut -d\> -f1)
+		cp_from=$(cutfn "$cp_pair" '>' 0)
 		[ -n "$cp_from" ] || cp_from="UTF-8"
-		cp_to=$(echo "$cp_pair" | cut -d\> -f2)
+		cp_to=$(cutfn "$cp_pair" '>' 1)
 		[ -n "$cp_to" ] || cp_to="UTF-8"
 		res=$(echo "$res" | iconv -f $cp_from -t $cp_to)
 		#nxlog "$FUNCNAME ($$): converting $cp_from > $cp_to == \"$res\""
 	done
 	#nxlog "$FUNCNAME ($$): return res === \"$res\""
 	echo $res
-}
-
-port2port_val() {
-# arg: string with port description
-# returns numerical port value
-# dimbor: nxcomp from Arctica project returns supplemented description
-# of (listening) port. It's string like "tcp:localhost:6001". While we only
-# need a numeric value.
-	port=$(basename $(echo $1 | sed 's/:/\//g') 2>/dev/null)
-	echo $port
 }
 
 # dimbor: functions to control user's shares and printers in mode "per user"
@@ -154,14 +179,14 @@ get_mport2sessdir() {
 # ret: cups listening port or samba mount port
 	type=$2
 	smbport=$(cat $1/scripts/mport 2>/dev/null) # check smb mount port
-	cport=$(cat $1/session 2>/dev/null | grep "Listening to CUPS" \
-		| tail -n1 | cut -d\' -f2)
+	cport=$(cat $1/session 2>/dev/null);
+	cport=$(rematchfn "Listening to CUPS.+'(.+)'" "$cport" 0 "rev") #'
 	mport=""
 	if [ "$type" != "smb" -a -n "$cport" ]; then mport=$cport; type="ipp";
 	elif [ "$type" != "ipp" -a  -n "$smbport" ]; then
 		mport=$smbport; type="smb";
 	fi
-	mport=$(echo "$mport" | awk -F: '{print $NF}')
+	mport=${mport##*:}
 	nxlog "$FUNCNAME ($$): sessdir \"$1\"; mport == $mport \"$type\""
 	echo $mport
 }
@@ -175,13 +200,13 @@ get_sessdir4res() {
 # $ENABLE_CUPS_SERVER_MODE=1 modes only
 	nxlog "$FUNCNAME ($$): starting with args \"$@\"; sess_id == \"$sess_id\""
 	[ "$1" -gt 0 2>/dev/null ] && digarg=1 || digarg=0
-	AGENT_PIDS=$(ps -wo pid=,cmd= -C "nxagent" | awk '{print $1}')
+	AGENT_PIDS=$(ps -wo pid= -C "nxagent")
 	for sessdir in $USER_FAKE_HOME/.nx/C-* ; do
 		[ -z "$2" -a "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && \
 			continue
 		NODE_AGENT_PID=$(cat "$sessdir/pids/agent" 2>/dev/null)
 		[ -z "$NODE_AGENT_PID" ] && continue
-		[ -z "$(echo "$AGENT_PIDS" | grep $NODE_AGENT_PID)" ] && continue
+		stringinstring "$NODE_AGENT_PID" "$AGENT_PIDS" || continue
 		#nxlog "$FUNCNAME ($$): browse sessdir \"$sessdir\" for filename = \"$sessdir/scripts/$1\", digarg=$digarg"
 		if [ "$digarg" = "1" ]; then
 			curport=$(get_mport2sessdir "$sessdir")
@@ -218,7 +243,7 @@ check_remote_printer() {
 	nxlog "$FUNCNAME ($$): end with res = $res"
 	echo $res; return 0;
 	fi
-	[ -n "$(echo "$2" | grep "nocheck")" ] && {
+	[ "$(cutfn "$2" "-" "-1")" = "nocheck" ] && {
 		res=1
 		nxlog "$FUNCNAME ($$): special sharename \"$2\" - stop checking, end with res = $res"
 		echo $res; return 0;
@@ -235,10 +260,10 @@ check_remote_printer() {
 		(( numa++ ))
 		res=$(NXSAMBA_PORT=$3 LD_PRELOAD=$NXREDIR_LIBRARY eval $CMDSTR)
 		nxlog "$FUNCNAME ($$): on attempt $numa says \"$res\""
-		[ -n "$(echo "$res" | grep successfully)" ] && { ret="1"; continue; }
+		[ -n "$(rematchfn '(successfully)' "$res")" ] && { ret="1"; continue; }
 		[ "$numa" -gt 4 ] && ret="1" && res="timeout"
 	done
-	[ -n "$(echo $res | grep successfully)" ] && res=1 || res=0
+	[ -n "$(rematchfn '(successfully)' "$res")" ] && res=1 || res=0
 	nxlog "$FUNCNAME ($$): end with res = $res"
 	echo $res
 }
@@ -256,30 +281,27 @@ check_local_pa_tunnel() {
 		echo ""; return 1;
 	}
 	pactl_bin="env LANG=C $pactl_bin"
-	PA_BIN="$(which pulseaudio 2>/dev/null)"
-	[ -z "$PA_BIN" ] && {
-		nxlog "$FUNCNAME ($$): Local pulseaudio binary not found."
-		echo ""; return 1;
-	}
 	unset PULSE_SERVER; unset PULSE_SINK; unset PULSE_SOURCE
 	# automatic start user's pa is here (pa starting with default system settings)
-	errstr=$($pactl_bin info 2>&1 | grep "failure")
-	[ -n "$errstr" ] && {
+	errstr=$($pactl_bin info 2>&1)
+	[ -n "$(rematchfn '(failure)' "$errstr")" ] && {
 		nxlog "$FUNCNAME ($$): Local PA is not reachable ($errstr)."
 		echo ""; return 1;
 	}
-	retpid=$(ps -wo pid=,cmd= -U $USER | awk '($2=="'$PA_BIN'") {print $1}') #'
+	retpid=$(ps -wo pid= -C "pulseaudio")
+	[ -n "$retpid" ] && nxlog "$FUNCNAME ($$): Found PA:$retpid"
 	lpa_mods=$($pactl_bin list short 2>/dev/null)
 	tunn_opts="server=$1"
-	tunn_exists= $(echo "$lpa_mods" | awk '/'$tunn_opts'/ {print $0}')
+	tunn_exists=$(rematchfn "($tunn_opts)" "$lpa_mods") #"
 	[ -n "$tunn_exists" ] && {
 		nxlog "$FUNCNAME ($$): Right modules already exists: $tunn_exists"
 		echo $retpid; return 0;
 	}
 	mname="module-always-sink" # automatic null-sinks will be disabled
-	rmids=$(echo "$lpa_mods" | awk '($2=="'$mname'") {print $1}') #'
+	rmids=$(rematchfn "^([[:digit:]]+)[[:space:]]+$mname" "$lpa_mods") #"
 	# any sinks and sources will be unloaded too
-	rmids="$rmids $(echo "$lpa_mods" | awk '/sink_name|source_name/ {print $1}')"
+	rmids+="${rmids:+ }$(rematchfn "^([[:digit:]]+).+sink_name" "$lpa_mods")" #"
+	rmids+="${rmids:+ }$(rematchfn "^([[:digit:]]+).+source_name" "$lpa_mods")" #"
 	[ -n "$rmids" ] && {
 		errids=""; errstr=""
 		for i in $rmids; do
@@ -290,8 +312,7 @@ check_local_pa_tunnel() {
 	[ -n "$errids" ] && {
 		nxlog "$FUNCNAME ($$): Removing PA modules error. ids=\"$errids\"; \"$errstr\" "
 	}
-	mname_tunn_sink="module-tunnel-sink";
-	mname_tunn_source="module-tunnel-source"
+	mname_tunn_sink="module-tunnel-sink"; mname_tunn_source="module-tunnel-source"
 	rpa_info=$($pactl_bin -s $1 info 2>/dev/null)
 	[ -z "$rpa_info" ] && {
 		nxlog "$FUNCNAME ($$): Couldn't get defaults from REMOTE pulseaudio $1."
@@ -305,8 +326,7 @@ check_local_pa_tunnel() {
 		}
 	}
 	success=""
-	def_rsink=$(echo "$rpa_info" | \
-		awk -F": " '($1~/Default Sink/) {print $2}')
+	def_rsink=$(rematchfn "Default Sink:[[:space:]]+(.+)" "$rpa_info") #"
 	if [ -z "$def_rsink" -o "$def_rsink" == "(null)" ]; then
 		nxlog "$FUNCNAME ($$): Couldn't get default sink from REMOTE pulseaudio $1."
 	else # load module-tunnel-sink
@@ -319,8 +339,7 @@ check_local_pa_tunnel() {
 			nxlog "$FUNCNAME ($$): Successfully loadded module $mname_tunn_sink  (\"$rsi_args\")."
 		}
 	fi
-	def_rsource=$(echo "$rpa_info" | \
-		awk -F": " '($1~/Default Source/) {print $2}')
+	def_rsource=$(rematchfn "Default Source:[[:space:]]+(.+)" "$rpa_info") #"
 	if [ -z "$def_rsource" -o "$def_rsource" == "(null)" -o \
 			"$def_rsource" == "$def_rsink.monitor" ]; then
 		nxlog "$FUNCNAME ($$): Couldn't get default source from REMOTE pulseaudio $1."
@@ -341,19 +360,19 @@ reconnect_pa() {
 	papid=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid" 2>/dev/null)
 	[ -z "$papid" ] && return
 	mmport=""; papars="";
-	AGENT_PIDS=$(ps -wo pid=,cmd= -C "nxagent" | awk '{print $1}')
+	AGENT_PIDS=$(ps -wo pid= -C "nxagent")
 	for sessdir in $USER_FAKE_HOME/.nx/C-*; do # start port search
 		[ "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
 		NODE_AGENT_PID=$(cat "$sessdir/pids/agent" 2>/dev/null)
 		[ -z "$NODE_AGENT_PID" ] && continue
-		[ -z "$(echo "$AGENT_PIDS" | grep $NODE_AGENT_PID)" ] && continue
+		stringinstring $NODE_AGENT_PID "$AGENT_PIDS" || continue
 		mmport=$(cat "$sessdir/scripts/mmport" 2>/dev/null)
 		[ -n "$mmport" ] && break
 	done
 	if [ -n "$mmport" ]; then # try reconnect
 		papars=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/params.pa" 2>/dev/null)
-		rate=$(echo "$papars" |  awk -F":" '{print $1}')
-		channels=$(echo "$papars" |  awk -F":" '{print $2}')
+		rate=$(cutfn "$papars" ":" 0)
+		channels=$(cutfn "$papars" ":" 1)
 		[ -z "$(check_local_pa_tunnel 127.0.0.1:$mmport $rate $channels)" ] && {
 			nxlog "$FUNCNAME ($$): Couldn't reconnect PA tunnel to port $mmport."
 		}
@@ -367,14 +386,13 @@ node_terminate_agent() {
 	nxlog "$FUNCNAME ($$): starting"
 	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
 	[ -n "$NODE_AGENT_PID" ] && { nxlog "$FUNCNAME ($$): killing NODE_AGENT_PID"
-		kill $NODE_AGENT_PID 2>/dev/null; }
-	if [ -z $(ps x| grep "nxagent" | \
-			awk '{print $1}' | grep $NODE_AGENT_PID) ]; then
-		nxlog "$FUNCNAME ($$): process list for 'nxagent' empty"
-	else
+		kill $NODE_AGENT_PID 2>/dev/null;
+		sleep 0.3s
+	}
+	kill -0 $NODE_AGENT_PID && {
 		nxlog "$FUNCNAME ($$): killing NODE_AGENT_PID. Try #2"
-		kill $NODE_AGENT_PID 2>/dev/null
-	fi
+		kill -9 $NODE_AGENT_PID 2>/dev/null
+	}
 	nxlog "$FUNCNAME ($$): end"
 }
 
@@ -391,7 +409,7 @@ node_terminate_session() {
 		return;
 	}
 	[ -e "$USER_FAKE_HOME/.nx/C-$1/terminating" ] && {\
-		nxlog "$FUNCNAME ($$): Terminating still in progress. Bye/"
+		nxlog "$FUNCNAME ($$): Terminating still in progress. Bye."
 		return;
 	}
 	touch "$USER_FAKE_HOME/.nx/C-$1/terminating"
@@ -409,8 +427,9 @@ node_terminate_session() {
 	if [ -n "$NODE_AGENT_PID" ]; then
 		nxlog "$FUNCNAME ($$): start killing of nxagent"
 		kill $NODE_AGENT_PID 2>/dev/null
-		wait $NODE_AGENT_PID
-		nxlog "$FUNCNAME ($$): nxagent ($NODE_AGENT_PID) is dead now"
+		wait $NODE_AGENT_PID 2>/dev/null
+		kill -0 $NODE_AGENT_PID ||
+			nxlog "$FUNCNAME ($$): nxagent ($NODE_AGENT_PID) is dead now"
 	fi
 
 	# Kill tail process
@@ -421,7 +440,7 @@ node_terminate_session() {
 
 	# Remove display information
 	nxlog "$FUNCNAME ($$): Remove display information"
-	NODE_DISPLAY=$(echo $1 | awk 'BEGIN {FS="-"} {i=NF-1; print $i}')
+	NODE_DISPLAY=$(cutfn "$1" "-" -2)
 	rm -f /tmp/.X$NODE_DISPLAY-lock; rm -f /tmp/.X11-unix/X$NODE_DISPLAY
 
 	# Remove magic cookie information
@@ -547,7 +566,7 @@ get_pa_sound_mode() {
 		nxlog "$FUNCNAME ($$): Client's IP-address is not defined."
 		echo ""; return 1;
 	}
-	[ -z "$($COMMAND_NETCAT -nvz -w 1 $2 $1 2>&1 | grep "open")" ] && {
+	stringinstring "open" "$($COMMAND_NETCAT -nvz -w 1 $2 $1 2>&1)" || {
 		nxlog "$FUNCNAME ($$): Client's pulseaudio at $2:$1 is not reachable."
 		echo ""; return 1;
 	}
@@ -560,8 +579,8 @@ get_pa_sound_mode() {
 	nxlog "$FUNCNAME ($$): $pactl_bin list short"
 	cl_pa_mods=$($pactl_bin list short)
 	#nxlog "$FUNCNAME ($$): $cl_pa_mods"
-	[ -n "$(echo "$cl_pa_mods" | grep "ts_receiver")" -a \
-		-n "$(echo "$cl_pa_mods" | grep "ts_sender")" ] && {
+	stringinstring "ts_receiver" "$cl_pa_mods" && \
+		stringinstring "ts_sender" "$cl_pa_mods" && {
 		nxlog "$FUNCNAME ($$): Specials sink and source at $2:$1 are found."
 		echo "special"; return 0;
 	}
@@ -623,16 +642,16 @@ node_start_applications() {
 	fi
 
 	# Check if we want to use a mediahelper
-	mmode="$(echo "$mediahelper" |  awk -F"-" '{print($1)}')"
-	rate="$(echo "$mediahelper" |  awk -F"-" '{print($2)}')"
-	channels="$(echo "$mediahelper" |  awk -F"-" '{print($3)}')"
+	mmode="$(cutfn "$mediahelper" "-" 0)"
+	rate="$(cutfn "$mediahelper" "-" 1)"
+	channels="$(cutfn "$mediahelper" "-" 2)"
 	mmport="$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport" 2>/dev/null)"
 	if [ "$mmode" == "pa" -a -n "$mmport" ]; then
 		pa_remote="127.0.0.1:$mmport"
 		pa_pid="$(check_local_pa_tunnel $pa_remote $rate $channels)"
 		if [ -n "$pa_pid" ]; then
 			nxlog "$FUNCNAME ($$): Local pulseaudio is started ($pa_pid). Sound mode set to tunneled."
-			echo "$pa_pid" > "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid"
+			echo $pa_pid > "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid"
 			params=$rate
 			[ -n "$channels" ] && params="$params:$channels"
 			[ -n "$params" ] && echo "$params" > "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/params.pa"
@@ -731,11 +750,11 @@ node_start_applications() {
 
 	SECOND_APP=""; NX_SAPP_PIDS0=""
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1" ] && {
-		NAPP=$(basename $(echo "$NODE_APPLICATION" | awk '{print $1}'))
-		SECOND_APP=$(echo "$APP_WAIT_MAP" | awk 'BEGIN{FS=":"; RS=";"; ORS=""}
-			 ($1=="'$NAPP'") {print $2}')
+		NAPP=$(cutfn "$NODE_APPLICATION" " " 0)
+		NAPP=$(cutfn "$NAPP" "/" -1)
+		SECOND_APP=$(rematchfn "$NAPP:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
 		[ -n "$SECOND_APP" ] && {
-			NX_SAPP_PIDS0=$(ps -w -o pid=,cmd= -C "$SECOND_APP" | awk '{print $1}')
+			NX_SAPP_PIDS0=$(ps -wo pid= -C $(cutfn "$SECOND_APP" "/" -1))
 			nxlog "$FUNCNAME ($$): PID of $SECOND_APP will be waiting too. Initial: \"$NX_SAPP_PIDS0\""
 		}
 	}
@@ -770,11 +789,11 @@ node_start_applications() {
 
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && {
 		if [ -n "$SECOND_APP" ] ; then
-			NX_SAPP_PIDS=""
-			NX_SAPP_PIDS1=$(ps -w -o pid=,cmd= -C "$SECOND_APP" | awk '{print $1}')
+			NX_SAPP_PIDS="";
+			NX_SAPP_PIDS1=$(ps -wo pid= -C $(cutfn "$SECOND_APP" "/" -1))
 			while read SPID; do
-				[ -z "$(echo "$NX_SAPP_PIDS0" | grep $SPID)" ] && \
-						NX_SAPP_PIDS="$NX_SAPP_PIDS${NX_SAPP_PIDS:+$' '}$SPID"
+				stringinstring "$SPID" "$NX_SAPP_PIDS0" && continue
+				NX_SAPP_PIDS="$NX_SAPP_PIDS${NX_SAPP_PIDS:+$' '}$SPID"
 			done <<< "$NX_SAPP_PIDS1"
 			nxlog "$FUNCNAME ($$): Waiting for $SECOND_APP PID(S) \"$NX_SAPP_PIDS\""
 			while [ -n "$(ps -o pid= -p $NX_SAPP_PIDS 2>/dev/null)" ]; do
@@ -898,7 +917,7 @@ node_start_agent() {
 	[ "$geometry" = "fullscreen" -a "$type" = "vnc" ] && \
 		vncfullscreen="-fullscreen" && G=""
 	[ "$geometry" = "fullscreen" -a "$type" = "windows" ] && \
-		G="-geometry `echo $screeninfo | cut -d"x" -f1,2`"
+		G="-geometry $(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $screeninfo)"
 
 	# Start the wanted nxagent
 	if [ "$type" = "windows" ]; then
@@ -938,8 +957,8 @@ node_start_agent() {
 					>"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port" 2>&3 &
 			)
 			sleep 2
-			agent_port=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port" \
-								| egrep "^PORT=" | cut -d'=' -f 2)
+			agent_port=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port")
+			agent_port=$(rematchfn '^PORT=[[:space:]]*([[:digit:]]+)' $agent_port) #'
 			[ -z "agent_port" ] && agent_port="0"
 			# note the :: is not a mistake, but rather a hint for nxviewer
 			# to use this as a port and not interpret it as a display.
@@ -973,8 +992,8 @@ node_start_agent() {
 			P="-nopersistent"
 		fi
 		# Start the agent
-		nxlog "$FUNCNAME ($$): env start `env`"
-		nxlog "$FUNCNAME ($$): env end"
+#		nxlog "$FUNCNAME ($$): env start `env`"
+#		nxlog "$FUNCNAME ($$): env end"
 		nxlog "$FUNCNAME ($$): Start nxagent by command: '$COMMAND_NXAGENT $P $R -name \"NX - $user@$SERVER_NAME:$display - $session (GPL Edition)\" -option \"$USER_FAKE_HOME/.nx/C-$sess_id/options\" $B $FP $AGENT_EXTRA_OPTIONS_X :$display'"
 		#PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 		PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R \
@@ -1029,18 +1048,18 @@ try_remount_printers() {
 		return 1; }
 	nxlog "$FUNCNAME ($$): starting."
 	for spname in $scr_dir/@p@* ; do
-		PNAME=$(echo "$spname" | awk 'BEGIN {FS="@p@"} {i=2; print $i}')
 		[ "$spname" = "*" ] && { nxlog "$FUNCNAME ($$): No printers, stop."
 			return 1;
 		}
+		PNAME=$(cutfn "$spname" "/" -1); PNAME=${PNAME/@p@/}
 		nxlog "$FUNCNAME ($$): process printer \"$PNAME\", search in system cups."
-		prstr=$(LC_ALL=C /usr/bin/lpstat -v 2>/dev/null| grep "$PNAME")
+		prstr=$(LC_ALL=C /usr/bin/lpstat -v "$PNAME" 2>/dev/null)
 		[ -z "$prstr" ] && { nxlog "$FUNCNAME ($$): printer \"$PNAME\" NOT FOUND in system cups"
 			continue;
 		}
-		[ -n "$(echo "$prstr" | grep "ipp://")" ] && type="ipp" || type="smb"
+		[ -n "$(rematchfn '(ipp)://' "$prstr")" ] && type="ipp" || type="smb"
 		mport=$(get_mport2sessdir "$sessdir" "$type")
-		[ -z "$(echo "$prstr" | grep ":$mport")" ] && { nxlog "$FUNCNAME ($$): printer \"$PNAME\" has mport rather than $mport, skiping."
+		[ -z "$(rematchfn ':('$mport')/' "$prstr")" ] && { nxlog "$FUNCNAME ($$): printer \"$PNAME\" has mport rather than $mport, skiping."
 			continue; }
 		# printer already present at own mport
 		nxlog "$FUNCNAME ($$): printer \"$PNAME\" (port:$mport) found - deleting"
@@ -1054,30 +1073,30 @@ try_remount_printers() {
 		[ -r "$desc_fn" ] || { nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for printer \"$PNAME\" NOT ACCESSIBLE, stop remounting"
 			continue; }
 		descstr=$(cat "$desc_fn" 2>/dev/null)
-		DEVICE_URI=$(echo "$descstr" | \
-			cut -d\& -f2 | sed 's/:'$mport'/:'$new_port'/')
-		share=$(echo "$DEVICE_URI" |  awk 'BEGIN {FS="/"} {i=NF; print $i}')
-		upass=$(echo "$DEVICE_URI" | cut -d\/ -f3 | cut -d@ -f1) && \
-			username="$(echo "$upass"| cut -d: -f1)" && \
-			password="$(echo "$upass"| cut -d: -f2)"
+		DEVICE_URI=$(cutfn "$descstr" "&" 1)
+		DEVICE_URI=${DEVICE_URI/:$mport/:$new_port}
+		share=$(cutfn "$DEVICE_URI" "/" -1)
+		upass=$(cutfn "$(cutfn "$DEVICE_URI" "/" 2)" "@" 0) #"
+		username="$(cutfn "$upass" ":" 0)"
+		password="$(cutfn "$upass" ":" 1)"
 		#[ "$type" = "ipp" ] && {
 		#	newpass=$(cat "$new_dir/scripts/@p@$PNAME" 2>/dev/null)
 		#	[ ! -z "$newpass" ] && { nxlog "$FUNCNAME ($$): new password for printer \"$PNAME\" ARE LOST, stop remounting"
 		#	continue;
 		#	}
-		#	DEVICE_URI=$(echo "$DEVICE_URI" | sed 's/:'$password'/:'$newpass'/')
+		#	DEVICE_URI=${DEVICE_URI/:$password/:$newpass}
 		#	password="$newpass"
 		#}
 		[ "$(check_remote_printer $type $share $new_port $username $password)" \
 				= "0" ] && { nxlog "$FUNCNAME ($$): smb/cifs-share \"$share\" for printer \"$PNAME\" NOT ACCESSIBLE, stop remounting"
 			continue;
 		}
-		MODEL=$(echo "$descstr" | cut -d\& -f1)
-		defaultPrinter=$(echo "$descstr" | cut -d\& -f4)
+		MODEL=$(cutfn "$descstr" "&" 0)
+		defaultPrinter=$(cutfn "$descstr" "&" 3)
 		if [ -r "$MODEL" ]; then # ppd only
 			CMDSTR="/usr/bin/sudo /usr/sbin/lpadmin -p $PNAME -P $MODEL -v $DEVICE_URI -E"
 		else # foomatic
-			ID="$MODEL"; DRV="$(echo "$descstr" | cut -d\& -f5)"
+			ID="$MODEL"; DRV=$(cutfn "$descstr" "&" 4)
 			CMDSTR="/usr/bin/sudo /usr/bin/foomatic-configure -s cups -n $PNAME -p $ID -d $DRV -c $DEVICE_URI -q"
 		fi
 		nxlog "$FUNCNAME ($$): invoke $CMDSTR"
@@ -1085,10 +1104,10 @@ try_remount_printers() {
 		if [ $? -eq 0 ]; then
 			nxlog "$FUNCNAME ($$): printer \"$PNAME\" installed"
 			[ "$type" = "ipp" ] && {
-				descstr=$(echo "$descstr" | sed 's/:'$mport'/:'$new_port'/')
+				descstr=${descstr/:$mport/:$new_port}
 				echo "$descstr" > "$desc_fn"
 			}
-			PUBLIC=$(echo "$descstr" | cut -d\& -f3)
+			PUBLIC=$(cutfn "$descstr" "&" 2)
 			[ -n "$PUBLIC" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $PNAME $PUBLIC;
 				[ $? -ne 0 ] && nxlog "$FUNCNAME ($$): FAILED to set options \"$PUBLIC\" for printer \"$PNAME\""
 			}
@@ -1316,7 +1335,7 @@ usermount_enable() {
 	}
 	[ "$ret" != "0" -a $RC -eq 0 ] && {
 		ostr=$($COMMAND_SMBMOUNT 2>&1)
-		[ -n "$(echo "$ostr" | grep "setuid root program disabled")" ] && { \
+		stringinstring "setuid root program disabled" "$ostr" && { \
 			nxlog "$logstr0 $ostr"
 			ret="0";
 		}
@@ -1337,11 +1356,11 @@ sudomount_enable() {
 	if [ $RC -ne 0 ]; then
 		nxlog "$logstr0 $ostr"; ret=0
 	else
-		[ -z "$(echo "$ostr" | grep "$COMMAND_SMBMOUNT" | grep NOPASSWD)" ] && {
+		[ -z "$(rematchfn "NOPASSWD.+($COMMAND_SMBMOUNT)" "$ostr")" ] && { #"
 			ret=0
 			nxlog "$logstr0 Mounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
 		}
-		[ -z "$(echo "$ostr" | grep "$COMMAND_SMBUMOUNT" | grep NOPASSWD)" ] && {
+		[ -z "$(rematchfn "NOPASSWD.+($COMMAND_SMBUMOUNT)" "$ostr")" ] && { #"
 			ret=0
 			nxlog "$logstr0 Umounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
 		}
@@ -1380,7 +1399,7 @@ try_umount_smb() {
 	amnt=3; cn=0; logstr0="$FUNCNAME ($$):"; RC=0
 	nxlog "$logstr0 Starting arg \"$1\". TRY_USER=$TRY_USER, TRY_SUDO=$TRY_SUDO, remain $amnt attempts."
 	for (( i=$amnt; $i; --i )); do
-		if [ -n "$(mount | grep "$1")" ]; then
+		if stringinstring "$1" "$(mount)"; then
 			[ $i -lt $((amnt/2)) ] && { FFL="-f"; logstr1="$logstr0 force (-f)";
 			} || { FFL=""; logstr1="$logstr0"; }
 			RC=1; (( cn++ ))
@@ -1429,15 +1448,14 @@ node_umount_smb() {
 			return;
 		}
 		for ssname in $scr_dir/@s@*; do
-			SNAME=$(echo "$ssname" | awk 'BEGIN {FS="@s@"} {i=2; print $i}')
+			SNAME=$(cutfn "$ssname" "/" -1); SNAME=${SNAME/@s@/}
 			desc_fn="$USER_FAKE_HOME/.nx/shares_priv/@s@$SNAME"
 			[ ! -r "$desc_fn" ] && {
 				nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for share \"$SNAME\" NOT ACCESSIBLE, stop remounting it"
 				continue;
 			}
-			descstr=$(cat "$desc_fn")
-			mpoint=$(echo "$descstr" | cut -d\& -f2)
-			[ -z "$(echo "$mpoints" | grep "$mpoint")" ] && {
+			descstr=$(cat "$desc_fn"); mpoint=$(cutfn "$descstr" "&" 1)
+			stringinstring "$mpoint" "$mpoints" || {
 				nxlog "$FUNCNAME ($$): share \"$SNAME\" at \"$mpoint\" is not controlled by session. Stop remounting."
 				continue;
 			}
@@ -1452,10 +1470,10 @@ node_umount_smb() {
 				rmdir "$mpoint" >/dev/null 2>/dev/null; continue;
 			}
 			new_port=$(cat "$new_dir/scripts/mport" 2>/dev/null)
-			fsname=$(echo "$descstr" | cut -d\& -f1)
-			username=$(echo "$descstr" | cut -d\& -f3)
-			password=$(echo "$descstr" | cut -d\& -f4)
-			IDS_OPTS=$(echo "$descstr" | cut -d\& -f5)
+			fsname=$(cutfn "$descstr" "&" 0)
+			username=$(cutfn "$descstr" "&" 2)
+			password=$(cutfn "$descstr" "&" 3)
+			IDS_OPTS=$(cutfn "$descstr" "&" 4)
 			try_mount_smb "$fsname" "$mpoint" "$username" $new_port "$IDS_OPTS" "$password"
 			RC=$?
 			[ $RC -eq 0 ] && {
@@ -1526,17 +1544,17 @@ node_start_monitor() {
 	while read line; do
 		# Catch tail pid
 		if stringinstring "Info: tail -f running with pid" "$line"; then
-			NODE_TAIL_PID=$(echo $line | cut -d"'" -f2)
+			NODE_TAIL_PID=$(cutfn "$line" "'" 1)
 			echo "$NODE_TAIL_PID" >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail"
 		elif stringinstring "Info: Listening * SMB connections on port" "$line"; then
 			# Catch NXAGENT SMB Port (sometimes the port differs from what we got from nxserver)
-			SMBMOUNT_PORT=$(echo $line | cut -d"'" -f2)
-			SMBMOUNT_PORT=$(port2port_val $SMBMOUNT_PORT)
+			SMBMOUNT_PORT=$(cutfn "$line" "'" 1)
+			SMBMOUNT_PORT=${SMBMOUNT_PORT##*:}
 			echo "$SMBMOUNT_PORT" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mport"
 		elif stringinstring "Info: Listening * multimedia connections on port" "$line"; then
 			# Catch NXAGENT Multimedia Port
-			MEDIA_PORT=$(echo $line | cut -d"'" -f2)
-			MEDIA_PORT=$(port2port_val $MEDIA_PORT)
+			MEDIA_PORT=$(cutfn "$line" "'" 1)
+			MEDIA_PORT=${MEDIA_PORT##*:}
 			echo "$MEDIA_PORT" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport"
 		elif stringinstring "Session: Starting session at" "$line"; then
 		# Session messages
@@ -1561,7 +1579,7 @@ node_start_monitor() {
 			fi
 		elif stringinstring "Info: Watchdog running with pid" "$line"; then
 			# Watchdog termination
-			NODE_WATCHDOG_PID=$(echo $line | cut -d"'" -f2)
+			NODE_WATCHDOG_PID=$(cutfn "$line" "'" 1)
 		elif stringinstring "Info: Waiting the watchdog process to complete." "$line"; then
 			# Kill the watchdog
 			kill $NODE_WATCHDOG_PID 2>/dev/null
@@ -1616,7 +1634,7 @@ startsession() {
 	uniqueid=$(getparam uniqueid)
 	display=$(getparam display)
 	session=$(getparam session)
-	type=$(getparam type | sed 's/%2d/-/g')
+	type=$(getparam type)
 	application=$(getparam application)
 	windows_app=$(getparam application)
 	cache=$(getparam cache)
@@ -1636,7 +1654,7 @@ startsession() {
 	sync=$(getparam sync)
 	samba=$(getparam samba)
 	cups=$(getparam cups)
-	agent_server=$(getparam agent_server | sed 's/%3A/:/g')
+	agent_server=$(getparam agent_server)
 	agent_user=$(getparam agent_user)
 	agent_password=$(getparam agent_password)
 	agent_domain=$(getparam agent_domain)
@@ -1732,7 +1750,7 @@ startsession() {
 		export windows_app
 		agent_keyboard=""
 		[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && \
-			agent_keyboard=$(echo "$keyboard" | cut -d'/' -f2)
+			agent_keyboard=$(cutfn "$keyboard" '/' 1)
 		export agent_keyboard
 		export NXSESSION_DIRECTORY
 		export AGENT_EXTRA_OPTIONS_RFB
@@ -1760,7 +1778,10 @@ startsession() {
 	[ -z "$ssl_tunnel" ] && ssl_tunnel=0
 	if [ "$ssl_tunnel" = "1" ]; then
 		# we need to use the IP of the "calling" server now
-		userip=$(echo $SSH_CLIENT $SSH2_CLIENT | cut -d" " -f1 | sed 's/::ffff://g')
+		# FIXME: cut and sed rm
+		#userip=$(echo $SSH_CLIENT $SSH2_CLIENT | cut -d" " -f1 | sed 's/::ffff://g')
+		#nxlog "$FUNCNAME ($$): ${userip@A}"
+		userip=""
 		# If host is the same, use 127.0.0.1, else fallback to default
 		[ -z "$userip" -a "$host" = "127.0.0.1" ] && userip="127.0.0.1"
 		[ -z "$userip" ] && userip="*"
@@ -1769,8 +1790,9 @@ startsession() {
 	proxyip="$EXTERNAL_PROXY_IP"
 	if [ -z "$proxyip" -a -n "$host" ]; then
 		[ "$host" = "127.0.0.1" ] && host=$(hostname)
-		proxyip=$(ping -c1 "$host" | grep 'PING' | cut -d'(' -f2 | cut -d')' -f1)
-	fi #' clean mc.syntax
+		# FIXME: on modern systems ping resolves lo addr also
+		proxyip=$(rematchfn "PING .+\(($ip4_pattern)\)" "$(ping -c1 "$host")") #"
+	fi
 	[ -z "$proxyip" ] && proxyip="127.0.0.1"
 
 	# ok, lets make the session dir first:
@@ -1786,8 +1808,8 @@ startsession() {
 	[ "$imagecompressionmethod" = "1" ] && PACK="pack=16m-jpeg-$imagecompressionlevel,"
 	[ "$imagecompressionmethod" = "2" ] && PACK="pack=16m-png-9,"
 
-	proxy_cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM | cut -d" " -f1)
-
+	proxy_cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
+	proxy_cookie=${proxy_cookie%% *}
 	# all newer clients support fake cookie authentication
 	if [ "$clientproto" != "1.4.0" ]; then
 		# enable fake cookie authentication
@@ -1930,23 +1952,25 @@ EOF
 cmd_node_terminate() {
 	sessionid=$(getparam_sessionid)
 	echo "$DELIM 716 Terminating session $sessionid on user request."
-	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | \
-		awk 'BEGIN {FS="-"} {i=NF-1; print $i}')
-	node_terminate_session "$SERVER_NAME-$display-$sessionid"
+	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
+	display=$(cutfn "$sdir" "-" -2)
+	sess_id="$SERVER_NAME-$display-$sessionid"
+	node_terminate_session "$sess_id"
 }
 
 cmd_node_suspend() {
 	sessionid=$(getparam_sessionid)
 	echo "$DELIM 716 Suspending session $sessionid on user request."
-	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | \
-		awk 'BEGIN {FS="-"} {i=NF-1; print $i}')
-	node_suspend_session "$SERVER_NAME-$display-$sessionid"
+	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
+	display=$(cutfn "$sdir" "-" -2)
+	sess_id="$SERVER_NAME-$display-$sessionid"
+	node_suspend_session "$sess_id"
 }
 
 cmd_node_smbmount() {
 	sessionid=$(getparam_sessionid)
-	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | \
-		awk 'BEGIN {FS="-"} {i=NF-1; print $i}')
+	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
+	display=$(cutfn "$sdir" "-" -2)
 	sess_id="$SERVER_NAME-$display-$sessionid" # dimbor: for called functions
 	sess_dir="$USER_FAKE_HOME/.nx/C-$sess_id"
 	nxlog "$FUNCNAME ($$): starting with sessionid = $sessionid"
@@ -1955,18 +1979,17 @@ cmd_node_smbmount() {
 	password=$(getparam password)
 	share=$(getparam share)
 	computername=127.0.0.1 # http://bugs.etersoft.ru/show_bug.cgi?id=8841
-	dir=$(getparam dir | sed 's|$(SHARES)|MyShares|g') #'
+	dir=$(getparam dir); dir=${dir/'$(SHARES)'/MyShares}
 	username=$(norm_param $username)
-		password=$(norm_param $password)
+	password=$(norm_param $password)
 	share=$(norm_param $share)
 	dir=$(norm_param $dir)
-	[ -n "$(echo "$dir" | grep MyShares)" ] && dir="$HOME/$dir"
+	[ -n "$(rematchfn "(MyShares)" "$dir")" ] && dir="$HOME/$dir" #"
 	# dimbor: checking mountpoint
 	EGROUP=$(id -gn "$USER"); RC=$?
 	outstr="$(create_mountpoint "$dir" "$USER" "$EGROUP")"
 	[ -n "$outstr" ] && nxlog "$FUNCNAME ($$): create_mountpoint says: \"$outstr\""
-	[ $RC -ne 0 ] && { nxlog "$FUNCNAME ($$): Stop mounting."
-		return 1; }
+	[ $RC -ne 0 ] && { nxlog "$FUNCNAME ($$): Stop mounting."; return 1; }
 	smbport=""; smbport=$(cat "$sess_dir/scripts/smbport" 2>/dev/null)
 	IDS_OPTS="uid=$USER,gid=$EGROUP,"; TRY_USER=1; TRY_SUDO=0;
 	# this function run dedicated. We must define smbproto and COMMAND_SMBMOUNT here, not in startsession.
@@ -1982,8 +2005,9 @@ cmd_node_smbmount() {
 	fi
 
 	#do not mount twice
-	if [ -n "$(mount | grep "$dir")" ]; then
-			nxlog "$FUNCNAME ($$): share $(mount | grep "$dir" | awk '{print($1)}') already mounted on $dir"
+	local mnts=$(rematchfn "(.+)[[:space:]].+$dir" "$(mount)") #"
+	if [ -n "$mnts" ]; then
+			nxlog "$FUNCNAME ($$): share $mnts already mounted on $dir"
 		if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]; then
 			if [ -z "$(get_sessdir4res "@s@$share")" ]; then
 				nxlog "$FUNCNAME ($$): Try to force umount dead mountpoint \"$dir\""
@@ -2055,7 +2079,8 @@ cmd_node_addprinter() {
 	model=$(getparam model)
 	defaultPrinter=$(getparam defaultPrinter)
 	[ -z "$defaultPrinter" ] && defaultPrinter=$(getparam defaultprinter) # for opennx
-	display=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid | awk 'BEGIN {FS="-"} {i=NF-1; print $i}')
+	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
+	display=$(cutfn "$sdir" "-" -2)
 	sess_id="$SERVER_NAME-$display-$sessionid"
 	# normalize
 	username=$(norm_param $username)
@@ -2112,22 +2137,21 @@ cmd_node_addprinter() {
 		# <driver_num>: number from drver's uri.
 		# Driver-uri is first field of output '/usr/lib/cups/driver/* list'
 		# -nocheck: do not check remote smb-share by rpclient (to W7 Home clients)
-		PRE=$(echo "$NAME" | grep "@"); HASDRV="$(echo "$NAME" | grep "__")"
-		HASNN=$(echo "$NAME" | grep "#"); ID="$NAME"; NN=""
-		[ -n "$HASDRV" ] && ID=$(echo "$NAME" | \
-			awk 'BEGIN {FS="__"} {print $1}')
-		[ -n "$HASNN" ] && {
-			NN="_""$(echo "$ID" | awk -F'#' '{ A=substr($2,1,1); printf("%s",A)}')"; ID="$(echo "$ID" | cut -d"#" -f1)";
-		}
-		[ -n "$HASDRV" ] && DRV=$(echo "$NAME" | \
-			awk 'BEGIN {FS="__"} {i=NF; print $i}' | sed -e 's/-nocheck//')
-		PNAME="$USER""_""$ID$NN" # user's printer name
+		PRE=""; [ "${NAME:0:1}" = "@" ] && { PRE="1"; NAME=${NAME:1}; }
+		nocheck=""; stringinstring "-nocheck" "$NAME" && {
+			 nocheck="1"; NAME=${NAME/-nocheck/}; }
+		DRV=""; stringinstring "__" "$NAME" && {
+			DRV=${NAME#*__}; NAME=${NAME%__*}; }
+		NN=""; stringinstring "#" "$NAME" && {
+			NN=${NAME#*#}; NAME=${NAME%#*}; }
+		PNAME="$USER""_""$NAME""$NN" # user's printer name
 		[ -n "$PRE" ] && { ID="HP-LaserJet_4M-Postscript"; DRV="0"; }
 		MODEL="$NX_ETC_DIR/ppd/$ID.ppd"
 		nxlog "$FUNCNAME ($$): set PNAME = \"$PNAME\", try to install \"$MODEL\" - N=$NN, DRV=$DRV, PNAME=$PNAME."
 		[ "$type" = "smb" ] || [ -r "$MODEL" ] || {
 			# try to download "left-nx" ppd (original scheme), needs to use
 			# wrapper for nxprint on client side
+			# TODO: Rewrite
 			[ "$(check_remote_printer "ipp" "fake_param" $port)" = "0" ] && {
 				nxlog "$FUNCNAME ($$): Remote CUPS not found!"
 				return 1
@@ -2145,11 +2169,12 @@ cmd_node_addprinter() {
 			}
 		}
 		if [ ! -r "$MODEL" ]; then
+			# TODO: Rewrite
 			[ "$ENABLE_FOOMATIC" != "0" ] &&  { # search ppd-file in cups
 				cups_driver_dir="/usr/lib/cups/driver"; uris=""
 				for prog in $cups_driver_dir/*; do
 					[ -x $prog ] || continue
-					[ -n "$(echo "$prog" | grep "gutenprint")" ] && \
+					stringinstring "gutenprint" "$prog" && \
 						mn="$ID"|| mn="$ID.ppd"
 					strs=$($prog list 2>/dev/null | grep "$mn")
 					[ -z "$strs" ] && continue
@@ -2183,11 +2208,11 @@ cmd_node_addprinter() {
 			done
 		} || share=$printer
 		# check existing printers
-		pstr=$(LC_ALL=C /usr/bin/lpstat -v 2>/dev/null| grep "$PNAME")
+		pstr=$(LC_ALL=C /usr/bin/lpstat -v "$PNAME" 2>/dev/null)
 		if [ -n "$pstr" ]; then # printer present
-			iport=$(echo "$pstr" | cut -d/ -f3 | cut -d: -f2)
+			iport=$(rematchfn ':([[:digit:]]+)/' "$pstr") #'
 			[ "$iport" -gt 0 2>/dev/null ] && drop=0 || { drop=1; dbs="wrong port"; }
-			[ -n "$(echo "$NAME" | grep "nocheck")" ] && { drop=1; dbs="don't check remote printer"; }
+			[ -n "$nocheck" ] && { drop=1; dbs="don't check remote printer"; }
 			if [ "$drop" = "0" ]; then
 				[ "$(check_remote_printer $type $NAME $iport $username $password)" = "0" ] && \
 					{ drop=1; dbs="not accessible"; }
