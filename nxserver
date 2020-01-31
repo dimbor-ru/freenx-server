@@ -15,6 +15,8 @@
 # SVN: $Id: nxserver 612 2008-08-25 03:28:15Z fabianx $
 #
 
+shopt -s extglob
+
 # Read the config file
 . $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
 
@@ -28,6 +30,18 @@ getparam(){
 	[[ $str =~ $pattern ]]
 	echo ${BASH_REMATCH[1]}
 	[ "$BASH_REMATCH" != "" ]
+}
+
+trim() {
+	local v="$*"; v=${v#${v%%[![:space:]]*}};
+	v=${v%${v##*[![:space:]]}}; echo -n "$v"
+}
+
+cutfn() {
+#args: line delim field_num_start_at_0
+	local IFS="$2"; local a=($1);
+	#echo "${a[($3)]}" # negative values works on all systems?
+	echo "${a[@]:($3):1}"
 }
 
 ############### PACKAGE log.bm #######################
@@ -56,9 +70,10 @@ log() {
 echo_secure() {
 	[ -n "$1" ] &&
 		echo -n "[$(date "+%d.%m %X")] " >> "$NX_LOGFILE"
-	echo $@ | sed	-e 's/--cookie="[^"]*"/--cookie="******"/g' \
-						-e 's/\(--.*password=\)"[^"]*"/\1"******"/g'\
-						-e 's/password=[^&]*/password=******/g;'
+	local  res=${@//&password=*&/&password=****&}
+	res=${res//--cookie=\"+([^\"])\"/--cookie=\"****\"}
+	res=${res//--password=\"+([^\"])\"/--password=\"****\"}
+	echo "$res"
 }
 
 log_secure() {
@@ -145,9 +160,6 @@ passdb_list_user() {
 
 # Needed global vars: $NX_SESS_DIR
 
-# drop types from filds str
-flds_wo_types() { echo "$1" | sed 's/[ \t]*INT//g'; }
-
 # ============== structure of sessions db ================
 ssid="sessionId"
 fls0_t="sessionName,\
@@ -164,9 +176,9 @@ fls0_t="sessionName,\
  geometry,\
  host,\
  shadowcookie"
-fls0=$(flds_wo_types "$fls0_t")
+fls0=${fls0_t//[ $'\t']INT/}
 fls_ext_t="endTime INT"
-fls_ext=$(flds_wo_types "$fls_ext_t")
+fls_ext=${fls_ext_t//[ $'\t']INT/}
 fls_orig="$ssid, $fls0"
 fls_full="$fls_orig, $fls_ext"
 
@@ -225,20 +237,14 @@ fls_timeformat() {
 qtxt2cmdstrs() {
 #params: text from sqlite3 query (.mode line)
 #ret: nx command strings
-	echo "$@" | awk 'BEGIN{FS="\n"; RS=""; OFS="&"; ORS="\n"}
-	{for (i=1;i<=NF;i++) {
-		split($i,a,"=");
-		for (j=1;j<=2;j++) {
-			e=length(a[j]);
-			for (bi=1;bi<e;bi++) if (substr(a[j],bi,1)""!~"[ \t]") break;
-			for (ei=e;ei>bi;ei--) if (substr(a[j],ei,1)""!~"[ \t]") break;
-			a[j]=substr(a[j],bi,ei-bi+1);
-			if (a[j]==" ") a[j]="";
-		};
-		$i=a[1]"" "=" a[2];
-	}
-	print "a=b&" $0 "&";
-	}'
+	local res="a=b&"
+	while read line; do
+		[ -z "$line" ] && { res+=$'\n'"a=b&" ; continue; }
+		local k=$(trim "$(cutfn "$line" "=" 0)") #"
+		local v=$(trim "$(cutfn "$line" "=" 1)") #"
+		res+="$k=$v&"
+	done <<< "$@"
+	echo "$res"
 }
 
 #-------------------------------------------------------------------
