@@ -56,6 +56,7 @@ nxenv_install:
 	install -m775 -gusers -d  $(DESTDIR)/$(NX_ETC_DIR)/ppd/
 	$(INSTALL_DIR) $(DESTDIR)/$(PATH_SHARE)/freenx-server/node.conf.def
 	$(INSTALL_FILE) conf/conf.d/* $(DESTDIR)/$(PATH_SHARE)/freenx-server/node.conf.def/
+	$(INSTALL_FILE) nxfuncs $(DESTDIR)/$(PATH_SHARE)/freenx-server/
 	$(INSTALL_DIR) $(DESTDIR)/$(CUPS_BACKEND)/
 	$(INSTALL_DIR) $(DESTDIR)/etc/logrotate.d/
 	$(INSTALL_FILE) data/logrotate $(DESTDIR)/etc/logrotate.d/freenx-server
@@ -75,7 +76,9 @@ nxenv_install:
 	        $(INSTALL_PROGRAM) -s $$i $(DESTDIR)/$(PATH_BIN)/ || exit 1;\
 	done
 	sed -i -e 's|NX_VERSION=.*|NX_VERSION='$(NX_VERSION)'|' \
-			 -e 's|^PATH_LIB=.*|PATH_LIB='$(PATH_LIB)'|' $(DESTDIR)/$(PATH_BIN)/nxloadconfig
+			 -e 's|^PATH_LIB=.*|PATH_LIB='$(PATH_LIB)'|' \
+			 -e 's|^SHARED_CONFS=.*|SHARED_CONFS='$(PATH_SHARE)/freenx-server'|' \
+				$(DESTDIR)/$(PATH_BIN)/nxloadconfig
 	$(MAKE) -C nxredir install
 	#$(MAKE) suid_install
 

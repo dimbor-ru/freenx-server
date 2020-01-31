@@ -20,6 +20,8 @@
 # Read the config file
 . $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
 
+. $SHARED_CONFS/nxfuncs
+
 #JJK: Added	following 'if' stanza as a kluge since the following variables
 #JJK: need to be set in cmd_node_smbmount node_umount_smb
 #JJK: but they are currently set only in startsession which is called
@@ -53,50 +55,11 @@ fi
 # Various helper functions
 # -----------------------------------------------------------------------------
 #
-stringinstring() { case "$2" in *$1*) return 0 ;; esac; return 1; }
-
 getparam() {
 	pat=".*&$1=([^&]*)";	str="&$CMDLINE"
 	[[ "$str" =~ $pat ]]; local r=${BASH_REMATCH[1]}
 	echo -e "${r//\%/\\x}"; [ "$BASH_REMATCH" != "" ]
 }
-
-cutfn() {
-#args: line delim field_num_start_at_0
-	local IFS="$2"; local a=($1);
-	#echo "${a[($3)]}" # negative values works on all systems?
-	echo "${a[@]:($3):1}"
-}
-
-rematchfn(){
-#args: (pattern) <text> [match_num=0] [reversive]
-# if match_num == "all" returns all found matches delimited by newlines
-	local pat="$1"; local n; [ -z "$3" -o "$3" = "all" ] && n=0 || n="$3"
-	local OIFS=$IFS local IFS=$'\n'; local a=($2); IFS=$OIFS
-	local ntl=${#a[@]}; local nr=0; local r=()
-	if [ -z "$4" ]; then
-		for ((i=0;i<$ntl;i++)) {
-			[[ "${a[$i]}" =~ $pat ]] || continue
-			((nr++)); r+=(${BASH_REMATCH[1]})
-			[ "$nr" = "$n" ] && break
-		}
-	else
-		for ((i=$ntl;i>=0;i--)) {
-			[[ "${a[$i]}" =~ $pat ]] || continue
-			((nr++)); r+=(${BASH_REMATCH[1]})
-			[ "$nr" = "$n" ] && break
-		}
-	fi
-	if [ "$3" = "all" ]; then
-		local res=""; local r;
-		for r in ${r[@]}; do res+="${res:+$'\n'}$r"; done
-		echo "$res"
-	else echo "${r[($n)]}"
-	fi
-	[ "$nr" != "0" ]
-}
-
-ip4_pattern='[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+'
 
 find_app() { set -- $*; which $1 2>/dev/null; }
 

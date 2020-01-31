@@ -20,29 +20,7 @@ shopt -s extglob
 # Read the config file
 . $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
 
-# following two functions are Copyright by Klaus Knopper
-stringinstring() { case "$2" in *$1*) return 0;; esac; return 1; }
-
-# Reread boot command line; echo last parameter's argument or return false.
-getparam(){
-	pattern=".*&$1=([^&]*)"
-	str="&$CMDLINE"
-	[[ $str =~ $pattern ]]
-	echo ${BASH_REMATCH[1]}
-	[ "$BASH_REMATCH" != "" ]
-}
-
-trim() {
-	local v="$*"; v=${v#${v%%[![:space:]]*}};
-	v=${v%${v##*[![:space:]]}}; echo -n "$v"
-}
-
-cutfn() {
-#args: line delim field_num_start_at_0
-	local IFS="$2"; local a=($1);
-	#echo "${a[($3)]}" # negative values works on all systems?
-	echo "${a[@]:($3):1}"
-}
+. $SHARED_CONFS/nxfuncs
 
 ############### PACKAGE log.bm #######################
 #
