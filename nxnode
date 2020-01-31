@@ -74,8 +74,8 @@ getparam_sessionid() {
 }
 
 echo_secure() {
-	if [ "$NX_LOG_SECURE" = "0" ]; then echo "$@ "
-	else echo "${@//&password=*&/&password=****&} "
+	if [ "$NX_LOG_SECURE" = "0" ]; then echo "$@"
+	else echo "${@//&password=*&/&password=****&}"
 	fi
 }
 
