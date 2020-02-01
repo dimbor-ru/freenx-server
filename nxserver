@@ -196,28 +196,18 @@ str_eq_cond() {
 #params: cond,"A|B|C..."
 #ret: "cond IN ('A','B','C'...)" OR "cond='A'"
 	[ -z "$2" ] && return
-	comma=""; vals=""
-	txt="$(echo -n "$2" | tr '|' '\n')"
-	while read val; do
-		comma="${vals:+,}"
-		vals="$vals$comma'$val'"
-	done <<< "$txt"
-	if [ -n "$comma" ]; then echo "$1 IN ($vals)"
-	else echo "$1=$vals"
-	fi
-}
-
-fls_timeformat() {
-	echo "$@" | sed -e \
-	"s/,[ \t]\(\w*Time\)/, datetime(\1,'unixepoch','localtime') AS \1/g" #"
+	comma=""; vals=""; txt=${2//|/$'\n'}
+	while read val; do comma="${vals:+,}"; vals+="$comma'$val'"; done <<< "$txt"
+	[ -n "$comma" ] && echo "$1 IN ($vals)" || echo "$1=$vals"
 }
 
 qtxt2cmdstrs() {
 #params: text from sqlite3 query (.mode line)
 #ret: nx command strings
-	local res="a=b&"
+	local res=""; local fl="1"
 	while read line; do
-		[ -z "$line" ] && { res+=$'\n'"a=b&" ; continue; }
+		[ -z "$line" ] && { res+=$'\n'; fl=1; continue; }
+		[ "$fl" = "1" ] && { res+="a=b&"; fl=0; }
 		local k=$(trim "$(cutfn "$line" "=" 0)") #"
 		local v=$(trim "$(cutfn "$line" "=" 1)") #"
 		res+="$k=$v&"
@@ -230,18 +220,24 @@ qtxt2cmdstrs() {
 session_list() {
 #params: sessId  ["format_times"]
 #if you need to humane output put something in $2
-	if [ -n "$2" ]; then fls=$(fls_timeformat "$fls_full")
-	else # original order of fields
+	[ -n "$2" ] && { fls="sessionName, display, status,\
+ datetime(startTime,'unixepoch','localtime') AS startTime,\
+ foreignAddress, sessionRootlessMode, type, sessionId,\
+ datetime(creationTime,'unixepoch','localtime') AS creationTime, userName,\
+ serverPid, screeninfo,geometry, host, shadowcookie,\
+ datetime(endTime,'unixepoch','localtime') AS endTime";
+	} || { # original order of fields
 		fls="sessionName, display, status, startTime, foreignAddress,\
  sessionRootlessMode, type, sessionId, creationTime, userName,\
  serverPid, screeninfo,geometry, host, shadowcookie"
-	fi
+	}
 	res=$(q_db ".mode line\n SELECT $fls FROM $sqtname WHERE sessionId='$1';")
-	if [ -z "$2" ]; then
-		echo "$res" | sed -e 's/^[ \t]*//g' -e 's/[ \t]*=[ \t]*/=/g'
-	else
-		echo "$res" | sed -e 's/^[ \t]*//g'
-	fi
+	[ -n "$2" ] && { 	echo "$res"; return; }
+	local IFS="="$'\n';local a=($res); local res=""; local i;
+	for ((i=0; i<${#a[@]}; i+=2)); do
+		res+="$(trim "${a[((i))]}")=$(trim "${a[((i+1))]}")"$'\n'
+	done
+	echo -n "$res"
 }
 
 session_find_cmdstrs() {
@@ -380,10 +376,14 @@ _session_list_user_suspended() {
 
 	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]; then
 		export DESKTOP_SHARING_IDS=""
-		for i in $(LC_ALL=C netstat -ln --protocol=unix | egrep 'X11-unix/X[0-9]$' | sed 's/.*X\(.*\)/\1/g'); do  #'
-			uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM | cut -d" " -f1 | tr "[a-z]" "[A-Z]")
+		geo2=$(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $3) #'
+		displays=$(LC_ALL=C netstat -ln --protocol=unix)
+		displays=$(rematchfn 'X11-unix/X([0-9]+)' "$displays" "all")  #'
+		for i in $displays; do
+			uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
+			uniqueid=${uniqueid%% *}; uniqueid=${uniqueid^^}
 			DESKTOP_SHARING_IDS="$DESKTOP_SHARING_IDS $uniqueid=$i"
-			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$uniqueid" "--------" "$udepth" "$(echo $3 | cut -d'x' -f1,2)" "Running" "X$i (Local)" >> $TMPFILE
+			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$uniqueid" "--------" "$udepth" "$geo2" "Running" "X$i (Local)"
 		done
 	fi
 	echo "" >> $TMPFILE
@@ -655,12 +655,11 @@ if [ "$ENABLE_SERVER_FORWARD" = "1" -a -n "$SERVER_FORWARD_HOST" ]; then
 fi
 
 # Get the hostname out of SSH_ORIGINAL_COMMAND
-PREFERRED_HOST=$(echo $SSH_ORIGINAL_COMMAND | tr '&' '\n' | grep "^host=" | \
-	cut -d'=' -f2)
+PREFERRED_HOST=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 
 # forward the connection to commercial NoMachine server?
 if [ "$ENABLE_NOMACHINE_FORWARD_PORT" = "1" -a "$NOMACHINE_FORWARD_PORT" = \
-		"$(echo $SSH_CLIENT $SSH2_CLIENT| cut -d' ' -f3)" -a \
+		"$(cutfn "$SSH_CLIENT $SSH2_CLIENT" " " 2)" -a \
 		-n "$NOMACHINE_SERVER" ]; then
 	log 3 "Info: Detected SSH destination port $NOMACHINE_FORWARD_PORT. Forwarding connection to commercial NoMachine server."
 	exec $NOMACHINE_SERVER
@@ -736,7 +735,7 @@ while true; do
 			exit 0
 		;;
 		hello*|HELLO*)
-			PROTO=$(echo $CMD | sed 's/.*Version \(.*\)/\1/g') #'
+			PROTO=$(rematchfn 'Version ([[:digit:][:punct:]]+)' "$CMD") #'
 			echo_x "NX> 134 Accepted protocol: $PROTO"
 			if [ "$PROTO" = "1.3.0" -o "$PROTO" = "1.3.2" ]
 			then
@@ -861,13 +860,15 @@ session_cleanup
 # call it with: server_get_params $CMD # no ""!
 #
 server_get_params() {
-	SERVER_PARAMS=$(echo "$@" | sed "s/^$1/\"/g; s/\" --/\&/g; s/\"//g; s/%20/ /g")
+	shift; SERVER_PARAMS=" $@"; SERVER_PARAMS=${SERVER_PARAMS// --/\&};
+	SERVER_PARAMS=${SERVER_PARAMS//\"/};
 	if [ "$SERVER_PARAMS" = "" ]; then
 		echo_x -n "NX> 106 Parameters: "
 		read SERVER_PARAMS2
-		SERVER_PARAMS=$(echo $SERVER_PARAMS2 | sed 's/%2B/+/g; s/%20/ /g')
+		SERVER_PARAMS=${SERVER_PARAMS2//%2B/+}
 		echo_x
 	fi
+	SERVER_PARAMS=${SERVER_PARAMS//%20/ };
 }
 
 nxnode_start() {
@@ -962,7 +963,8 @@ server_nxnode_start_wait() {
 						# check if we should save the cookie
 						$COMMAND_NXSHADOWACL "$USER"
 						if [ $? -eq 0 ]; then
-							SHADOW_COOKIE=$(echo $CMD | cut -d: -f2 | sed 's/ //g')
+							SHADOW_COOKIE=$(cutfn "$CMD" ":" 1)
+							SHADOW_COOKIE=${SHADOW_COOKIE// /}
 							session_change "$uniqueid" "shadowcookie" "$SHADOW_COOKIE"
 						fi
 					fi
@@ -1042,7 +1044,8 @@ server_nxnode_start_wait() {
 						# check if we should save the cookie
 						$COMMAND_NXSHADOWACL "$USER"
 						if [ $? -eq 0 ]; then
-							SHADOW_COOKIE=$(echo $CMD | cut -d: -f2 | sed 's/ //g')
+							SHADOW_COOKIE=$(cutfn "$CMD" ":" 1)
+							SHADOW_COOKIE=${SHADOW_COOKIE// /}
 							session_change "$uniqueid" "shadowcookie" "$SHADOW_COOKIE"
 						fi
 					fi
@@ -1207,8 +1210,7 @@ server_startrestore_session() {
 		[ "$shadowcookie" = "none" ] && shadowcookie=""
 		if [ -z "$shadowdisplay"  ]; then
 			# check for DESKTOP_SHARING_IDS
-			shadowdisplay=$(echo $DESKTOP_SHARING_IDS | tr ' ' '\n' | \
-				egrep "^$uniqueid=" | cut -d'=' -f2)
+			shadowdisplay=$(rematchfn "$uniqueid=([^ ]*)" "$DESKTOP_SHARING_IDS") #"
 			shadowhost="127.0.0.1"
 		fi
 		if [ -z "$shadowdisplay" ]; then
@@ -1315,8 +1317,7 @@ server_startrestore_session() {
 	fi
 
 	# as only $SSH_CLIENT or $SSH2_CLIENT will be set, this should work
-	USERIP=$(echo $SSH_CLIENT $SSH2_CLIENT | cut -d" " -f1 | \
-		sed 's/::ffff://g')
+	USERIP=$(rematchfn "($ip4_pattern)" "$SSH_CLIENT $SSH2_CLIENT") #"
 	[ -z "$USERIP" ] && USERIP="*"
 	if [ "$ACTION" = "start" -o "$ACTION" = "shadow" ]; then
 		server_check_session_count || return 1
@@ -1387,8 +1388,8 @@ server_startrestore_session() {
 			rm -f "/tmp/.nX$SESS_DISPLAY-lock"
 			return
 		fi
-		uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM | \
-			cut -d" " -f1 | tr "[a-z]" "[A-Z]")
+		uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
+		uniqueid=${uniqueid%% *}; uniqueid=${uniqueid^^}
 		FULL_PARAMS="$PARAMS&user=$USER&userip=$USERIP&uniqueid=$uniqueid&display=$SESS_DISPLAY&host=$SERVER_HOST"
 		log_secure "6" "$FULL_PARAMS"
 
@@ -1506,8 +1507,8 @@ while true; do
 					"$(getparam geometry)" "$(getparam type)"
 			elif [ "$status" = "suspended,running" -o "$status" = "suspended" ]; then
 				# since 1.5.0
-				status=$(echo $status | sed \
-					's/,/|/g; s/suspended/Suspended/g; s/running/Running/g')
+				status=${status/,/|}; status=${status/suspended/Suspended};
+				status=${status/running/Running};
 				[ "$ENABLE_SHOW_RUNNING_SESSIONS" = "0" ] && status="Suspended"
 				session_list_user_suspended "$USER" "$status" \
 					"$(getparam geometry)" "$(getparam type)"
