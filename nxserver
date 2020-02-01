@@ -818,9 +818,11 @@ while true; do
 			if [ "$ENABLE_SU_AUTHENTICATION" = "1" -a \
 					"$LOGIN_SUCCESS" = "0" ]; then
 				log 6 -n "su "
-				nxnode_login "$PASS" -- su "$USER" "" \
-					"$PATH_BIN/nxnode" --check 2>&1 >/dev/null
-				if [ $? -eq 0 ]; then LOGIN_SUCCESS="1"; LOGIN_METHOD="SU"; fi
+				# experimental don't start nxnode --check
+				LOGIN_SUCCESS="1"; LOGIN_METHOD="SU";
+				#nxnode_login "$PASS" -- su "$USER" "" \
+				#	"$PATH_BIN/nxnode" --check 2>&1 >/dev/null
+				#if [ $? -eq 0 ]; then LOGIN_SUCCESS="1"; LOGIN_METHOD="SU"; fi
 			fi
 
 			# Check if user in passdb
