@@ -39,7 +39,7 @@ shopt -s extglob
 log() {
 	[ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ] && shift && {
 		[ -n "$1" ] &&
-			echo -n "[$(date "+%d.%m %X")] " >> "$NX_LOGFILE"
+			echo -n "[$(date "+%d.%m %T.%3N")] " >> "$NX_LOGFILE"
 		echo $@ >> "$NX_LOGFILE"
 	}
 }
