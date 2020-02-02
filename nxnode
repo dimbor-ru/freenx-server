@@ -574,18 +574,12 @@ node_start_applications() {
 		[ -f /etc/bashrc ] && . /etc/bashrc
 	fi
 
-	nxlog "$FUNCNAME ($$): DISPLAY is $display"
-	cntr=$AGENT_STARTUP_TIMEOUT
-	if [ -n "$(which xdpyinfo 2>/dev/null)" ]; then
-		while [ -z "$(xdpyinfo  2>/dev/null | head)" ]; do
-			let "cntr -= 1"
-			[ $cntr -lt 0 ] && break
-			sleep 0.3s
-			nxlog "$FUNCNAME ($$): Sleep while get a valid DISPLAY ($cntr)"
-		done
-	else
-		nxlog "$FUNCNAME ($$): xdpyinfo not found. Waiting for DISPLAY is not possible!"
-	fi
+	nxlog "$FUNCNAME ($$): DISPLAY is $display, whaiting for it's ready"
+	local cntr=$((AGENT_STARTUP_TIMEOUT*10)); local cntr0=$cntr
+	while ! $COMMAND_XHOST >/dev/null 2>&1; do
+		sleep 0.1s; ((cntr--)); ((cntr<=0)) && break
+	done
+	nxlog "$FUNCNAME ($$): Stop waiting for DISPLAY for $((cntr0-cntr)) decs"
 
 	#numlockx
 	if [ "$NUMLOCKX_STATUS" != "system" ]; then
@@ -1550,7 +1544,7 @@ node_start_monitor() {
 			# Session is running
 			# dimbor: with nx-libs 3.5.99 node_monitor catch of startsession
 			# restore too fast
-			sleep 0.5s
+			sleep 0.2s
 			echo -e "NX> 710 Session status: running\nNX> 1002 Commit\nNX> 1006 Session status: running"
 		elif stringinstring "Session: Session resumed at" "$line"; then
 			# Reconnection success!
