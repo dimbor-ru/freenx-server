@@ -1551,9 +1551,7 @@ node_start_monitor() {
 			# dimbor: with nx-libs 3.5.99 node_monitor catch of startsession
 			# restore too fast
 			sleep 0.5s
-			echo "NX> 710 Session status: running"
-			echo "NX> 1002 Commit"
-			echo "NX> 1006 Session status: running"
+			echo -e "NX> 710 Session status: running\nNX> 1002 Commit\nNX> 1006 Session status: running"
 		elif stringinstring "Session: Session resumed at" "$line"; then
 			# Reconnection success!
 			echo "NX> 718 Session restore succeded"
