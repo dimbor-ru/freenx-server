@@ -75,7 +75,7 @@ SSH_AUTHORIZED_KEYS="authorized_keys2"
 # availability
 # set to 0 if you are sure, you set the right values
 
-NXCONFIG_RETEST=1
+NXCONFIG_RETEST=0
 
 #########################################################################
 # Default Values

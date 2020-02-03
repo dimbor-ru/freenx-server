@@ -18,7 +18,9 @@
 # 21.06.2004: - Full reconnection support
 
 # Read the config file
-. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
+
+# dimbor: it's temporary
+. /usr/bin/nxloadconfig --userconf
 
 . $SHARED_CONFS/nxfuncs
 
@@ -27,10 +29,8 @@
 #JJK: but they are currently set only in startsession which is called
 #JJK: separately from nxserver via ssh so environment variables
 #JJK: aren't preserved.
-if [[ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" || \
-		( "$SAMBA_MOUNT_SHARE_PROTOCOL" = "both" && \
-		`which "$COMMAND_SMBMOUNT_CIFS"` && `which "$COMMAND_SMBUMOUNT_CIFS"` ) \
-			]] > /dev/null 2>&1; then
+if [ stringinstring "$SAMBA_MOUNT_SHARE_PROTOCOL" "cifs|both" -a \
+		-n  "$COMMAND_SMBMOUNT_CIFS" -a -n "$COMMAND_SMBUMOUNT_CIFS" ]; then
 	COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS
 	COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
 	SAMBA_MOUNT_SHARE_PROTOCOL="cifs"
@@ -57,8 +57,6 @@ getparam() {
 	[[ "$str" =~ $pat ]]; r=${BASH_REMATCH[1]}
 	echo -e "${r//\%/\\x}"; [ "$BASH_REMATCH" != "" ]
 }
-
-find_app() { set -- $*; which $1 2>/dev/null; }
 
 getparam_sessionid() {
 	sessionid=$(getparam sessionid)
@@ -232,12 +230,7 @@ check_local_pa_tunnel() {
 	local errstr retpid lpa_mods tunn_opts tunn_exists mname rmids rpa_info;
 	local errids="" errstr="" errstr2="" mname_tunn_sink mname_tunn_source;
 	local success="" def_rsink def_rsource rsi_args rso_args
-	pactl_bin=$(find_app "pactl")
-	[ -z "$pactl_bin" ] && {
-		nxlog "$FUNCNAME ($$): pactl tool not found. Pulseaudio may be not installed."
-		echo ""; return 1;
-	}
-	pactl_bin="env LANG=C $pactl_bin"
+	local pactl_bin="env LANG=C /usr/bin/pactl"
 	unset PULSE_SERVER; unset PULSE_SINK; unset PULSE_SOURCE
 	# automatic start user's pa is here (pa starting with default system settings)
 	errstr=$($pactl_bin info 2>&1)
@@ -499,7 +492,7 @@ node_find_application() {
 		unix-default|*)
 			if [ -x "$HOME/$USER_X_STARTUP_SCRIPT" ]; then
 				NODE_STARTX="$HOME/$USER_X_STARTUP_SCRIPT"
-			elif which "$DEFAULT_X_SESSION" >/dev/null 2>&1; then
+			elif [ -x "$DEFAULT_X_SESSION" ]; then
 				NODE_STARTX="$DEFAULT_X_SESSION"
 			else NODE_STARTX=$COMMAND_XTERM
 			fi
@@ -528,12 +521,7 @@ get_pa_sound_mode() {
 		nxlog "$FUNCNAME ($$): Client's pulseaudio at $2:$1 is not reachable."
 		echo ""; return 1;
 	}
-	pactl_bin=$(find_app "pactl")
-	[ -z "$pactl_bin" ] && {
-		nxlog "$FUNCNAME ($$): pactl tool not found. Pulseaudio may be not installed."
-		echo ""; return 1;
-	}
-	pactl_bin="env LANG=C $pactl_bin -s $2:$1"
+	pactl_bin="env LANG=C /usr/bin/pactl -s $2:$1"
 	nxlog "$FUNCNAME ($$): $pactl_bin list short"
 	cl_pa_mods=$($pactl_bin list short)
 	#nxlog "$FUNCNAME ($$): $cl_pa_mods"
@@ -623,10 +611,7 @@ node_start_applications() {
 				export PULSE_SINK="ts_receiver"
 				export PULSE_SOURCE="ts_sender.monitor"
 			fi
-			PADSP_BIN_PRELOAD="$(find_app "padsp")"
-			[ -n "$PADSP_BIN_PRELOAD" ] && {
-			NODE_APPLICATION="$PADSP_BIN_PRELOAD $NODE_APPLICATION"
-			} || nxlog "$FUNCNAME ($$): padsp script not found. Sound may be disabled."
+			NODE_APPLICATION="/usr/bin/padsp $NODE_APPLICATION"
 		fi
 	elif [ "$mediahelper" = "esd" ]; then
 		# Set Espeaker variable
@@ -636,7 +621,7 @@ node_start_applications() {
 		export ESD_NO_SPAWN="yes"
 		# Check for config file directive
 		if [ "$ENABLE_ESD_PRELOAD" = "1" -a \
-				-x "$(find_app $ESD_BIN_PRELOAD)" ]; then
+				-x "$ESD_BIN_PRELOAD" ]; then
 			nxlog "$FUNCNAME ($$): Preload \"$ESD_BIN_PRELOAD\""
 			NODE_APPLICATION="$ESD_BIN_PRELOAD $NODE_APPLICATION"
 			nxlog "$FUNCNAME ($$): NODE_APPLICATION is \"$NODE_APPLICATION\""
@@ -646,7 +631,7 @@ node_start_applications() {
 		# Overwrite users mcoprc
 		echo -n "GlobalComm=Arts::X11GlobalComm" > $HOME/.mcoprc
 		if [ "$ENABLE_ARTSD_PRELOAD" = "1" -a \
-				-x "$(find_app $ARTSD_BIN_PRELOAD)" ]; then
+				-x "$ARTSD_BIN_PRELOAD" ]; then
 			NODE_APPLICATION="$ARTSD_BIN_PRELOAD $NODE_APPLICATION"
 			echo "Info: NXNODE - Using $ARTSD_BIN_PRELOAD wrapper script." >> "$USER_FAKE_HOME/.nx/C-$sess_id/session"
 		fi
@@ -676,7 +661,7 @@ node_start_applications() {
 
 	# Should we start a window manager?
 	if [ "$virtualdesktop" = "1" -a "$type" = "unix-application" -a \
-			"$DEFAULT_X_WM" != "" -a -x "$(find_app $DEFAULT_X_WM)" ]; then
+			-x "$DEFAULT_X_WM" ]; then
 		nxlog "$FUNCNAME ($$): start a window manager - \"DISPLAY=:$display $DEFAULT_X_WM\""
 		DISPLAY=:$display $DEFAULT_X_WM >>"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1 &
 		NODE_WM_PID=$!
@@ -1854,7 +1839,7 @@ EOF
 		node_start_applications &
 	fi
 
-	if which "$NODE_AUTOSTART" >/dev/null 2>&1; then
+	if [ -x "$NODE_AUTOSTART" ]; then
 		nxlog "$FUNCNAME ($$): NODE_AUTOSTART: waiting for nxagent"
 		local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
 		while [ ! -f /tmp/.X$display-lock ]; do

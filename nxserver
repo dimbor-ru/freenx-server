@@ -18,7 +18,8 @@
 shopt -s extglob
 
 # Read the config file
-. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
+# dimbor: it's temporary
+. /usr/bin/nxloadconfig --userconf
 
 . $SHARED_CONFS/nxfuncs
 
@@ -162,7 +163,7 @@ fls_full="$fls_orig, $fls_ext"
 
 # =================== sqlite3 stuff =====================
 
-sqcmd="$(which sqlite3)"; sqbd="$NX_SESS_DIR/sessions.sq3"; sqtname="sess"
+sqcmd="/usr/bin/sqlite3"; sqbd="$NX_SESS_DIR/sessions.sq3"; sqtname="sess"
 
 # sqlite3 main query function
 q_db() { echo -e ".timeout $SQ3_TIMEOUT\n$@" | $sqcmd $sqbd; }
@@ -834,7 +835,8 @@ while true; do
 
 			if [ "$LOGIN_SUCCESS" = "1" ]; then
 				# Reread the config files (so that $USER.node.conf get sourced)
-				. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
+				# dimbor: it's temporary
+				. /usr/bin/nxloadconfig --userconf
 				break
 			else
 				echo_x "NX> 404 ERROR: wrong password or login"
