@@ -13,11 +13,9 @@ stringinstring() { case "$2" in *$1*) return 0;; esac; return 1; }
 
 # Reread boot command line; echo last parameter's argument or return false.
 getparam(){
-	pattern=".*&$1=([^&]*)"
-	str="&$CMDLINE"
+	local pattern=".*&$1=([^&]*)" str="&$CMDLINE"
 	[[ $str =~ $pattern ]]
-	echo ${BASH_REMATCH[1]}
-	[ "$BASH_REMATCH" != "" ]
+	echo ${BASH_REMATCH[1]}; [ "$BASH_REMATCH" != "" ]
 }
 
 trim() {
@@ -35,9 +33,10 @@ cutfn() {
 rematchfn(){
 #args: (pattern) <text> [match_num=0] [reversive]
 # if match_num == "all" returns all found matches delimited by newlines
-	local pat="$1"; local n; [ -z "$3" -o "$3" = "all" ] && n=0 || n="$3"
-	local OIFS=$IFS local IFS=$'\n'; local a=($2); IFS=$OIFS
-	local ntl=${#a[@]}; local nr=0; local r=()
+	local pat n OIFS a ntl nr a r r1 res;
+	pat="$1"; [ -z "$3" -o "$3" = "all" ] && n=0 || n="$3"
+	OIFS=$IFS local IFS=$'\n'; a=($2); IFS=$OIFS
+	ntl=${#a[@]}; nr=0; r=(); res="";
 	if [ -z "$4" ]; then
 		for ((i=0;i<$ntl;i++)) {
 			[[ "${a[$i]}" =~ $pat ]] || continue
@@ -52,8 +51,7 @@ rematchfn(){
 		}
 	fi
 	if [ "$3" = "all" ]; then
-		local res=""; local r;
-		for r in ${r[@]}; do res+="${res:+$'\n'}$r"; done
+		for r1 in ${r[@]}; do res+="${res:+$'\n'}$r1"; done
 		echo "$res"
 	else echo "${r[($n)]}"
 	fi
