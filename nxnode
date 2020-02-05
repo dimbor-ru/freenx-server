@@ -29,8 +29,8 @@
 #JJK: but they are currently set only in startsession which is called
 #JJK: separately from nxserver via ssh so environment variables
 #JJK: aren't preserved.
-if [ stringinstring "$SAMBA_MOUNT_SHARE_PROTOCOL" "cifs|both" -a \
-		-n  "$COMMAND_SMBMOUNT_CIFS" -a -n "$COMMAND_SMBUMOUNT_CIFS" ]; then
+if stringinstring "$SAMBA_MOUNT_SHARE_PROTOCOL" "cifs|both" && \
+	[ -n "$COMMAND_SMBMOUNT_CIFS" -a -n "$COMMAND_SMBUMOUNT_CIFS" ]; then
 	COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS
 	COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
 	SAMBA_MOUNT_SHARE_PROTOCOL="cifs"
