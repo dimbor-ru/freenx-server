@@ -930,8 +930,8 @@ server_remove_usession() {
 
 server_nxnode_echo() {
 	log 6 "server_nxnode_echo: $@"
-	[ "$SERVER_CHANNEL" = "1" ] && /bin/echo "$@"
-	[ "$SERVER_CHANNEL" = "2" ] && /bin/echo "$@" >&2
+	[ "$SERVER_CHANNEL" = "1" ] && echo "$@"
+	[ "$SERVER_CHANNEL" = "2" ] && echo "$@" >&2
 }
 
 server_nxnode_exit_func() {
