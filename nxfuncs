@@ -36,7 +36,7 @@ rematchfn(){
 # if match_num == "all" returns all found matches delimited by newlines
 	local pat n OIFS a ntl nr a r r1 res;
 	pat="$1"; [ -z "$3" -o "$3" = "all" ] && n=0 || n="$3"
-	OIFS=$IFS local IFS=$'\n'; a=($2); IFS=$OIFS
+	OIFS=$IFS; local IFS=$'\n'; a=($2); IFS=$OIFS;
 	ntl=${#a[@]}; nr=0; r=(); res="";
 	if [ -z "$4" ]; then
 		for ((i=0;i<$ntl;i++)) {

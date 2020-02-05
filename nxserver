@@ -1744,7 +1744,7 @@ cmd_parse_2_params()
 		#egrep -q "^$1:" $NX_ETC_DIR/passwords || cmd_abort "Error: User $1 not found in database."
 		CMD_APARAMS="user=$1"
 	fi
-	echo $CMD_APARAMS
+	echo "$CMD_APARAMS"
 }
 
 cmd_parse_3_params()
@@ -1765,7 +1765,7 @@ cmd_parse_3_params()
 	else
 		cmd_abort "Error: Not enough parameters."
 	fi
-	echo $CMD_PARAMS
+	echo "$CMD_PARAMS"
 }
 
 cmd_list_suspended() {
