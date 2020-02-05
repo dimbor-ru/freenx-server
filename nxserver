@@ -378,8 +378,7 @@ _session_list_user_suspended() {
 
 session_list_user_suspended() {
 	local SESSION_LIST_CACHE_DATA=$(_session_list_user_suspended "$@")
-   echo "$SESSION_LIST_CACHE_DATA"
-   echo "$SESSION_LIST_CACHE_DATA" | log_tee
+	echo "$SESSION_LIST_CACHE_DATA" | log_tee
 }
 
 session_list_user() {
