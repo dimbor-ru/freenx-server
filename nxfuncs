@@ -7,6 +7,7 @@
 # ========================================================================
 
 ip4_pattern='[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+'
+num_pattern='[+-]?[0-9]+([.][0-9]+)?'
 
 # following two functions are Copyright by Klaus Knopper
 stringinstring() { case "$2" in *$1*) return 0;; esac; return 1; }
@@ -58,3 +59,103 @@ rematchfn(){
 	[ "$nr" != "0" ]
 }
 
+# ===========================================================================
+# sqlite3 functions
+sq_cmd="/usr/bin/sqlite3";
+
+q_dbe() { echo "$@" >&9; }
+
+qa_dbe() {
+#args: [count_strings_in_answer] <query_string> ...
+	local c_max=1 c=1 r res=""
+	if [ "$1" -gt "0" 2>/dev/null ]; then c_max="$1"; shift; fi
+	echo "$@" >&9
+	while ((c<=c_max)); do
+		read r <&8
+		res+="${res:+$'\n'}$(trim "$r")"
+		((c++))
+	done
+	echo "$res"
+}
+
+open_dbe() {
+	DBE_CALL_PID=$BASHPID
+	coproc $sq_cmd -batch
+	DBE_PID=$COPROC_PID
+	exec 8<&${COPROC[0]}; exec 9>&${COPROC[1]};
+	q_dbe ".timeout 500";
+	q_dbe ".separator '&'" # not work with later attached tables after '.mode csv tname'
+	#q_dbe "PRAGMA journal_mode = WAL;" # causes error on keyslst_for_user() now
+}
+
+attach_db() {
+#args: <filename>
+	local dbname=${1##*\/}; dbname=${dbname%.*}
+	q_dbe "ATTACH DATABASE '$1' AS $dbname;"
+}
+
+close_dbe() {
+	local cntr="100"
+	[ -z "$DBEPID" ] && return
+	[ "$DBEPID" = "$BASHPID" ] && echo .quit >&9
+	while kill -0 $DBE_PID 2>/dev/nul; do
+		sleep 0.1s; ((cntr--)); ((cntr<=0)) && break
+	done
+	exec 8<&-
+	exec 9>&-
+
+}
+
+colval_set_or_cond() {
+#args: <col1,col2...> <val1&val2...> [cond] [values_delim='&']
+#ret: string of columns and values for SET or for WHERE
+#		if cond='INS' returns list_cols&list_vals for INSERT env
+	local delim="&"; [ -n "$4" ] && delim="$4"
+	local ret="" r2="" key val keys=(${1//,/ });
+	OIFS=$IFS; IFS=$delim; local -a vals=($2); IFS=$OIFS
+	for idx in ${!keys[*]}; do
+		key=${keys[$idx]}; val=${vals[$idx]}
+		if [ -z "$3" ]; then # set env
+			[ -z "$val" -o "$val" = "NULL" -o "$val" = "null" ] && continue
+			ret+="${ret:+,}$key='$val'"
+		elif [ "$3" = "INS" ]; then # ins env
+			[ -z "$val" -o "$val" = "NULL" -o "$val" = "null" ] && continue
+			ret+="${ret:+,}$key"; r2+="${r2:+,}'$val'"
+		else # cond env
+			if [ -z "$val" -o "$val" = "NULL" -o "$val" = "null" ]; then
+				ret+="${ret:+ $4 }$key IS NULL"
+			else ret+="${ret:+ $4 }$key='$val'"
+			fi
+		fi
+		#echo "\"$key\" = \"$val\""
+	done
+	[ "$3" = "INS" ] && ret+="&$r2"
+	echo "$ret"
+}
+
+str_eq_cond() {
+#args: cond vals_str [vals_delim='|']
+#ret: "cond IN ('A','B','C'...)" or "cond='A'"
+	local delim="|"; [ -n "$3" ] && delim="$3";
+	local comma="" ivs="$2" val vals;
+	[ -z "$ivs" ] && ivs="NULL" || ivs=${ivs//$delim/$'\n'}
+	while read val; do comma="${vals:+,}"; vals+="$comma'$val'"; done <<< "$ivs"
+	if [ -n "$comma" ]; then echo "$1 IN ($vals)"
+	elif [ "$ivs" = "NULL" ]; then echo "$1 IS NULL"
+	else echo "$1=$vals"
+	fi
+}
+
+qtxt2cmdstrs() {
+#params: <text from sqlite3 query (.mode line)>
+#ret: nx command strings
+	local res="" fl="1" line k v;
+	while read line; do
+		[ -z "$line" ] && { res+=$'\n'; fl=1; continue; }
+		[ "$fl" = "1" ] && { res+="a=b&"; fl=0; }
+		k=$(trim "$(cutfn "$line" "=" 0)") #"
+		v=$(trim "$(cutfn "$line" "=" 1)") #"
+		res+="$k=$v&"
+	done <<< "$@"
+	echo "$res"
+}
