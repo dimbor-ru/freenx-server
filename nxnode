@@ -51,13 +51,6 @@ fi
 # Various helper functions
 # -----------------------------------------------------------------------------
 #
-getparam() {
-#local getparam() recodes %NN also
-	local pat=".*&$1=([^&]*)" str="&$CMDLINE" r;
-	[[ "$str" =~ $pat ]]; r=${BASH_REMATCH[1]}
-	echo -e "${r//\%/\\x}"; [ "$BASH_REMATCH" != "" ]
-}
-
 getparam_sessionid() {
 	sessionid=$(getparam sessionid)
 	[ -n "$sessionid" ] || sessionid=$(getparam session_id)
