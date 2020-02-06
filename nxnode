@@ -122,8 +122,8 @@ get_mport2sessdir() {
 # args: session dir type="smb"|"ipp""
 # ret: cups listening port or samba mount port
 	local type=$2 mport="" smbport cport;
-	smbport=$(cat $1/scripts/mport 2>/dev/null) # check smb mount port
-	cport=$(cat $1/session 2>/dev/null);
+	[ -r "$1/scripts/mport" ] && 	smbport=$(< $1/scripts/mport)
+	[ -r "$1/session" ] && cport=$(< $1/session);
 	cport=$(rematchfn "Listening to CUPS.+'(.+)'" "$cport" 0 "rev") #'
 	if [ "$type" != "smb" -a -n "$cport" ]; then mport=$cport; type="ipp";
 	elif [ "$type" != "ipp" -a  -n "$smbport" ]; then
@@ -147,7 +147,8 @@ get_sessdir4res() {
 	AGENT_PIDS=$(ps -wo pid= -C "nxagent")
 	for sessdir in $USER_FAKE_HOME/.nx/C-* ; do
 		[ -z "$2" -a "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
-		NODE_AGENT_PID=$(cat "$sessdir/pids/agent" 2>/dev/null)
+		NODE_AGENT_PID=""
+		[ -r "$sessdir/pids/agent" ] && NODE_AGENT_PID=$(< $sessdir/pids/agent)
 		[ -z "$NODE_AGENT_PID" ] && continue
 		stringinstring "$NODE_AGENT_PID" "$AGENT_PIDS" || continue
 		#nxlog "$FUNCNAME ($$): browse sessdir \"$sessdir\" for filename = \"$sessdir/scripts/$1\", digarg=$digarg"
@@ -298,21 +299,24 @@ check_local_pa_tunnel() {
 }
 
 reconnect_pa() {
-	local mmport="" papars="" NODE_AGENT_PID rate channels papid AGENT_PIDS;
+	local mmport="" papars="" NODE_AGENT_PID rate channels papid="" AGENT_PIDS;
 	local sessdir;
-	papid=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid" 2>/dev/null)
+	[ -r "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid" ] && \
+		papid=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid)
 	[ -z "$papid" ] && return
 	AGENT_PIDS=$(ps -wo pid= -C "nxagent")
 	for sessdir in $USER_FAKE_HOME/.nx/C-*; do # start port search
 		[ "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
-		NODE_AGENT_PID=$(cat "$sessdir/pids/agent" 2>/dev/null)
+		NODE_AGENT_PID=""; [ -r "$sessdir/pids/agent" ] && \
+			NODE_AGENT_PID=$(< $sessdir/pids/agent)
 		[ -z "$NODE_AGENT_PID" ] && continue
 		stringinstring $NODE_AGENT_PID "$AGENT_PIDS" || continue
-		mmport=$(cat "$sessdir/scripts/mmport" 2>/dev/null)
+		mmport=""; [ -r "$sessdir/scripts/mmport" ] && \
+			mmport=$(< $sessdir/scripts/mmport)
 		[ -n "$mmport" ] && break
 	done
 	if [ -n "$mmport" ]; then # try reconnect
-		papars=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/params.pa" 2>/dev/null)
+		papars=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/params.pa)
 		rate=$(cutfn "$papars" ":" 0)
 		channels=$(cutfn "$papars" ":" 1)
 		[ -z "$(check_local_pa_tunnel 127.0.0.1:$mmport $rate $channels)" ] && {
@@ -327,7 +331,8 @@ reconnect_pa() {
 node_terminate_agent() {
 	nxlog "$FUNCNAME ($$): starting"
 	local NODE_AGENT_PID;
-	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
+	[ -r "$USER_FAKE_HOME/.nx/C-$1/pids/agent" ] && \
+		NODE_AGENT_PID=$(< $USER_FAKE_HOME/.nx/C-$1/pids/agent)
 	[ -n "$NODE_AGENT_PID" ] && {
 		nxlog "$FUNCNAME ($$): killing ${NODE_AGENT_PID@A}"
 		kill $NODE_AGENT_PID 2>/dev/null;
@@ -347,22 +352,24 @@ node_terminate_session() {
 	#
 	# Cleanup session
 	#
-	local NODE_AGENT_PID NODE_TAIL_PID NODE_DISPLAY
+	local NODE_AGENT_PID NODE_TAIL_PID="" NODE_DISPLAY sessdir
 	nxlog "$FUNCNAME ($$): starting with args: $@"
-	[ -d "$USER_FAKE_HOME/.nx/C-$1/" ] || {\
+	sessdir="$USER_FAKE_HOME/.nx/C-$1"
+	[ -d "$sessdir" ] || {\
 		nxlog "$FUNCNAME ($$): Session directory not found."
 		return;
 	}
-	[ -e "$USER_FAKE_HOME/.nx/C-$1/terminating" ] && {\
+	[ -e "$sessdir/terminating" ] && {\
 		nxlog "$FUNCNAME ($$): Terminating still in progress. Bye."
 		return;
 	}
-	touch "$USER_FAKE_HOME/.nx/C-$1/terminating"
+	touch "$sessdir/terminating"
 
 	nxlog "$FUNCNAME ($$): Start terminating session \"$1\" with status \"$2\""
 
 	# Kill nxagent
-	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
+	[ -r "$sessdir/pids/agent" ] && \
+		NODE_AGENT_PID=$(< $sessdir/pids/agent)
 
 	# JJK: Kill running services
 	# FF: Seems this is needed also here ...
@@ -378,8 +385,9 @@ node_terminate_session() {
 	fi
 
 	# Kill tail process
-	NODE_TAIL_PID=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail" 2>/dev/null)
-	[ -n "$NODE_TAIL_PID" ] && { nxlog "$FUNCNAME ($$): kill tail process"
+	[ -r "$sessdir/pids/tail" ] && {
+		NODE_TAIL_PID=$(< $sessdir/pids/tail)
+		nxlog "$FUNCNAME ($$): kill tail process"
 		kill $NODE_TAIL_PID 2>/dev/null;
 	}
 
@@ -419,9 +427,12 @@ node_fail_restore_session() {
 	local NODE_TAIL_PID;
 	nxlog "$FUNCNAME ($$): starting"
 	echo "NX> 1004 Error: Could not resume session. nxagent process could not be found."
-	NODE_TAIL_PID=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail" 2>/dev/null)
-	[ -n "$NODE_TAIL_PID" ] && kill $NODE_TAIL_PID
-	[ -n "$NODE_TAIL_PID" ] && echo "NX 1004> kill $NODE_TAIL_PID"
+	[ -r "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail" ] && {
+		NODE_TAIL_PID=$(< $USER_FAKE_HOME/.nx/C-$sess_id/pids/tail)
+		nxlog "$FUNCNAME ($$): kill tail process"
+		kill $NODE_TAIL_PID 2>/dev/null;
+		echo "NX 1004> kill $NODE_TAIL_PID"
+	}
 	node_terminate_session "$1" "failed"
 	nxlog "$FUNCNAME ($$): end. Next is 'exit 1'"
 	exit 1
@@ -432,7 +443,8 @@ node_fail_restore_session() {
 node_suspend_session() {
 	nxlog "$FUNCNAME ($$): starting"
 	local NODE_AGENT_PID;
-	NODE_AGENT_PID=$(cat "$USER_FAKE_HOME/.nx/C-$1/pids/agent" 2>/dev/null)
+	[ -r "$USER_FAKE_HOME/.nx/C-$1/pids/agent" ] && \
+		NODE_AGENT_PID=$(< $USER_FAKE_HOME/.nx/C-$1/pids/agent)
 	if [ -n "$NODE_AGENT_PID" ]; then
 		nxlog "$FUNCNAME ($$): ${NODE_AGENT_PID@A} Killing..."
 		kill -0 $NODE_AGENT_PID || {
@@ -566,7 +578,7 @@ node_start_applications() {
 		"$NUMLOCKX" "$NUMLOCKX_STATUS"
 	fi
 
-	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/apps/"
+	mkdir -p "$NXSESSION_DIRECTORY/pids/apps/"
 	# Which application do we start?
 	NODE_APPLICATION=$(node_find_application "$type")
 	# For rdesktop/VNC, there is no application to start
@@ -581,16 +593,17 @@ node_start_applications() {
 	mmode="$(cutfn "$mediahelper" "-" 0)"
 	rate="$(cutfn "$mediahelper" "-" 1)"
 	channels="$(cutfn "$mediahelper" "-" 2)"
-	mmport="$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport" 2>/dev/null)"
+	[ -r "$NXSESSION_DIRECTORY/scripts/mmport" ] && \
+		mmport="$(< $NXSESSION_DIRECTORY/scripts/mmport)"
 	if [ "$mmode" == "pa" -a -n "$mmport" ]; then
 		pa_remote="127.0.0.1:$mmport"
 		pa_pid="$(check_local_pa_tunnel $pa_remote $rate $channels)"
 		if [ -n "$pa_pid" ]; then
 			nxlog "$FUNCNAME ($$): Local pulseaudio is started ($pa_pid). Sound mode set to tunneled."
-			echo $pa_pid > "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid"
+			echo $pa_pid > "$NXSESSION_DIRECTORY/scripts/pa_pid"
 			params=$rate
 			[ -n "$channels" ] && params+=":$channels"
-			[ -n "$params" ] && echo "$params" > "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/params.pa"
+			[ -n "$params" ] && echo "$params" > "$NXSESSION_DIRECTORY/scripts/params.pa"
 		else
 			nxlog "$FUNCNAME ($$): Local pulseaudio NOT STARTED. Set PULSE_SERVER=127.0.0.1:$mmport"
 			export PULSE_SERVER="127.0.0.1:$mmport"
@@ -618,7 +631,7 @@ node_start_applications() {
 			nxlog "$FUNCNAME ($$): Preload \"$ESD_BIN_PRELOAD\""
 			NODE_APPLICATION="$ESD_BIN_PRELOAD $NODE_APPLICATION"
 			nxlog "$FUNCNAME ($$): NODE_APPLICATION is \"$NODE_APPLICATION\""
-			echo "Info: NXNODE - Using $ESD_BIN_PRELOAD wrapper script." >> "$USER_FAKE_HOME/.nx/C-$sess_id/session"
+			echo "Info: NXNODE - Using $ESD_BIN_PRELOAD wrapper script." >> "$NXSESSION_DIRECTORY/session"
 		fi
 	elif [ "$mediahelper" = "artsd" ]; then
 		# Overwrite users mcoprc
@@ -626,14 +639,14 @@ node_start_applications() {
 		if [ "$ENABLE_ARTSD_PRELOAD" = "1" -a \
 				-x "$ARTSD_BIN_PRELOAD" ]; then
 			NODE_APPLICATION="$ARTSD_BIN_PRELOAD $NODE_APPLICATION"
-			echo "Info: NXNODE - Using $ARTSD_BIN_PRELOAD wrapper script." >> "$USER_FAKE_HOME/.nx/C-$sess_id/session"
+			echo "Info: NXNODE - Using $ARTSD_BIN_PRELOAD wrapper script." >> "$NXSESSION_DIRECTORY/session"
 		fi
 	fi
 
 	[ "$ENABLE_CUPS_SERVER_MODE" = "1" ] && {
 		CUPS_SERVER_SOCKET=$(LC_ALL=C /usr/bin/lpstat -H 2>/dev/null)
 		[ -r $CUPS_SERVER_SOCKET ] || CUPS_SERVER_SOCKET=""
-	} || CUPS_SERVER_SOCKET="$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock"
+	} || CUPS_SERVER_SOCKET="$NXSESSION_DIRECTORY/cups/cups.sock"
 	[ "$ENABLE_CUPS_SERVER_EXPORT" = "1" -a -n "$CUPS_SERVER_SOCKET" ] && {
 		[ "$cups" = "1" -o "$samba" = "1" ] && {
 			nxlog "$FUNCNAME ($$): export CUPS_SERVER=$CUPS_SERVER_SOCKET"
@@ -645,7 +658,7 @@ node_start_applications() {
 		export NXSAMBA_PORT
 		nxlog "$FUNCNAME ($$): Preload SAMBA using nxredir. NXSAMBA_PORT is \"$NXSAMBA_PORT\""
 		NODE_APPLICATION="$PATH_BIN/nxredir $NODE_APPLICATION"
-		echo "Info: NXNODE - Using nxredir wrapper script to forward SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$USER_FAKE_HOME/.nx/C-$sess_id/session"
+		echo "Info: NXNODE - Using nxredir wrapper script to forward SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 	fi
 
 
@@ -656,7 +669,7 @@ node_start_applications() {
 	if [ "$virtualdesktop" = "1" -a "$type" = "unix-application" -a \
 			-x "$DEFAULT_X_WM" ]; then
 		nxlog "$FUNCNAME ($$): start a window manager - \"DISPLAY=:$display $DEFAULT_X_WM\""
-		DISPLAY=:$display $DEFAULT_X_WM >>"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1 &
+		DISPLAY=:$display $DEFAULT_X_WM >>"$NXSESSION_DIRECTORY/session" 2>&1 &
 		NODE_WM_PID=$!
 		nxlog "$FUNCNAME ($$): ${NODE_WM_PID@A}"
 	fi
@@ -694,12 +707,12 @@ node_start_applications() {
 	# Startup the application
 	nxlog "$FUNCNAME ($$): Starting NODE_APPLICATION with /etc/nxserver/Xsession"
 	DISPLAY=:$display /etc/nxserver/Xsession $NODE_APPLICATION >> \
-		"$USER_FAKE_HOME/.nx/C-$sess_id/session" 2>&1 &
+		"$NXSESSION_DIRECTORY/session" 2>&1 &
 	NODE_APP_PID=$!
 	nxlog "$FUNCNAME ($$): Start successful. ${NODE_APP_PID@A}"
 
-	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/"
-	echo "$NODE_APP_PID" >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/apps/$NODE_APP_PID"
+	mkdir -p "$NXSESSION_DIRECTORY/pids/"
+	echo "$NODE_APP_PID" >"$NXSESSION_DIRECTORY/pids/apps/$NODE_APP_PID"
 	nxlog "$FUNCNAME ($$): Waiting for NODE_APP_PID"
 	wait $NODE_APP_PID
 	nxlog "$FUNCNAME ($$): NODE_APP_PID finished"
@@ -715,7 +728,7 @@ node_start_applications() {
 			wait $NODE_WM_PID; }
 	}
 	nxlog "$FUNCNAME ($$): Clean pids/apps/$NODE_APP_PID"
-	rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/apps/$NODE_APP_PID"
+	rm -f "$NXSESSION_DIRECTORY/pids/apps/$NODE_APP_PID"
 	sleep "$NODE_APP_WAIT_TIMEOUT"
 
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && {
@@ -817,8 +830,8 @@ node_start_agent() {
 		[ -f /etc/bashrc ] && . /etc/bashrc
 	fi
 
-	export DISPLAY="nx/nx,options=$USER_FAKE_HOME/.nx/C-$sess_id/options:$display"
-	export XAUTHORITY="$USER_FAKE_HOME/.nx/C-$sess_id/authority"
+	export DISPLAY="nx/nx,options=$NXSESSION_DIRECTORY/options:$display"
+	export XAUTHORITY="$NXSESSION_DIRECTORY/authority"
 	export HOME="$USER_FAKE_HOME"
 	export NX_CLIENT="$PATH_BIN/nxdialog"
 
@@ -864,7 +877,7 @@ node_start_agent() {
 		# Start the agent
 		echo "$agent_password" | $PATH_BIN/nxdesktop \
 			-name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" \
-			-option "$USER_FAKE_HOME/.nx/C-$sess_id/options" \
+			-option "$NXSESSION_DIRECTORY/options" \
 			$K $G $U $P $D $agent_server $AGENT_EXTRA_OPTIONS_RDP 2>&3 &
 
 	elif [ "$type" = "vnc" ]; then
@@ -873,9 +886,9 @@ node_start_agent() {
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
 			export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
 		# Setup password
-		mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/"
+		mkdir -p "$NXSESSION_DIRECTORY/scripts/"
 		echo "$agent_password" | $PATH_BIN/nxpasswd \
-			"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.passwd" doit
+			"$NXSESSION_DIRECTORY/scripts/.passwd" doit
 		# Start x11vnc
 		if [ -n "$shadowdisplay" ]; then
 			(
@@ -884,23 +897,26 @@ node_start_agent() {
 					viewonly="-viewonly"
 				DISPLAY="$shadowhost:$shadowdisplay" x11vnc -localhost \
 					$viewonly -timeout 120 -rfbauth \
-					"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.passwd" \
-					>"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port" 2>&3 &
+					"$NXSESSION_DIRECTORY/scripts/.passwd" \
+					>"$NXSESSION_DIRECTORY/scripts/.vnc_port" 2>&3 &
 			)
-			sleep 2
-			agent_port=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port")
+			local cntr="40"
+			while [ ! -f $NXSESSION_DIRECTORY/scripts/.vnc_port ]; do
+				sleep 0.05s; ((cntr--)); ((cntr<=0)) && break
+			done
+			agent_port=$(< $NXSESSION_DIRECTORY/scripts/.vnc_port)
 			agent_port=$(rematchfn '^PORT=[[:space:]]*([[:digit:]]+)' $agent_port) #'
 			[ -z "agent_port" ] && agent_port="0"
 			# note the :: is not a mistake, but rather a hint for nxviewer
 			# to use this as a port and not interpret it as a display.
 			agent_server="127.0.0.1::$agent_port"
-			rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.vnc_port"
+			rm -f "$NXSESSION_DIRECTORY/scripts/.vnc_port"
 		fi
 		# Start the agent
 		$PATH_BIN/nxviewer -encodings tight hextile copyrect raw \
-			-passwd "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/.passwd" \
+			-passwd "$NXSESSION_DIRECTORY/scripts/.passwd" \
 			-name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" \
-			-option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $vncfullscreen \
+			-option "$NXSESSION_DIRECTORY/options" $vncfullscreen \
 			$G $K $agent_server $AGENT_EXTRA_OPTIONS_RFB 2>&3 &
 	elif [ "$R" = "-R" -a "$rootless" != "1" ]; 	then
 		# nxproxy single application mode session
@@ -925,18 +941,18 @@ node_start_agent() {
 		# Start the agent
 #		nxlog "$FUNCNAME ($$): env start `env`"
 #		nxlog "$FUNCNAME ($$): env end"
-		nxlog "$FUNCNAME ($$): Start nxagent by command: '$COMMAND_NXAGENT $P $R -name \"NX - $user@$SERVER_NAME:$display - $session (GPL Edition)\" -option \"$USER_FAKE_HOME/.nx/C-$sess_id/options\" $B $FP $AGENT_EXTRA_OPTIONS_X :$display'"
-		#PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
+		nxlog "$FUNCNAME ($$): Start nxagent by command: '$COMMAND_NXAGENT $P $R -name \"NX - $user@$SERVER_NAME:$display - $session (GPL Edition)\" -option \"$NXSESSION_DIRECTORY/options\" $B $FP $AGENT_EXTRA_OPTIONS_X :$display'"
+		#PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$NXSESSION_DIRECTORY/options" $K $G $B $FP $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 		PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $P $R \
 			-name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" \
-			-option "$USER_FAKE_HOME/.nx/C-$sess_id/options" $B $FP \
+			-option "$NXSESSION_DIRECTORY/options" $B $FP \
 			$AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 	fi
 
 	# Wait for the agent
 	NODE_AGENT_PID=$!
-	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/"
-	echo "$NODE_AGENT_PID" >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent"
+	mkdir -p "$NXSESSION_DIRECTORY/pids/"
+	echo "$NODE_AGENT_PID" >"$NXSESSION_DIRECTORY/pids/agent"
 	nxlog "$FUNCNAME ($$): Wait for ${NODE_AGENT_PID@A}"
 	wait $NODE_AGENT_PID
 
@@ -945,7 +961,7 @@ node_start_agent() {
 	NODE_FAILED=""
 	if [ $NODE_AGENT_EXIT_STATUS -ne 0 ]; then
 		echo "NX> 1004 Error: NX Agent exited with exit status 1. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$USER_FAKE_HOME/.nx/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
-		cat "$USER_FAKE_HOME/.nx/C-$sess_id/session" 1>&2
+		echo "$(< $NXSESSION_DIRECTORY/session)" >&2
 		NODE_FAILED="failed"
 		nxlog "$FUNCNAME ($$): ${NODE_FAILED@A}"
 	fi
@@ -954,8 +970,8 @@ node_start_agent() {
 
 	# Cleanup session information
 	nxlog "$FUNCNAME ($$): cleanup session information '$sess_id'"
-	nxlog "$FUNCNAME ($$): remove agent pidfile -- '$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent'"
-	rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/agent"
+	nxlog "$FUNCNAME ($$): remove agent pidfile -- '$NXSESSION_DIRECTORY/pids/agent'"
+	rm -f "$NXSESSION_DIRECTORY/pids/agent"
 	nxlog "$FUNCNAME ($$): call 'node_terminate_session \"$sess_id\" \"$NODE_FAILED\"'"
 	node_terminate_session "$sess_id" "$NODE_FAILED"
 
@@ -965,7 +981,7 @@ node_start_agent() {
 	nxlog "$FUNCNAME ($$): remove /tmp/.X11-unix/X$display"
 	rm -f /tmp/.X11-unix/X$display
 
-	} 3>&1 1>&4 | tee "$USER_FAKE_HOME/.nx/C-$sess_id/session" | \
+	} 3>&1 1>&4 | tee "$NXSESSION_DIRECTORY/session" | \
 		node_start_monitor; } 4>&1
 }
 
@@ -1004,7 +1020,7 @@ try_remount_printers() {
 		desc_fn="$USER_FAKE_HOME/.nx/shares_priv/@p@$PNAME"
 		[ -r "$desc_fn" ] || { nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for printer \"$PNAME\" NOT ACCESSIBLE, stop remounting"
 			continue; }
-		descstr=$(cat "$desc_fn" 2>/dev/null)
+		descstr=$(< $desc_fn)
 		DEVICE_URI=$(cutfn "$descstr" "&" 1)
 		DEVICE_URI=${DEVICE_URI/:$mport/:$new_port}
 		share=$(cutfn "$DEVICE_URI" "/" -1)
@@ -1361,7 +1377,8 @@ node_umount_smb() {
 	nxlog "$FUNCNAME ($$): starting with ${ENABLE_SHARE_MULTIMOUNT@A}"
 	local src_dir mport mpoints ssname SNAME desc_fn descstr new_dir new_port RC;
 	local smbport fsname username password IDS_OPTS;
-	smbport=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport" 2>/dev/null)
+	[ -r "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport" ] && \
+		smbport=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport)
 	TRY_USER=1; TRY_SUDO=0;
 	[ "$smbport" = "445" ] && {
 		COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS; COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
@@ -1375,9 +1392,10 @@ node_umount_smb() {
 	#dimbor: if sessions with same shares found, we try to remount them
 	if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]; then
 		scr_dir="$USER_FAKE_HOME/.nx/C-$sess_id/scripts"
-		mport=$(cat "$scr_dir/mport" 2>/dev/null)
-		mpoints=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" 2>/dev/null)
-		[ -z "$mpoints" ] && {
+		[ -r "$scr_dir/mport" ] && mport=$(< $scr_dir/mport)
+		[ -r "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" ] && \
+			mmpoints=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint) \
+		|| {
 			nxlog "$FUNCNAME ($$): No shares controlled by session found. Stop remounting."
 			return;
 		}
@@ -1388,7 +1406,7 @@ node_umount_smb() {
 				nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for share \"$SNAME\" NOT ACCESSIBLE, stop remounting it"
 				continue;
 			}
-			descstr=$(cat "$desc_fn"); mpoint=$(cutfn "$descstr" "&" 1)
+			descstr=$(< $desc_fn); mpoint=$(cutfn "$descstr" "&" 1)
 			stringinstring "$mpoint" "$mpoints" || {
 				nxlog "$FUNCNAME ($$): share \"$SNAME\" at \"$mpoint\" is not controlled by session. Stop remounting."
 				continue;
@@ -1403,7 +1421,7 @@ node_umount_smb() {
 				nxlog "$FUNCNAME ($$): no running sessions found for share \"$SNAME\", stop remounting"
 				rmdir "$mpoint" >/dev/null 2>/dev/null; continue;
 			}
-			new_port=$(cat "$new_dir/scripts/mport" 2>/dev/null)
+			new_port=$(< $new_dir/scripts/mport)
 			fsname=$(cutfn "$descstr" "&" 0)
 			username=$(cutfn "$descstr" "&" 2)
 			password=$(cutfn "$descstr" "&" 3)
@@ -1428,8 +1446,7 @@ node_umount_smb() {
 		nxlog "$FUNCNAME ($$): File scripts/mpoint not present. Abort umounting..."
 		return 1
 	fi
-	cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" | while read mpoint
-	do
+	while read mpoint; do
 		try_umount_smb "$mpoint"; RC=$? # umount here
 		[ $RC -ne 0 ] && {
 			nxlog "$FUNCNAME ($$): mountpoint \"$mpoint\" failed to unmount."
@@ -1437,7 +1454,7 @@ node_umount_smb() {
 		}
 		nxlog "$FUNCNAME ($$): Remove mountpoint \"$mpoint\""
 		rmdir "$mpoint" >/dev/null 2>/dev/null #JJK:Remove mount point if empty
-	done
+	done < "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint"
 	nxlog "$FUNCNAME ($$): end"
 }
 
@@ -1562,6 +1579,7 @@ node_start_monitor() {
 startsession() {
 #
 #
+	local txt
 	nxlog "$FUNCNAME ($$): starting with args \"$@\""
 
 	user=$(getparam user)
@@ -1760,36 +1778,34 @@ startsession() {
 
 	OLD_UMASK=$(umask); umask 0077
 	nxlog "$FUNCNAME ($$): generate \"$NXSESSION_DIRECTORY/options\""
-	cat << EOF > "$NXSESSION_DIRECTORY/options"
-nx/nx,${keyboard:+keyboard=$keyboard,}${kbtype:+kbtype=$kbtype,}${kbload:+kbload=$kbload,}${keymap:+keymap=$keymap,}${geometry:+geometry=$geometry,}${client:+client=$client,}${resize:+resize=$resize,}${CACHE}${IMAGES}${PACK}link=$link,nodelay=$nodelay,type=$realtype${clipboard:+,clipboard=$clipboard}${composite:+composite=$composite},cleanup=10,product=LFE/None/LFEN/None,shmem=1,${backingstore:+backingstore=$backingstore,}shpix=1,${ACCEPT}cookie=$proxy_cookie,id=$sess_id,samba=$samba,media=$media${sync:+,sync=$sync}${cups:+,cups=$cups}${keybd:+,keybd=$keybd}${aux:+,aux=$aux}${http:+,http=$http}${extra1:+,extra1=$extra1}${extra2:+,extra2=$extra2}${extra3:+,extra3=$extra3}${rdpcolors:+,rdpcolors=$rdpcolors}${rdpcache:+,rdpcache=$rdpcache}${fullscreen:+,fullscreen=1}${menu:+,menu=$menu}:$display
-EOF
+	txt="nx/nx,${keyboard:+keyboard=$keyboard,}${kbtype:+kbtype=$kbtype,}\
+${kbload:+kbload=$kbload,}${keymap:+keymap=$keymap,}\
+${geometry:+geometry=$geometry,}${client:+client=$client,}\
+${resize:+resize=$resize,}${CACHE}${IMAGES}${PACK}link=$link,nodelay=$nodelay,\
+type=$realtype${clipboard:+,clipboard=$clipboard}\
+${composite:+composite=$composite},cleanup=10,product=LFE/None/LFEN/None,\
+shmem=1,${backingstore:+backingstore=$backingstore,}shpix=1,\
+${ACCEPT}cookie=$proxy_cookie,id=$sess_id,samba=$samba,media=$media\
+${sync:+,sync=$sync}${cups:+,cups=$cups}${keybd:+,keybd=$keybd}\
+${aux:+,aux=$aux}${http:+,http=$http}${extra1:+,extra1=$extra1}\
+${extra2:+,extra2=$extra2}${extra3:+,extra3=$extra3}\
+${rdpcolors:+,rdpcolors=$rdpcolors}${rdpcache:+,rdpcache=$rdpcache}\
+${fullscreen:+,fullscreen=1}${menu:+,menu=$menu}:$display"
+	echo "$txt" > "$NXSESSION_DIRECTORY/options"
 	umask $OLD_UMASK
-
-	#samba=$samba,
-	#cache=$cache,images=$images,pack=nopack,link=$link,type=$type,cleanup=0,accept=$userip,cookie=$proxy_cookie,id=$sess_id
-	#samba=$samba,media=$media,render=$render:$display
 
 	# write xauth script file
 	nxlog "$FUNCNAME ($$): write xauth script file"
-	$COMMAND_XAUTH >/dev/null 2>&1 <<EOF
-add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
+	txt="add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
 add :$display MIT-MAGIC-COOKIE-1 $cookie
-exit
-EOF
+exit"
+	echo "$txt" | $COMMAND_XAUTH >/dev/null 2>&1
+	echo "$txt" | $COMMAND_XAUTH -f "$NXSESSION_DIRECTORY/authority" >/dev/null 2>&1
 
-	$COMMAND_XAUTH -f "$NXSESSION_DIRECTORY/authority" >/dev/null 2>&1 <<EOF
-add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
-add :$display MIT-MAGIC-COOKIE-1 $cookie
-exit
-EOF
-
-	mkdir -m700 "$NXSESSION_DIRECTORY/scripts/" 2>/dev/null || chmod 700 "$NXSESSION_DIRECTORY/scripts/"
-
-cat << EOF >"$NXSESSION_DIRECTORY/scripts/authority"
-remove localhost:$display
-remove :$display
-exit
-EOF
+	mkdir -m700 "$NXSESSION_DIRECTORY/scripts/" 2>/dev/null || \
+		chmod 700 "$NXSESSION_DIRECTORY/scripts/"
+	txt="remove localhost:$display\nremove :$display\nexit"
+	echo -e "$txt" >"$NXSESSION_DIRECTORY/scripts/authority"
 
 	# If we have a shadow cookie, we add it to xauth session authority file as well
 	if [ -n "$shadowcookie" ]; then
@@ -1831,16 +1847,15 @@ EOF
 		disown $!
 	fi
 
-	cat << EOF
-NX> 700 Session id: $sess_id
+	txt="NX> 700 Session id: $sess_id
 NX> 705 Session display: $display
 NX> 703 Session type: $type
 NX> 701 Proxy cookie: $proxy_cookie
 NX> 702 Proxy IP: $proxyip
 NX> 706 Agent cookie: $cookie
 NX> 704 Session cache: $type
-NX> 707 SSL tunneling: $encryption
-EOF
+NX> 707 SSL tunneling: $encryption"
+	echo "$txt"
 
 	# File-sharing port options
 	if [ "$samba" = "1" -a -n "$smbport" ]; then
@@ -1907,7 +1922,8 @@ cmd_node_smbmount() {
 	outstr="$(create_mountpoint "$dir" "$USER" "$EGROUP")"
 	[ -n "$outstr" ] && nxlog "$FUNCNAME ($$): create_mountpoint says: \"$outstr\""
 	[ $RC -ne 0 ] && { nxlog "$FUNCNAME ($$): Stop mounting."; return 1; }
-	smbport=""; smbport=$(cat "$sess_dir/scripts/smbport" 2>/dev/null)
+	smbport=""; [ -r "$sess_dir/scripts/smbport" ] && \
+		smbport=$(< $sess_dir/scripts/smbport)
 	IDS_OPTS="uid=$USER,gid=$EGROUP,"; TRY_USER=1; TRY_SUDO=0;
 	# this function run dedicated. We must define smbproto and COMMAND_SMBMOUNT here, not in startsession.
 	if [ "$smbport" = "445" ]; then
@@ -1943,14 +1959,13 @@ cmd_node_smbmount() {
 	fi
 	# wait up to 30 sec until nxagent has opened the listener port
 	# for samba connections
-	for (( i=30; $i; --i )); do
+	for (( i=300; $i; --i )); do
 		[ -f "$sess_dir/scripts/mport" ] && break
-		sleep 1
+		sleep 0.1s
 	done
 	# sometimes the samba port we get from nxserver is not the right one,
 	# so let's get it from nxagent
-	realport=$(cat "$sess_dir/scripts/mport")
-	[ -n "$realport" ] && port=$realport
+	[ -r "$sess_dir/scripts/mport" ] && port=$(< $sess_dir/scripts/mport)
 	try_mount_smb "//$computername/$share" "$dir" "$username" $port "$IDS_OPTS" "$password"
 	RC=$?
 	if [ $RC -eq 0 ]; then
@@ -2009,7 +2024,8 @@ cmd_node_addprinter() {
 
 	if [ "$type" = "smb" ]; then
 		if [ -x "$CUPS_BACKEND/nxsmb" ]; then
-			smbport=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport" 2>/dev/null)
+			[ -r $USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport ] && \
+				smbport=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport)
 			[ -z "$smbport" ] && smbport=139 # should not happen
 			if [ "$smbport" = "445" ]; then smbproto="cifs"
 			else smbproto="smb"
