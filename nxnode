@@ -1567,7 +1567,10 @@ node_start_monitor() {
 # -----------------------------------------------------------------------------
 #
 startsession() {
-# user=knoppix&userip=192.168.1.66&uniqueid=6A8269CC467264EAEF6349D062689755&display=1000&session=lappi%5ffull&type=unix%2dkde&cache=8M&images=32M&cookie=84765070afee043cf83f85d21130145f&link=lan&render=1&backingstore=when_requested&imagecompressionmethod=0&geometry=fullscreen&keyboard=fr&media=0&samba=1&agent_server=&agent_user=&agent_password=
+#
+#
+	nxlog "$FUNCNAME ($$): starting with args \"$@\""
+
 	user=$(getparam user)
 	userip=$(getparam userip)
 	uniqueid=$(getparam uniqueid)
@@ -1575,7 +1578,6 @@ startsession() {
 	session=$(getparam session)
 	type=$(getparam type)
 	application=$(getparam application)
-	windows_app=$(getparam application)
 	cache=$(getparam cache)
 	images=$(getparam images)
 	cookie=$(getparam cookie)
@@ -1599,45 +1601,95 @@ startsession() {
 	agent_domain=$(getparam agent_domain)
 	screeninfo=$(getparam screeninfo)
 	nodelay=$(getparam nodelay)
-	sess_id="$SERVER_NAME-$display-$uniqueid"
-	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"
-
-	nxlog "$FUNCNAME ($$): starting with args \"$@\""
-	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
-
 	# 1.5.0 options
 	rdpcolors=$(getparam rdpcolors)
 	rdpcache=$(getparam rdpcache)
 	http=$(getparam http)
-
-	# dimbor: additional extra-channels, patched nxcomp both
-	# on server and client are required
-	extra1=$(getparam extra1)
-	extra2=$(getparam extra2)
-	extra3=$(getparam extra3)
-
 	# nxclient > 1.5.0-106 variables
 	resize=$(getparam resize)
 	keybd=$(getparam keybd)
-
 	# backwards compatibility for keybd parameter
 	[ -z "$keybd" ] && keybd=$(getparam aux)
 	aux=$(getparam aux)
 	kbload=$(getparam kbload)
 	keymap=$(getparam keymap)
+	# dimbor: additional extra-channels, patched nxcomp both
+	# on server and client are required
+	extra1=$(getparam extra1)
+	extra2=$(getparam extra2)
+	extra3=$(getparam extra3)
+	rootless=$(getparam rootless)
+	client=$(getparam client)
+	# FreeNX specific variables
+	clientproto=$(getparam clientproto)
+	status=$(getparam status)
+	host=$(getparam host)
+	# New NX 3.0 shadow mode related variables
+	shadowusername=$(getparam shadowusername)
+	shadowcookie=$(getparam shadowcookie)
+	shadowdisplay=$(getparam shadowdisplay)
+	shadowhost=$(getparam shadowhost)
+	# Authentication method needed by guest mode.
+	login_method=$(getparam login_method)
+	freenx_export_agents=$(getparam freenx_export_agents)
+	fullscreen=$(getparam fullscreen)
+	encryption=$(getparam encryption)
 
-	rootless=0
-	# Its still the clients decision
-	[ "$ENABLE_ROOTLESS_MODE" = "1" ] &&  rootless=$(getparam rootless)
+	windows_app=$application
+	sess_id="$SERVER_NAME-$display-$uniqueid"
+	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"
+	# ok, lets make the session dir first:
+	OLD_UMASK=$(umask);
+	[ -d $USER_FAKE_HOME ] || { umask 0022; mkdir -p $USER_FAKE_HOME; }
+	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $OLD_UMASK
+	[ "$geometry" = "fullscreen" ] && fullscreen="1"
+	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
+	[ "$ENABLE_ROOTLESS_MODE" = "0" ] && rootless=0
+	[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && \
+		agent_keyboard=$(cutfn "$keyboard" '/' 1) || agent_keyboard=""
+	[ -z "$samba" ] && samba=0
+	[ -z "$media" ] && media=0
+	[ -z "$nodelay" ] && nodelay=1
 
 	# Rootless fix from 2x nxserver 1.5.0
 	realtype=$type
-	[ "$type" = "unix-application" -o "$type" = "unix-default" ] && realtype="unix-desktop"
+	[ "$type" = "unix-application" -o "$type" = "unix-default" ] && \
+		realtype="unix-desktop"
 	[ "$type" = "unix-gnome" ] && realtype="gnome"
 	[ "$type" = "unix-kde" ] && realtype="kde"
 
+	[ "$EXPORT_USERIP" = "1" ] && export NXUSERIP="$userip"
+	[ "$EXPORT_SESSIONID" = "1" ] && export NXSESSIONID="$sess_id"
+	export SHADOW_XAUTHORITY="$NXSESSION_DIRECTORY/authority"
+
+	# export the agent_* options for the helper scripts
+	if [ "$freenx_export_agents" = "1" ]; then
+		export agent_user
+		export agent_password
+		export agent_server
+		export agent_domain
+		export windows_app
+		export agent_keyboard
+		export NXSESSION_DIRECTORY
+		export AGENT_EXTRA_OPTIONS_RFB
+		export AGENT_EXTRA_OPTIONS_RDP
+		export COMMAND_RDESKTOP
+		export COMMAND_VNCVIEWER
+		export COMMAND_VNCPASSWD
+		export COMMAND_X11VNC
+		export PATH_BIN
+		export shadowdisplay
+		export shadowhost
+		export shadowuser
+		export shadowcookie
+		export ENABLE_SESSION_SHADOWING_AUTHORIZATION
+		export ENABLE_INTERACTIVE_SESSION_SHADOWING
+		# We do not want to suspend such a session
+		# as RDP/RFB are both suspendable as well
+		ENABLE_PERSISTENT_SESSION=""
+	fi
+
 	# NX 2.1.0 file-sharing port options
-	client=$(getparam client)
 	smbport=""
 	if [ "$samba" = "1" ]; then
 		# We know from protocol traces that client=linux,winnt,macosx are valid values.
@@ -1665,57 +1717,7 @@ startsession() {
 			smbport=139
 		fi
 	fi
-
-	# FreeNX specific variables
-	clientproto=$(getparam clientproto)
-	status=$(getparam status)
-	host=$(getparam host)
-
-	# New NX 3.0 shadow mode related variables
-	shadowusername=$(getparam shadowusername)
-	shadowcookie=$(getparam shadowcookie)
-	shadowdisplay=$(getparam shadowdisplay)
-	shadowhost=$(getparam shadowhost)
-
-	# Authentication method needed by guest mode.
-	login_method=$(getparam login_method)
-
-	# export the agent_* options for the helper scripts
-	if [ "$(getparam freenx_export_agents)" = "1" ]; then
-		export agent_user
-		export agent_password
-		export agent_server
-		export agent_domain
-		export windows_app
-		agent_keyboard=""
-		[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && \
-			agent_keyboard=$(cutfn "$keyboard" '/' 1)
-		export agent_keyboard
-		export NXSESSION_DIRECTORY
-		export AGENT_EXTRA_OPTIONS_RFB
-		export AGENT_EXTRA_OPTIONS_RDP
-		export COMMAND_RDESKTOP
-		export COMMAND_VNCVIEWER
-		export COMMAND_VNCPASSWD
-		export COMMAND_X11VNC
-		export PATH_BIN
-		export shadowdisplay
-		export shadowhost
-		export shadowuser
-		export shadowcookie
-		export ENABLE_SESSION_SHADOWING_AUTHORIZATION
-		export ENABLE_INTERACTIVE_SESSION_SHADOWING
-		# We do not want to suspend such a session
-		# as RDP/RFB are both suspendable as well
-		ENABLE_PERSISTENT_SESSION=""
-	fi
-
-	fullscreen=$(getparam fullscreen)
-	[ "$geometry" = "fullscreen" ] && fullscreen="1"
-	[ "$EXPORT_USERIP" = "1" ] && export NXUSERIP="$userip"
-	ssl_tunnel=$(getparam encryption)
-	[ -z "$ssl_tunnel" ] && ssl_tunnel=0
-	if [ "$ssl_tunnel" = "1" ]; then
+	if [ "$encryption" = "1" ]; then
 		# we need to use the IP of the "calling" server now
 		# FIXME: cut and sed rm
 		#userip=$(echo $SSH_CLIENT $SSH2_CLIENT | cut -d" " -f1 | sed 's/::ffff://g')
@@ -1724,21 +1726,17 @@ startsession() {
 		# If host is the same, use 127.0.0.1, else fallback to default
 		[ -z "$userip" -a "$host" = "127.0.0.1" ] && userip="127.0.0.1"
 		[ -z "$userip" ] && userip="*"
+	else encryption=0
 	fi
 	# We need our own external IP
 	proxyip="$EXTERNAL_PROXY_IP"
 	if [ -z "$proxyip" -a -n "$host" ]; then
-		[ "$host" = "127.0.0.1" ] && host=$(hostname)
+		[ "$host" = "127.0.0.1" ] && host=$SERVER_NAME
 		# FIXME: on modern systems ping resolves lo addr also
 		proxyip=$(rematchfn "PING .+\(($ip4_pattern)\)" "$(ping -c1 "$host")") #"
 	fi
 	[ -z "$proxyip" ] && proxyip="127.0.0.1"
 
-	# ok, lets make the session dir first:
-	sess_id="$SERVER_NAME-$display-$uniqueid"
-	[ "$EXPORT_SESSIONID" = "1" ] && export NXSESSIONID="$sess_id"
-	OLD_UMASK=$(umask); umask 0022; mkdir -p $USER_FAKE_HOME
-	umask 0077; mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id"; umask $OLD_UMASK
 
 	# cache=8M,images=32M,pack=nopack,link=lan,type=unix-kde,cleanup=0,accept=192.168.1.66,cookie=E38A94A77F975443AF04EC911881B120,id=Knoppix-1000-6A8269CC467264EAEF6349D062689755,samba=1,render=1:1000
 	PACK=""
@@ -1750,23 +1748,13 @@ startsession() {
 	proxy_cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
 	proxy_cookie=${proxy_cookie%% *}
 	# all newer clients support fake cookie authentication
-	if [ "$clientproto" != "1.4.0" ]; then
-		# enable fake cookie authentication
-		cookie=$proxy_cookie
-	fi
+	[ "$clientproto" != "1.4.0" ] &&	cookie=$proxy_cookie
 
 	# write options file
-	[ -z "$samba" ] && samba=0
-	[ -z "$media" ] && media=0
-	[ -z "$nodelay" ] && nodelay=1
-	clipboard="$ENABLE_CLIPBOARD"
-	menu="$ENABLE_PULLDOWN_MENU"
-	CACHE="cache=$cache,"
-	[ -z "$cache" ] && CACHE=""
-	IMAGES="images=$images,"
-	[ -z "$images" ] && IMAGES=""
-	ACCEPT="accept=$userip,"
-	[ "$userip" = "*" ] && ACCEPT=""
+	clipboard="$ENABLE_CLIPBOARD"; menu="$ENABLE_PULLDOWN_MENU"
+	CACHE="cache=$cache,"; [ -z "$cache" ] && CACHE=""
+	IMAGES="images=$images,"; [ -z "$images" ] && IMAGES=""
+	ACCEPT="accept=$userip,"; [ "$userip" = "*" ] && ACCEPT=""
 
 	if [ "$1" = "application" ]; then
 		# This needs to be set, else nxagent is terminated
@@ -1778,8 +1766,8 @@ startsession() {
 	fi
 
 	OLD_UMASK=$(umask); umask 0077
-	nxlog "$FUNCNAME ($$): generate \"$USER_FAKE_HOME/.nx/C-$sess_id/options\""
-	cat << EOF > "$USER_FAKE_HOME/.nx/C-$sess_id/options"
+	nxlog "$FUNCNAME ($$): generate \"$NXSESSION_DIRECTORY/options\""
+	cat << EOF > "$NXSESSION_DIRECTORY/options"
 nx/nx,${keyboard:+keyboard=$keyboard,}${kbtype:+kbtype=$kbtype,}${kbload:+kbload=$kbload,}${keymap:+keymap=$keymap,}${geometry:+geometry=$geometry,}${client:+client=$client,}${resize:+resize=$resize,}${CACHE}${IMAGES}${PACK}link=$link,nodelay=$nodelay,type=$realtype${clipboard:+,clipboard=$clipboard}${composite:+composite=$composite},cleanup=10,product=LFE/None/LFEN/None,shmem=1,${backingstore:+backingstore=$backingstore,}shpix=1,${ACCEPT}cookie=$proxy_cookie,id=$sess_id,samba=$samba,media=$media${sync:+,sync=$sync}${cups:+,cups=$cups}${keybd:+,keybd=$keybd}${aux:+,aux=$aux}${http:+,http=$http}${extra1:+,extra1=$extra1}${extra2:+,extra2=$extra2}${extra3:+,extra3=$extra3}${rdpcolors:+,rdpcolors=$rdpcolors}${rdpcache:+,rdpcache=$rdpcache}${fullscreen:+,fullscreen=1}${menu:+,menu=$menu}:$display
 EOF
 	umask $OLD_UMASK
@@ -1796,21 +1784,19 @@ add :$display MIT-MAGIC-COOKIE-1 $cookie
 exit
 EOF
 
-	$COMMAND_XAUTH -f "$USER_FAKE_HOME/.nx/C-$sess_id/authority" >/dev/null 2>&1 <<EOF
+	$COMMAND_XAUTH -f "$NXSESSION_DIRECTORY/authority" >/dev/null 2>&1 <<EOF
 add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
 add :$display MIT-MAGIC-COOKIE-1 $cookie
 exit
 EOF
 
-	mkdir -m700 "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/" 2>/dev/null || chmod 700 "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/"
+	mkdir -m700 "$NXSESSION_DIRECTORY/scripts/" 2>/dev/null || chmod 700 "$NXSESSION_DIRECTORY/scripts/"
 
-cat << EOF >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/authority"
+cat << EOF >"$NXSESSION_DIRECTORY/scripts/authority"
 remove localhost:$display
 remove :$display
 exit
 EOF
-
-	export SHADOW_XAUTHORITY="$USER_FAKE_HOME/.nx/C-$sess_id/authority"
 
 	# If we have a shadow cookie, we add it to xauth session authority file as well
 	if [ -n "$shadowcookie" ]; then
@@ -1824,14 +1810,14 @@ EOF
 
 	if [ "$1" = "restore" ]; then
 		nxlog "$FUNCNAME ($$): restore session"
-		echo > "$USER_FAKE_HOME/.nx/C-$sess_id/session"
+		echo > "$NXSESSION_DIRECTORY/session"
 		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$USER_FAKE_HOME"'/.nx/C-'"$sess_id"'/session' | node_start_monitor "$1" "$status" &
 		MONITOR_PID=$!
 		export MONITOR_PID
-		mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/"
-		echo "$MONITOR_PID" > "$USER_FAKE_HOME/.nx/C-$sess_id/pids/monitor"
+		mkdir -p "$NXSESSION_DIRECTORY/pids/"
+		echo "$MONITOR_PID" > "$NXSESSION_DIRECTORY/pids/monitor"
 		nxlog "$FUNCNAME ($$): call 'node_suspend_session \"$sess_id\"'"
-		node_suspend_session "$sess_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$USER_FAKE_HOME/.nx/C-$sess_id/session"; node_fail_restore_session "$sess_id"; }
+		node_suspend_session "$sess_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$NXSESSION_DIRECTORY/session"; node_fail_restore_session "$sess_id"; }
 	else
 		nxlog "$FUNCNAME ($$): call 'node_start_agent'"
 		node_start_agent &
@@ -1860,13 +1846,13 @@ NX> 701 Proxy cookie: $proxy_cookie
 NX> 702 Proxy IP: $proxyip
 NX> 706 Agent cookie: $cookie
 NX> 704 Session cache: $type
-NX> 707 SSL tunneling: $ssl_tunnel
+NX> 707 SSL tunneling: $encryption
 EOF
 
 	# File-sharing port options
 	if [ "$samba" = "1" -a -n "$smbport" ]; then
 		echo "NX> 709 File-sharing port: $smbport"
-		echo "$smbport" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport"
+		echo "$smbport" >"$NXSESSION_DIRECTORY/scripts/smbport"
 	fi
 
 	# collection ...
@@ -1875,8 +1861,8 @@ EOF
 
 	if [ -n "$MONITOR_PID" ]; then
 		wait "$MONITOR_PID"
-		rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/monitor"
-		rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail"
+		rm -f "$NXSESSION_DIRECTORY/pids/monitor"
+		rm -f "$NXSESSION_DIRECTORY/pids/tail"
 	fi
 	wait # for all children
 	nxlog "$FUNCNAME ($$): end"
