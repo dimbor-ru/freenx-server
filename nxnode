@@ -1374,11 +1374,12 @@ try_umount_smb() {
 }
 
 node_umount_smb() {
-	nxlog "$FUNCNAME ($$): starting with ${ENABLE_SHARE_MULTIMOUNT@A}"
-	local src_dir mport mpoints ssname SNAME desc_fn descstr new_dir new_port RC;
+	nxlog "$FUNCNAME ($$): starting with ${sess_id@A}"
+	local scr_dir mport mpoints ssname SNAME desc_fn descstr new_dir new_port RC;
 	local smbport fsname username password IDS_OPTS;
-	[ -r "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport" ] && \
-		smbport=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport)
+	scr_dir="$USER_FAKE_HOME/.nx/C-$sess_id/scripts"
+	[ -r "$scr_dir/smbport" ] && \
+		smbport=$(< $scr_dir/smbport)
 	TRY_USER=1; TRY_SUDO=0;
 	[ "$smbport" = "445" ] && {
 		COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS; COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
@@ -1391,10 +1392,9 @@ node_umount_smb() {
 	}
 	#dimbor: if sessions with same shares found, we try to remount them
 	if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]; then
-		scr_dir="$USER_FAKE_HOME/.nx/C-$sess_id/scripts"
 		[ -r "$scr_dir/mport" ] && mport=$(< $scr_dir/mport)
-		[ -r "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" ] && \
-			mmpoints=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint) \
+		[ -r "$scr_dir/mpoint" ] && \
+			mpoints=$(< $scr_dir/mpoint) \
 		|| {
 			nxlog "$FUNCNAME ($$): No shares controlled by session found. Stop remounting."
 			return;
@@ -1407,6 +1407,7 @@ node_umount_smb() {
 				continue;
 			}
 			descstr=$(< $desc_fn); mpoint=$(cutfn "$descstr" "&" 1)
+#nxlog "$FUNCNAME ($$): ${mpoint@A}"
 			stringinstring "$mpoint" "$mpoints" || {
 				nxlog "$FUNCNAME ($$): share \"$SNAME\" at \"$mpoint\" is not controlled by session. Stop remounting."
 				continue;
@@ -1858,11 +1859,11 @@ cmd_node_smbmount() {
 	sess_dir="$USER_FAKE_HOME/.nx/C-$sess_id"
 	nxlog "$FUNCNAME ($$): starting with sessionid = $sessionid"
 	port=$(getparam port)
-	username=$(getparam username)
-	password=$(getparam password)
-	share=$(getparam share)
+	username=$(getparam username 1)
+	password=$(getparam password 1)
+	share=$(getparam share 1)
 	computername=127.0.0.1 # http://bugs.etersoft.ru/show_bug.cgi?id=8841
-	dir=$(getparam dir); dir=${dir/'$(SHARES)'/MyShares}
+	dir=$(getparam dir 1); dir=${dir/'$(SHARES)'/MyShares}
 	username=$(norm_param $username)
 	password=$(norm_param $password)
 	share=$(norm_param $share)
@@ -1953,13 +1954,13 @@ cmd_node_addprinter() {
 	sessionid=$(getparam_sessionid)
 	type=$(getparam type)
 	port=$(getparam port)
-	username=$(getparam username)
-	password=$(getparam password)
-	share=$(getparam share)
-	printer=$(getparam printer)
-	computername=$(getparam computername)
+	username=$(getparam username 1)
+	password=$(getparam password 1)
+	share=$(getparam share 1)
+	printer=$(getparam printer 1)
+	computername=$(getparam computername 1)
 	public=$(getparam public)
-	model=$(getparam model)
+	model=$(getparam model 1)
 	defaultPrinter=$(getparam defaultPrinter)
 	[ -z "$defaultPrinter" ] && defaultPrinter=$(getparam defaultprinter) # for opennx
 	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)

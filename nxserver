@@ -1571,12 +1571,12 @@ while true; do
 		;;
 		addmount*)
 			server_get_params $CMD
-			PARAMS=$SERVER_PARAMS
+			PARAMS="$SERVER_PARAMS"
 			( server_nxnode_start --smbmount "$USER" "$PARAMS" >/dev/null 2>&1 ) &
 		;;
 		addprinter*)
 			server_get_params $CMD
-			PARAMS=$SERVER_PARAMS
+			PARAMS="$SERVER_PARAMS"
 			( server_nxnode_start --addprinter "$USER" "$PARAMS" >/dev/null 2>&1 ) &
 		;;
 		*)
