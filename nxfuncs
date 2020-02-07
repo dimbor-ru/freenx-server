@@ -61,6 +61,16 @@ rematchfn(){
 	[ "$nr" != "0" ]
 }
 
+set_vars_from_params() {
+#args: <varnames> [%hex_recode=""]
+# varnames_list_delimited_by_spaces_or_commas
+	local vnames vn vv;
+	vnames="${1//,/ }"
+	for vn in $vnames; do
+		vv=$(getparam $vn $2); [ -z "$vv" ] && continue; declare -g $vn="$vv"
+	done
+}
+
 # ===========================================================================
 # sqlite3 functions
 sq_cmd="/usr/bin/sqlite3";

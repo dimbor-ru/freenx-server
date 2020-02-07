@@ -1577,82 +1577,32 @@ node_start_monitor() {
 # -----------------------------------------------------------------------------
 #
 startsession() {
-#
-#
-	local txt
+	local txt gvars old_umask
 	nxlog "$FUNCNAME ($$): starting with args \"$@\""
-
-	user=$(getparam user)
-	userip=$(getparam userip)
-	uniqueid=$(getparam uniqueid)
-	display=$(getparam display)
-	session=$(getparam session)
-	type=$(getparam type)
-	application=$(getparam application)
-	cache=$(getparam cache)
-	images=$(getparam images)
-	cookie=$(getparam cookie)
-	link=$(getparam link)
-	virtualdesktop=$(getparam virtualdesktop)
-	render=$(getparam render)
-	backingstore=$(getparam backingstore)
-	imagecompressionmethod=$(getparam imagecompressionmethod)
-	imagecompressionlevel=$(getparam imagecompressionlevel)
-	geometry=$(getparam geometry)
-	keyboard=$(getparam keyboard)
-	kbtype=$(getparam kbtype)
-	media=$(getparam media)
-	mediahelper=$(getparam mediahelper)
-	sync=$(getparam sync)
-	samba=$(getparam samba)
-	cups=$(getparam cups)
-	agent_server=$(getparam agent_server)
-	agent_user=$(getparam agent_user)
-	agent_password=$(getparam agent_password)
-	agent_domain=$(getparam agent_domain)
-	screeninfo=$(getparam screeninfo)
-	nodelay=$(getparam nodelay)
-	# 1.5.0 options
-	rdpcolors=$(getparam rdpcolors)
-	rdpcache=$(getparam rdpcache)
-	http=$(getparam http)
-	# nxclient > 1.5.0-106 variables
-	resize=$(getparam resize)
-	keybd=$(getparam keybd)
-	# backwards compatibility for keybd parameter
-	[ -z "$keybd" ] && keybd=$(getparam aux)
-	aux=$(getparam aux)
-	kbload=$(getparam kbload)
-	keymap=$(getparam keymap)
-	# dimbor: additional extra-channels, patched nxcomp both
+	gvars="user,userip,uniqueid,display,session,type,application,cache,\
+ images,cookie,link,virtualdesktop,render,backingstore,imagecompressionmethod,\
+ imagecompressionlevel,geometry,keyboard,kbtype,media,mediahelper,sync,samba,\
+ cups,agent_server,agent_user,agent_password,agent_domain,screeninfo,nodelay,\
+ rdpcolors,rdpcache,http,resize,keybd,aux,kbload,keymap,rootless,client,\
+ clientproto,status,host,shadowusername,shadowcookie,shadowdisplay,shadowhost,\
+ login_method,freenx_export_agents,fullscreen,encryption,extra1,extra2,extra3"
+	set_vars_from_params "$gvars" recode
+	# 1.5.0 options: rdpcolors,rdpcache,http
+	# nxclient > 1.5.0-106 variables: resize,keybd
+	# FreeNX specific variables: clientproto,status,host
+	# NX 3.0 shadow mode related variables: shadowusername,shadowcookie,
+	# shadowdisplay,shadowhost
+	# Authentication method needed by guest mode: login_method
+	# dimbor: additional extra-channels extra[1-3], patched nxcomp both
 	# on server and client are required
-	extra1=$(getparam extra1)
-	extra2=$(getparam extra2)
-	extra3=$(getparam extra3)
-	rootless=$(getparam rootless)
-	client=$(getparam client)
-	# FreeNX specific variables
-	clientproto=$(getparam clientproto)
-	status=$(getparam status)
-	host=$(getparam host)
-	# New NX 3.0 shadow mode related variables
-	shadowusername=$(getparam shadowusername)
-	shadowcookie=$(getparam shadowcookie)
-	shadowdisplay=$(getparam shadowdisplay)
-	shadowhost=$(getparam shadowhost)
-	# Authentication method needed by guest mode.
-	login_method=$(getparam login_method)
-	freenx_export_agents=$(getparam freenx_export_agents)
-	fullscreen=$(getparam fullscreen)
-	encryption=$(getparam encryption)
 
 	windows_app=$application
 	sess_id="$SERVER_NAME-$display-$uniqueid"
 	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"
 	# ok, lets make the session dir first:
-	OLD_UMASK=$(umask);
+	old_umask=$(umask);
 	[ -d $USER_FAKE_HOME ] || { umask 0022; mkdir -p $USER_FAKE_HOME; }
-	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $OLD_UMASK
+	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $old_umask
 	[ "$geometry" = "fullscreen" ] && fullscreen="1"
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
 	[ "$ENABLE_ROOTLESS_MODE" = "0" ] && rootless=0
@@ -1668,6 +1618,7 @@ startsession() {
 		realtype="unix-desktop"
 	[ "$type" = "unix-gnome" ] && realtype="gnome"
 	[ "$type" = "unix-kde" ] && realtype="kde"
+	[ -z "$keybd" ] && keybd=$aux # backwards compatibility for keybd parameter
 
 	[ "$EXPORT_USERIP" = "1" ] && export NXUSERIP="$userip"
 	[ "$EXPORT_SESSIONID" = "1" ] && export NXSESSIONID="$sess_id"
@@ -1776,7 +1727,7 @@ startsession() {
 		return
 	fi
 
-	OLD_UMASK=$(umask); umask 0077
+	old_umask=$(umask); umask 0077
 	nxlog "$FUNCNAME ($$): generate \"$NXSESSION_DIRECTORY/options\""
 	txt="nx/nx,${keyboard:+keyboard=$keyboard,}${kbtype:+kbtype=$kbtype,}\
 ${kbload:+kbload=$kbload,}${keymap:+keymap=$keymap,}\
@@ -1792,7 +1743,7 @@ ${extra2:+,extra2=$extra2}${extra3:+,extra3=$extra3}\
 ${rdpcolors:+,rdpcolors=$rdpcolors}${rdpcache:+,rdpcache=$rdpcache}\
 ${fullscreen:+,fullscreen=1}${menu:+,menu=$menu}:$display"
 	echo "$txt" > "$NXSESSION_DIRECTORY/options"
-	umask $OLD_UMASK
+	umask $old_umask
 
 	# write xauth script file
 	nxlog "$FUNCNAME ($$): write xauth script file"
