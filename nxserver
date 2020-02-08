@@ -38,7 +38,8 @@ shopt -s extglob
 # 7: stderror-channel of some applications
 
 log() {
-	[ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ] && shift && {
+#args: <loglevel> <logstr>
+	[ "$NX_LOG_LEVEL" -ge "$1" ] && shift && {
 		[ -n "$1" ] &&
 			echo -n "[$(date "+%d.%m %T.%3N")] " >> "$NX_LOGFILE"
 		echo $@ >> "$NX_LOGFILE"
@@ -56,9 +57,10 @@ echo_secure() {
 }
 
 log_secure() {
-	if [ "$NX_LOG_SECURE" = "0" ]; then log "$@"
-	elif [ "$NX_LOG_LEVEL" -ge "$1" -a -w "$NX_LOGFILE" ]; then
-		shift && echo_secure "$@" >> "$NX_LOGFILE"
+#args: <loglevel> <logstr>
+	if [ "$NX_LOG_SECURE" = "0" ]; then log $@
+	elif [ "$NX_LOG_LEVEL" -ge "$1" ]; then
+		shift && echo_secure $@ >> "$NX_LOGFILE"
 	fi
 }
 
