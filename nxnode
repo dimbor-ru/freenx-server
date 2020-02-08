@@ -1407,7 +1407,6 @@ node_umount_smb() {
 				continue;
 			}
 			descstr=$(< $desc_fn); mpoint=$(cutfn "$descstr" "&" 1)
-#nxlog "$FUNCNAME ($$): ${mpoint@A}"
 			stringinstring "$mpoint" "$mpoints" || {
 				nxlog "$FUNCNAME ($$): share \"$SNAME\" at \"$mpoint\" is not controlled by session. Stop remounting."
 				continue;
@@ -1491,7 +1490,7 @@ node_emergency_exit() {
 node_start_monitor() {
 	nxlog "$FUNCNAME ($$): starting"
 	local NODE_TAIL_PID="" NODE_SUSPEND_STATUS="$2";
-	local SMBMOUNT_PORT MEDIA_PORT NODE_WATCHDOG_PID
+	local SMBMOUNT_PORT MEDIA_PORT NODE_WATCHDOG_PID tosend
 
 	while read line; do
 		# Catch tail pid
@@ -1536,11 +1535,16 @@ node_start_monitor() {
 			# Kill the watchdog
 			kill $NODE_WATCHDOG_PID 2>/dev/null
 		elif stringinstring "Info: Waiting for connection from" "$line"; then
-			# Session is running
-			# dimbor: with nx-libs 3.5.99 node_monitor catch of startsession
-			# restore too fast
-			sleep 0.2s
-			echo -e "NX> 710 Session status: running\nNX> 1002 Commit\nNX> 1006 Session status: running"
+			tosend="NX> 700 Session id: $sess_id\n
+NX> 705 Session display: $display\nNX> 703 Session type: $type
+NX> 701 Proxy cookie: $proxy_cookie\nNX> 702 Proxy IP: $proxyip
+NX> 706 Agent cookie: $cookie\nNX> 704 Session cache: $type
+NX> 707 SSL tunneling: $encryption\n"
+		# File-sharing port options
+			if [ "$samba" = "1" -a -n "$smbport" ]; then
+				tosend+="NX> 709 File-sharing port: $smbport\n"
+			fi
+			echo -e "$tosend""NX> 710 Session status: running\nNX> 1002 Commit\nNX> 1006 Session status: running"
 		elif stringinstring "Session: Session resumed at" "$line"; then
 			# Reconnection success!
 			echo "NX> 718 Session restore succeded"
@@ -1800,19 +1804,8 @@ exit"
 		disown $!
 	fi
 
-	txt="NX> 700 Session id: $sess_id
-NX> 705 Session display: $display
-NX> 703 Session type: $type
-NX> 701 Proxy cookie: $proxy_cookie
-NX> 702 Proxy IP: $proxyip
-NX> 706 Agent cookie: $cookie
-NX> 704 Session cache: $type
-NX> 707 SSL tunneling: $encryption"
-	echo "$txt"
-
 	# File-sharing port options
 	if [ "$samba" = "1" -a -n "$smbport" ]; then
-		echo "NX> 709 File-sharing port: $smbport"
 		echo "$smbport" >"$NXSESSION_DIRECTORY/scripts/smbport"
 	fi
 
@@ -1853,6 +1846,8 @@ cmd_node_suspend() {
 }
 
 cmd_node_smbmount() {
+	# Due to a too quick session start, port does not have time to initialize
+	sleep 0.2s
 	sessionid=$(getparam_sessionid)
 	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
 	display=$(cutfn "$sdir" "-" -2)
@@ -1952,6 +1947,8 @@ cmd_node_smbmount() {
 
 cmd_node_addprinter() {
 	nxlog "$FUNCNAME ($$): starting"
+	# Due to a too quick session start, port does not have time to initialize
+	sleep 0.2s
 	sessionid=$(getparam_sessionid)
 	type=$(getparam type)
 	port=$(getparam port)
