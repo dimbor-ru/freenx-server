@@ -71,6 +71,16 @@ set_vars_from_params() {
 	done
 }
 
+set_vars_from_cmdstr() {
+#param: <cmdstr>
+	local  kv vn vv;
+	local IFS='&'; local -a a=($1) a2;
+	for kv in ${a[@]}; do
+		IFS='=' a2=($kv); vn=${a2[0]}; [ -z "$vn" ] && continue;
+		vv=${a2[1]}; declare -g $vn="$vv"
+	done
+}
+
 # ===========================================================================
 # sqlite3 functions
 sq_cmd="/usr/bin/sqlite3";

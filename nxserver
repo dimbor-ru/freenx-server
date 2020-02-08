@@ -493,6 +493,28 @@ session_suspend() {
 # Main nxserver <-> nxclient communication module
 #
 
+# config variables in use:
+# COMMAND_SSH SERVER_FORWARD_KEY SERVER_FORWARD_PORT SERVER_NAME
+# ENABLE_LOG_FAILED_LOGINS ENABLE_PASSDB_AUTHENTICATION
+# ENABLE_NOMACHINE_FORWARD_PORT NOMACHINE_FORWARD_PORT NOMACHINE_SERVER
+# ENABLE_SSH_AUTHENTICATION SSHD_PORT ENABLE_SU_AUTHENTICATION
+# ENABLE_USER_DB COMMAND_NETCAT ENABLE_USERMODE_AUTHENTICATION NX_LOGFILE
+# ENABLE_SLAVE_MODE, LOAD_BALANCE_SERVERS ENABLE_SERVER_FORWARD
+# SERVER_FORWARD_HOST LOAD_BALANCE_SERVERS NX_VERSION NX_LICENSE
+# ENABLE_AUTORECONNECT_BEFORE_140
+
+# lost? conf vars:
+# COMMAND_GUEST_LOGIN ENABLE_GUEST_LOGIN
+
+# declare global variables:
+declare -g CMD CMDLINE SERVER_PARAMS PROTO LOGIN_SUCCESS LOGIN_METHOD
+declare -g SERVER_MODE NX_SESS_DIR PREFERRED_HOST NXNODE_LOGIN_SLAVE_ENABLED
+declare -g NXNODE_LOGIN_SLAVE NXSERVER_HELPER_ACTIVE NX_SERVERFD NX_COMMFD
+declare -g USER2 ENCRYPTION PROXY_DISPLAY SESS_DISPLAY SERVER_HOST RC
+
+# env variables?
+# NX_USERMODE NX_TRUSTED_USER USER
+
 # do not run in server mode loop
 SERVER_MODE="0"
 
@@ -1183,27 +1205,23 @@ server_loadbalance() {
 }
 
 server_startrestore_session() {
-	ACTION="$1"
+	local ACTION="$1" PARAMS
+
 	server_get_params $CMD
-	PARAMS=$SERVER_PARAMS
-	PARAMS="$PARAMS&clientproto=$PROTO"
-	PARAMS="$PARAMS&login_method=$LOGIN_METHOD"
-	CMDLINE=$PARAMS
+	PARAMS="$SERVER_PARAMS&clientproto=$PROTO&login_method=$LOGIN_METHOD"
+	CMDLINE=$PARAMS; set_vars_from_cmdstr "$CMDLINE"
 	echo_x
 
 	# special shadowed type
-	[ "$ACTION" != "start" -a "$(getparam type)" = "vnc" ] && ACTION="shadow"
+	[ "$ACTION" != "start" -a "$type" = "vnc" ] && ACTION="shadow"
 
 	if [ "$ACTION" = "shadow" ]; then
 		ACTION="start"
-		uniqueid=$(getparam restore)
-		[ -z "$uniqueid" ] && uniqueid=$(getparam id) # 1.4.0-5 compatibility
+		uniqueid=$restore
+		[ -z "$uniqueid" ] && uniqueid=$id # 1.4.0-5 compatibility
 		CMDLINE=$(session_get "$uniqueid" 2>/dev/null)
 
-		shadowdisplay=$(getparam display)
-		shadowhost=$(getparam host)
-		shadowcookie=$(getparam shadowcookie)
-		shadowuser=$(getparam userName)
+		shadowdisplay=$display; shadowhost=$host; shadowuser=$userName
 		[ "$shadowcookie" = "none" ] && shadowcookie=""
 		if [ -z "$shadowdisplay"  ]; then
 			# check for DESKTOP_SHARING_IDS
@@ -1249,24 +1267,24 @@ server_startrestore_session() {
 			fi
 		fi
 
-		PARAMS="$PARAMS&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost&shadowcookie=$shadowcookie&shadowuser=$shadowuser"
+		PARAMS+="&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost&\
+shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 		CMDLINE=$PARAMS
 	fi
 	if [ "$ACTION" = "start" ]; then
 
 		# Hack for external RDP/RFB agents
-		if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" -a \
-				"$(getparam type)" = "windows" ]; then
+		if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" -a "$type" = "windows" ]; then
 			type="windows-helper"
-			PARAMS="$PARAMS&type=$type&freenx_export_agents=1"
+			PARAMS+="&type=$type&freenx_export_agents=1"
 			CMDLINE=$PARAMS
 		fi
 
 		if [ "$ENABLE_EXTERNAL_NXVIEWER" = "1" -a \
-				"$(getparam type)" = "vnc" ]; then
+				"$type" = "vnc" ]; then
 			type="vnc-helper"
 			application="$PATH_BIN/nxviewer_helper"
-			PARAMS="$PARAMS&type=$type&application=$application&freenx_export_agents=1"
+			PARAMS+="&type=$type&application=$application&freenx_export_agents=1"
 			CMDLINE=$PARAMS
 		fi
 	fi
@@ -1282,7 +1300,7 @@ server_startrestore_session() {
 			log 2 "Warning: Please set SSHD_CHECK_IP=1 if you want to refuse the connection."
 		fi
 	fi
-	export ENCRYPTION=$(getparam encryption)
+	export ENCRYPTION=$encryption
 	if [ "$ENABLE_FORCE_ENCRYPTION" = "1" -a "$ENCRYPTION" != "1" ]; then
 			echo_x "NX> 596 Unencrypted sessions are not allowed."
 			return 1
@@ -1307,7 +1325,7 @@ server_startrestore_session() {
 	if [ "$ENABLE_AUTORECONNECT" = "1" -a "$ACTION" = "start" ]; then
 		restore=$(session_get_user_suspended "$USER" "Suspended")
 		if [ -n "$restore" ]; then
-			PARAMS="$PARAMS&restore=$restore"
+			PARAMS+="&restore=$restore"
 			CMDLINE=$PARAMS
 			ACTION="resume"
 		fi
@@ -1351,7 +1369,7 @@ server_startrestore_session() {
 
 			# Now check for the other enabled services
 			let SAMBA_DISPLAY=$SESS_DISPLAY+3000
-			if [ "$(getparam 'samba')" = 1 ] && ( $COMMAND_NETCAT -z \
+			if [ "$samba" = 1 ] && ( $COMMAND_NETCAT -z \
 					"$SERVER_HOST" $SAMBA_DISPLAY 2>/dev/null ); then
 				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as samba port is not free."
 				let SESS_DISPLAY=$SESS_DISPLAY+1
@@ -1359,7 +1377,7 @@ server_startrestore_session() {
 			fi
 
 			let MEDIA_DISPLAY=$SESS_DISPLAY+7000
-			if [ "$(getparam 'media')" = 1 ] && ( $COMMAND_NETCAT -z \
+			if [ "$media" = 1 ] && ( $COMMAND_NETCAT -z \
 					"$SERVER_HOST" $MEDIA_DISPLAY 2>/dev/null ); then
 				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as media port is not free."
 				let SESS_DISPLAY=$SESS_DISPLAY+1
@@ -1367,7 +1385,7 @@ server_startrestore_session() {
 			fi
 
 			let CUPS_DISPLAY=$SESS_DISPLAY+9000
-			if [ "$(getparam 'cups')" = 1 ] && ( $COMMAND_NETCAT -z \
+			if [ "$cups" = 1 ] && ( $COMMAND_NETCAT -z \
 					"$SERVER_HOST" $CUPS_DISPLAY 2>/dev/null ); then
 				log 2 "Warning: Skipping $SERVER_HOST:$AGENT_DISPLAY as cups port is not free."
 				let SESS_DISPLAY=$SESS_DISPLAY+1
@@ -1385,35 +1403,38 @@ server_startrestore_session() {
 			rm -f "/tmp/.nX$SESS_DISPLAY-lock"
 			return
 		fi
+		display=$SESS_DISPLAY
 		uniqueid=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
 		uniqueid=${uniqueid%% *}; uniqueid=${uniqueid^^}
-		FULL_PARAMS="$PARAMS&user=$USER&userip=$USERIP&uniqueid=$uniqueid&display=$SESS_DISPLAY&host=$SERVER_HOST"
+		FULL_PARAMS="$PARAMS&user=$USER&userip=$USERIP&uniqueid=$uniqueid&\
+display=$display&host=$SERVER_HOST"
 		log_secure "6" "$FULL_PARAMS"
 
 		# now update the session listing
 		sessionRootlessMode=0
-		[ "$(getparam rootless)" = "1" ] && sessionRootlessMode=1
+		[ "$rootless" = "1" ] && sessionRootlessMode=1
 		CMDLINE="a=b&$FULL_PARAMS"
-		session_add $uniqueid "sessionName=$(getparam session)&\
-display=$(getparam display)&status=Running&startTime=$(date +%s)&\
-foreignAddress=$(getparam userip)&sessionRootlessMode=$sessionRootlessMode&\
-type=$(getparam type)&sessionId=$uniqueid&creationTime=$(date +%s)&\
-userName=$USER&serverPid=$SERVER_PID&screeninfo=$(getparam screeninfo)&\
-geometry=$(getparam geometry)&host=$SERVER_HOST&shadowcookie=none"
+		session_add $uniqueid "sessionName=$session&display=$display&\
+status=Running&startTime=$(date +%s)&foreignAddress=$USERIP&\
+sessionRootlessMode=$sessionRootlessMode&type=$type&sessionId=$uniqueid&\
+creationTime=$(date +%s)&userName=$USER&serverPid=$SERVER_PID&\
+screeninfo=$screeninfo&geometry=$geometry&host=$SERVER_HOST&shadowcookie=none"
 	else
-		uniqueid=$(getparam restore)
-		[ -z "$uniqueid" ] && uniqueid=$(getparam id) # 1.4.0-5 compatibility
+		uniqueid=$restore
+		[ -z "$uniqueid" ] && uniqueid=$id # 1.4.0-5 compatibility
 		session_change "$uniqueid" "foreignAddress" "$USERIP"
 
-		CMDLINE=$(session_get "$uniqueid")
-		FULL_PARAMS="$PARAMS&user=$USER&userip=$(getparam foreignAddress)&uniqueid=$uniqueid&display=$(getparam display)&status=$(getparam status)"
-		SESS_DISPLAY=$(getparam display)
-		SERVER_HOST=$(getparam host)
+		CMDLINE=$(session_get "$uniqueid");
+		display=$(getparam display); host=$(getparam host)
+		FULL_PARAMS="$PARAMS&user=$USER&userip=$USERIP&\
+uniqueid=$uniqueid&display=$display&status=$status"
+		SESS_DISPLAY=$display
+		SERVER_HOST=$host
 		[ -z "$SERVER_HOST" ] && SERVER_HOST="127.0.0.1"
 
 		if [ "$ENABLE_ADVANCED_SESSION_CONTROL" = "1" ]; then
 			CMDLINE="$FULL_PARAMS"
-			case "$(getparam session)" in
+			case "$session" in
 				"add "*)
 					server_nxnode_start --applicationsession "$USER" \
 						"$FULL_PARAMS"
@@ -1492,46 +1513,39 @@ while true; do
 			server_startrestore_session "start"
 		;;
 		list*)
-			server_get_params $CMD
-			PARAMS=$SERVER_PARAMS
-			CMDLINE=$PARAMS
+			server_get_params $CMD; PARAMS=$SERVER_PARAMS
+			CMDLINE=$PARAMS; set_vars_from_cmdstr "$CMDLINE"
 
 
-			status=$(getparam status)
-
-			if [ "$status" = "Suspended" -a -n "$(getparam screeninfo)" ]; then
+			if [ "$status" = "Suspended" -a -n "$screeninfo" ]; then
 				session_list_user_suspended "$USER" "Suspended" \
-					"$(getparam screeninfo)" "$(getparam type)"
+					"$screeninfo" "$type"
 			elif [ "$status" = "Suspended,Running" -o "$status" = "Suspended" ]; then
 				# disabled due to problems with 1.4.0-5 client
 				#session_list_user_suspended "$USER" 'Suspended$|^status=Running$' "$(getparam geometry)" "$(getparam type)" | log_tee
-				session_list_user_suspended "$USER" 'Suspended' \
-					"$(getparam geometry)" "$(getparam type)"
+				session_list_user_suspended "$USER" 'Suspended' "$geometry" "$type"
 			elif [ "$status" = "suspended,running" -o "$status" = "suspended" ]; then
 				# since 1.5.0
 				status=${status/,/|}; status=${status/suspended/Suspended};
 				status=${status/running/Running};
 				[ "$ENABLE_SHOW_RUNNING_SESSIONS" = "0" ] && status="Suspended"
-				session_list_user_suspended "$USER" "$status" \
-					"$(getparam geometry)" "$(getparam type)"
-			elif [ "$(getparam type)" = "shadow" ]; then
+				session_list_user_suspended "$USER" "$status" "$geometry" "$type"
+			elif [ "$type" = "shadow" ]; then
 				session_list_user_suspended ".*" "Suspended|Running" "" "shadow"
 			else
 				session_list_user "$USER" | log_tee
 			fi
 		;;
 		suspend*)
-			server_get_params $CMD
-			PARAMS=$SERVER_PARAMS
-			CMDLINE=$PARAMS
-			if session_find_id_user "$(getparam sessionid)" "$USER"; then
+			server_get_params $CMD;	PARAMS=$SERVER_PARAMS
+			CMDLINE=$PARAMS; set_vars_from_cmdstr "$CMDLINE"
+			if session_find_id_user "$sessionid" "$USER"; then
 				server_nxnode_start --suspend "$USER" "$PARAMS"
 			fi
 		;;
 		terminate*)
-			server_get_params $CMD
-			PARAMS=$SERVER_PARAMS
-			CMDLINE=$PARAMS
+			server_get_params $CMD; PARAMS=$SERVER_PARAMS
+			CMDLINE=$PARAMS;
 			if session_find_id_user "$(getparam sessionid)" "$USER"; then
 				server_nxnode_start --terminate "$USER" "$PARAMS"
 			fi
