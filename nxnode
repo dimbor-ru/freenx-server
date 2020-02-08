@@ -1580,14 +1580,15 @@ node_start_monitor() {
 startsession() {
 	local txt gvars old_umask
 	nxlog "$FUNCNAME ($$): starting with args \"$@\""
-	gvars="user,userip,uniqueid,display,session,type,application,cache,\
- images,cookie,link,virtualdesktop,render,backingstore,imagecompressionmethod,\
- imagecompressionlevel,geometry,keyboard,kbtype,media,mediahelper,sync,samba,\
- cups,agent_server,agent_user,agent_password,agent_domain,screeninfo,nodelay,\
- rdpcolors,rdpcache,http,resize,keybd,aux,kbload,keymap,rootless,client,\
- clientproto,status,host,shadowusername,shadowcookie,shadowdisplay,shadowhost,\
- login_method,freenx_export_agents,fullscreen,encryption,extra1,extra2,extra3"
-	set_vars_from_params "$gvars" recode
+#	gvars="user,userip,uniqueid,display,session,type,application,cache,\
+# images,cookie,link,virtualdesktop,render,backingstore,imagecompressionmethod,\
+# imagecompressionlevel,geometry,keyboard,kbtype,media,mediahelper,sync,samba,\
+# cups,agent_server,agent_user,agent_password,agent_domain,screeninfo,nodelay,\
+# rdpcolors,rdpcache,http,resize,keybd,aux,kbload,keymap,rootless,client,\
+# clientproto,status,host,shadowusername,shadowcookie,shadowdisplay,shadowhost,\
+# login_method,freenx_export_agents,fullscreen,encryption,extra1,extra2,extra3"
+#	set_vars_from_params "$gvars" recode
+	set_vars_from_cmdstr "$CMDLINE" "recode"
 	# 1.5.0 options: rdpcolors,rdpcache,http
 	# nxclient > 1.5.0-106 variables: resize,keybd
 	# FreeNX specific variables: clientproto,status,host
@@ -1734,8 +1735,8 @@ startsession() {
 ${kbload:+kbload=$kbload,}${keymap:+keymap=$keymap,}\
 ${geometry:+geometry=$geometry,}${client:+client=$client,}\
 ${resize:+resize=$resize,}${CACHE}${IMAGES}${PACK}link=$link,nodelay=$nodelay,\
-type=$realtype${clipboard:+,clipboard=$clipboard}\
-${composite:+composite=$composite},cleanup=10,product=LFE/None/LFEN/None,\
+type=$realtype,${clipboard:+clipboard=$clipboard,}\
+${composite:+composite=$composite,}cleanup=10,product=LFE/None/LFEN/None,\
 shmem=1,${backingstore:+backingstore=$backingstore,}shpix=1,\
 ${ACCEPT}cookie=$proxy_cookie,id=$sess_id,samba=$samba,media=$media\
 ${sync:+,sync=$sync}${cups:+,cups=$cups}${keybd:+,keybd=$keybd}\
