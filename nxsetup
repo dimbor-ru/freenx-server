@@ -22,7 +22,6 @@ SETUP_LOCAL_USER="no"
 CLEAN="no"
 UNINSTALL="no"
 PURGE="no"
-SETUP_SSH2_KEY="no"
 BUILD_KNOWN_HOSTS="yes"
 AUTOMATIC="no"
 IGNORE_ERRORS="no"
@@ -39,7 +38,6 @@ parse_cmdline() {
 			--install) INSTALL="yes"; shift ;;
 			--ignore-errors) IGNORE_ERRORS="yes"; shift;;
 			--setup-nomachine-key) SETUP_NOMACHINE_KEY="yes"; shift ;;
-			--ssh2) SETUP_SSH2_KEY="yes"; shift;;
 			--dont-build-known-hosts) BUILD_KNOWN_HOSTS="no"; shift;;
 			--uid) SETUP_UID=$2; shift 2 ;;
 			--gid) SETUP_GID=$2; shift 2 ;;
@@ -63,8 +61,6 @@ parse_cmdline() {
 	[ "$UNINSTALL" = "yes" ] && [ "$SETUP_NOMACHINE_KEY" = "yes" -o \
 		-n "$SETUP_UID" -o "$CLEAN" = "yes" ] && HELP="yes"
 	[ "$UNINSTALL" = "yes" -a "$CLEAN" = "yes" ] && HELP="yes"
-	[ "$SETUP_SSH2_KEY" = "yes" -a "$SETUP_NOMACHINE_KEY" = "no" ] && \
-		HELP="yes"
 
 	if [ "$INSTALL" = "no" -a "$UNINSTALL" = "no" -a \
 		"$AUTOMATIC" = "no" -a "$HELP" = "no" ]; then
@@ -99,8 +95,6 @@ parse_cmdline() {
 		echo "                         increases security even more, but complicates the"
 		echo "                         configuration of clients.)"
 		echo "                         Use this option at your own risk."
-		echo "  --ssh2                 Create additionally commercial pubkey-support; beware:"
-		echo "                         own _commercial_ ssh2-key is not supported!"
 		echo "  --uid <number>         Give the uid <number> to the user \"nx\"."
 		echo "  --gid <number>         Give the gid <number> to the user \"nx\"."
 		[ -n "$LOCAL_USER_OPTION" ] && \
@@ -222,36 +216,6 @@ EOF
 			# generate a new key, backup the old and copy it to $SSH_AUTHORIZED_KEYS
 			$PATH_BIN/nxkeygen
 		fi
-	fi
-
-	# commercial ssh2-server uses other authentification-files
-	# as they are more or less static, I don't integrated these variable
-	# in node.conf, you have to change them here, if you like
-	SSH2_AUTHORIZATION="authorization"
-	SSH2_PUBKEY="nx_user.id.pub"
-	SSH2_HOME_DIR="$NX_HOME_DIR/.ssh2"
-	if [ ! -f "${SSH2_HOME_DIR}/$SSH2_PUBKEY" -a "$SETUP_SSH2_KEY" = "yes" -a \
-		"$SETUP_NOMACHINE_KEY" = "yes" ]; then
-		mkdir -p $SSH2_HOME_DIR
-		chmod 700 $SSH2_HOME_DIR
-
-		cat >  ${SSH2_HOME_DIR}/$SSH2_PUBKEY <<EOF
----- BEGIN SSH2 PUBLIC KEY ----
-Comment: "1024-bit DSA, converted from OpenSSH by root@localhost"
-AAAAB3NzaC1kc3MAAACBAJe/0DNBePG9dYLWq7cJ0SqyRf1iiZN/IbzrmBvgPTZnBa5FT/
-0Lcj39sRYt1paAlhchwUmwwIiSZaON5JnJOZ6jKkjWIuJ9MdTGfdvtY1aLwDMpxUVoGwEa
-KWOyin02IPWYSkDQb6cceuG9NfPulS9iuytdx0zIzqvGqfvudtufAAAAFQCwosRXR2QA8O
-SgFWSO6+kGrRJKiwAAAIEAjgvVNAYWSrnFD+cghyJbyx60AAjKtxZ0r/Pn9k94Qt2rvQoM
-nGgt/zU0v/y4hzg+g3JNEmO1PdHh/wDPVOxlZ6Hb5F4IQnENaAZ9uTZiFGqhBO1c8Wwjiq
-/MFZy3jZaidarLJvVs8EeT4mZcWxwm7nIVD4lRU2wQ2lj4aTPcepMAAACANlgcCuA4wrC+
-3Cic9CFkqiwO/Rn1vk8dvGuEQqFJ6f6LVfPfRTfaQU7TGVLk2CzY4dasrwxJ1f6FsT8DHT
-NGnxELPKRuLstGrFY/PR7KeafeFZDf+fJ3mbX5nxrld3wi5titTnX+8s4IKv29HJguPvOK
-/SI7cjzA+SqNfD7qEo8=
----- END SSH2 PUBLIC KEY ----
-EOF
-		echo "Key $SSH2_PUBKEY" >> ${SSH2_HOME_DIR}/$SSH2_AUTHORIZATION
-		echo "Options no-port-forwarding,no-agent-forwarding,command=\"$PATH_BIN/nxserver\"" >> ${SSH2_HOME_DIR}/$SSH2_AUTHORIZATION
-		chmod 600 ${SSH2_HOME_DIR}/$SSH2_AUTHORIZATION ${SSH2_HOME_DIR}/$SSH2_PUBKEY
 	fi
 
 	if [ ! -f $NX_HOME_DIR/.ssh/known_hosts -a "$BUILD_KNOWN_HOSTS" = "yes" ]; then

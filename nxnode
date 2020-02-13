@@ -43,7 +43,7 @@ fi
 #
 DELIM="NX>";[ -n "$2" ] && DELIM="NX-$2>"
 echo "$DELIM 1000 NXNODE - Version $NX_VERSION $NX_LICENSE"
-if ! stringinstring "$1" "--check|--setkey|--agent|--slave"; then
+if ! stringinstring "$1" "--check|--setkey|--agent"; then
 	read CMDLINE; CMDLINE="a=b&$CMDLINE"
 fi
 #
@@ -2172,7 +2172,6 @@ cmd_node_addprinter() {
 	fi # end of original
 }
 
-nxnode_func() {
 case "$1" in
 	--startsession)
 		startsession
@@ -2220,32 +2219,5 @@ case "$1" in
 		echo "NX> 500 Error: Command not found"
 	;;
 esac
-
-}
-
-
-if [ "$1" = "--slave" ]; then
-	# New slave mode accepts more than 1 command at a time
-	echo "NX> 716 Slave mode started successfully."
-	NODE_SESSION=""
-	while read CMD; do
-		[ "$CMD" = "--quit" ] && break
-		if [ "$CMD" != "--check" -a "$CMD" != "--setkey" \
-				-a "$CMD" != "--agent" ]; then
-			read CMDLINE; CMDLINE="a=b&$CMDLINE"
-		fi
-		if [ "$CMD" = "--startsession" -o "$CMD" = "--resumesession" ]; then
-			export SLAVE_PID="$$"
-			( echo "$CMDLINE" | "$0" "$CMD"; kill "$SLAVE_PID"; ) &
-			NODE_SESSION="$!"
-		else
-			DELIM=""
-			[ -n "$NODE_SESSION" ] && DELIM="$NODE_SESSION->$CMD"
-			( echo "$CMDLINE" | "$0" "$CMD" "$DELIM"; ) &
-		fi
-	done
-else
-	nxnode_func "$@"
-fi
 
 echo "$DELIM 1001 Bye."

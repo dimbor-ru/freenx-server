@@ -106,8 +106,6 @@ ENABLE_USER_DB="0"
 ENABLE_FORCE_ENCRYPTION="0"
 SSHD_CHECK_IP="0"
 
-ENABLE_SLAVE_MODE="0"
-
 ENABLE_LOG_FAILED_LOGINS="1"
 
 # Restriction directives
@@ -143,17 +141,6 @@ NX_LOG_SECURE=1
 NX_LOGFILE=/var/log/nxserver.log
 SESSION_LOG_CLEAN=1
 SESSION_HISTORY=2592000
-
-# Forwarding directives
-ENABLE_SERVER_FORWARD="0"
-SERVER_FORWARD_HOST=""
-SERVER_FORWARD_PORT=22
-SERVER_FORWARD_KEY="/usr/NX/share/client.id_dsa.key"
-
-NOMACHINE_SERVER="/usr/NX/bin/nxserver"
-NOMACHINE_NX_HOME_DIR="/usr/NX/home/nx"
-ENABLE_NOMACHINE_FORWARD_PORT="0"
-NOMACHINE_FORWARD_PORT="22"
 
 LOAD_BALANCE_SERVERS=""
 LOAD_BALANCE_ALGORITHM="random"
@@ -542,25 +529,6 @@ if [ "$CHECK" = "yes" ]; then
 		ERROR="yes" && echo "Error: Invalid value \"SESSION_LOG_CLEAN=$SESSION_LOG_CLEAN\""
 	[ -z $(echo "$SESSION_HISTORY" | egrep "^-?[0-9]+$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"SESSION_HISTORY=$SESSION_HISTORY\""
-
-	# Forwarding directives
-	[ -z $(echo "$ENABLE_SERVER_FORWARD" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_SERVER_FORWARD=$ENABLE_SERVER_FORWARD\""
-	[ "$ENABLE_SERVER_FORWARD" = "1" -a -z "$SERVER_FORWARD_HOST" ] && \
-		ERROR="yes" && echo "Error: Invalid value \"SERVER_FORWARD_HOST=$SERVER_FORWARD_HOST\""
-		# Any ideas on how I can check for a VALID host is velcome!
-		# In my private scripts I use 'resolveip -q' and check if output conforms to [0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3},
-		# but resolveip is part of mysql, and I don't think I should add that dependancy...
-	[ "$ENABLE_SERVER_FORWARD" = "1" -a -z $(echo "$SERVER_FORWARD_PORT" | egrep "^[1-9][0-9]{0,4}$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"SERVER_FORWARD_PORT=$SERVER_FORWARD_PORT\""
-	[ "$ENABLE_SERVER_FORWARD" = "1" -a ! -e "$SERVER_FORWARD_KEY" ] && \
-		ERROR="yes" && echo "Error: Invalid value \"SERVER_FORWARD_KEY=$SERVER_FORWARD_KEY\""
-	[ -z $(echo "$ENABLE_NOMACHINE_FORWARD_PORT" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_NOMACHINE_FORWARD_PORT=$ENABLE_NOMACHINE_FORWARD_PORT\""
-	[ "$ENABLE_NOMACHINE_FORWARD_PORT" = "1" ] && ! mywhich "$NOMACHINE_SERVER" >/dev/null 2>&1 && \
-		ERROR="yes" && echo "Error: Invalid value \"NOMACHINE_SERVER=$NOMACHINE_SERVER\""
-	[ "$ENABLE_NOMACHINE_FORWARD_PORT" = "1" -a -z $(echo "$NOMACHINE_FORWARD_PORT" | egrep "^[1-9][0-9]{0,4}$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"NOMACHINE_FORWARD_PORT=$NOMACHINE_FORWARD_PORT\""
 
 	# Services directives
 	[ -z $(echo "$ENABLE_ESD_PRELOAD" | egrep "^[0|1]$") ] && \

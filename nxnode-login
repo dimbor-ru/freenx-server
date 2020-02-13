@@ -96,7 +96,6 @@ expect {
 			}
 			exit 0
 		}
-	"NX> 716 Slave mode started successfully." { interact }
 	"NX> 716 Public key is already present in:" { }
 	"NX> 716 Public key added to:" { }
 	"NX> 716 Terminating session * on user request." { }

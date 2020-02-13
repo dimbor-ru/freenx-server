@@ -175,10 +175,7 @@ init_sess_db() {
 }
 
 exit_proc() {
-	log 6 "$FUNCNAME: close_dbe"
-	close_dbe;
-	log 6 "$FUNCNAME: close_dbe end."
-	exit $1;
+	close_dbe; exit $1;
 }
 
 #-------------------------------------------------------------------
@@ -494,32 +491,29 @@ session_suspend() {
 #
 
 # config variables in use:
-# COMMAND_SSH SERVER_FORWARD_KEY SERVER_FORWARD_PORT SERVER_NAME
-# ENABLE_LOG_FAILED_LOGINS ENABLE_PASSDB_AUTHENTICATION
-# ENABLE_NOMACHINE_FORWARD_PORT NOMACHINE_FORWARD_PORT NOMACHINE_SERVER
-# ENABLE_SSH_AUTHENTICATION SSHD_PORT ENABLE_SU_AUTHENTICATION
-# ENABLE_USER_DB COMMAND_NETCAT ENABLE_USERMODE_AUTHENTICATION NX_LOGFILE
-# ENABLE_SLAVE_MODE, LOAD_BALANCE_SERVERS ENABLE_SERVER_FORWARD
-# SERVER_FORWARD_HOST LOAD_BALANCE_SERVERS NX_VERSION NX_LICENSE
-# ENABLE_AUTORECONNECT_BEFORE_140
+# NX_VERSION NX_LICENSE SERVER_NAME SSHD_PORT NX_LOGFILE
+# COMMAND_SSH COMMAND_NETCAT
+# ENABLE_LOG_FAILED_LOGINS ENABLE_USER_DB ENABLE_AUTORECONNECT_BEFORE_140
+# ENABLE_PASSDB_AUTHENTICATION ENABLE_SSH_AUTHENTICATION
+# ENABLE_SU_AUTHENTICATION ENABLE_USERMODE_AUTHENTICATION
+# LOAD_BALANCE_SERVERS
 
 # lost? conf vars:
 # COMMAND_GUEST_LOGIN ENABLE_GUEST_LOGIN
 
 # declare global variables:
 declare -g CMD CMDLINE SERVER_PARAMS PROTO LOGIN_SUCCESS LOGIN_METHOD
-declare -g SERVER_MODE NX_SESS_DIR PREFERRED_HOST NXNODE_LOGIN_SLAVE_ENABLED
-declare -g NXNODE_LOGIN_SLAVE NXSERVER_HELPER_ACTIVE NX_SERVERFD NX_COMMFD
+declare -g SERVER_MODE NX_SESS_DIR PREFERRED_HOST
 declare -g USER2 ENCRYPTION PROXY_DISPLAY SESS_DISPLAY SERVER_HOST RC
 
 # env variables?
-# NX_USERMODE NX_TRUSTED_USER USER
+# NX_USERMODE USER
 
 # do not run in server mode loop
 SERVER_MODE="0"
 
 # For users nxfree and nx run in SERVER MODE
-[ "$USER" = "nxfree" -o "$USER" = "nx" ] && SERVER_MODE="1"
+[ "$USER" = "nx" ] && SERVER_MODE="1"
 
 # We can override usermode via environment var
 [ "$NX_USERMODE" = "1" ] && ENABLE_USERMODE_AUTHENTICATION="1"
@@ -551,101 +545,15 @@ if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]; then
 	LOGIN_SUCCESS="1"
 	LOGIN_METHOD="USERMODE"
 
-	# we do not use SLAVE mode for usermode
-	ENABLE_SLAVE_MODE="0"
 	# we do not use loadbalancing mode for usermode
 	LOAD_BALANCE_SERVERS=""
 fi
 
 if [ "$SERVER_MODE" = "1" ]; then
 
-#
-# needed for slave mode
-#
-
-nxnode_login_stop_slave() {
-	if [ -n "$NXNODE_LOGIN_SLAVE" ]; then
-		log 3 "Info: Closing connection to slave with pid $NXNODE_LOGIN_SLAVE."
-		# send quit command
-		echo "--quit" >&$NX_COMMFD
-
-		# kill process
-		kill "$NXNODE_LOGIN_SLAVE"
-		sleep 2
-		kill -0 "$NXNODE_LOGIN_SLAVE" && kill -9 "$NXNODE_LOGIN_SLAVE"
-		unset NXNODE_LOGIN_SLAVE
-	fi
-}
-
 nxnode_login() {
 	PASS="$1"; shift
-	if [ "$NXNODE_LOGIN_SLAVE_ENABLED" != "1" ]; then
-		NXNODE_TOSEND="$NXNODE_TOSEND" echo $PASS | \
-			$PATH_BIN/nxnode-login "$@"
-	else
-		if [ -z "$NXNODE_LOGIN_SLAVE" -a -z "$NX_TRUSTED_USER" ]; then
-			# Send password
-			echo "$PASS" >&$NX_COMMFD
-
-			# Connect to NXNODE
-			( $PATH_BIN/nxnode-login "$1" "$2" "$3" "$4" "$5" \
-				"--slave" <&$NX_SERVERFD >&$NX_SERVERFD 2>&$NX_SERVERFD \
-				|| echo "FREENX> 716 Slave mode failed to start." \
-					>&$NX_SERVERFD )  &
-			NXNODE_LOGIN_SLAVE="$!"
-			disown $!
-
-			trap nxnode_login_stop_slave EXIT
-
-			NXNODE_SLAVE_STARTED=""
-
-			# FIXME: Make timeout configurable
-			while read -t 10 line <&$NX_COMMFD
-			do
-				log 6 "$line"
-				case "$line" in
-					"NX> 716 Slave mode started successfully.")
-						NXNODE_SLAVE_STARTED="1"
-						break
-					;;
-					"FREENX> 716 Slave mode failed to start.")
-						break
-					;;
-				esac
-			done
-
-			if [ -z "$NXNODE_SLAVE_STARTED" ]; then
-				# stop it, if it still exists
-				nxnode_login_stop_slave
-				unset NXNODE_LOGIN_SLAVE
-				# return an error
-				return 1
-			fi
-		fi
-
-		#send CMD to nxnode
-		echo "$6" >&$NX_COMMFD
-		[ -n "$NXNODE_TOSEND" ] && echo "$NXNODE_TOSEND" >&$NX_COMMFD
-
-		NXNODE_RETURN="1"
-
-		if [ -z "$NXNODE_READER" ]; then
-			while read line <&$NX_COMMFD
-			do
-				log 6 "nxnode_reader: $line"
-				echo "$line"
-				case "$line" in
-					"NX> 716"*)
-						NXNODE_RETURN="0"
-					;;
-					"NX> 1001"*)
-						break
-					;;
-				esac
-			done
-		fi
-		test "$NXNODE_RETURN" = "0"
-	fi
+	NXNODE_TOSEND="$NXNODE_TOSEND" echo $PASS | $PATH_BIN/nxnode-login "$@"
 }
 
 nxnode_login_register_reader() {
@@ -663,214 +571,138 @@ init_sess_db
 
 log 3 "-- NX SERVER START: $@ - ORIG_COMMAND=$SSH_ORIGINAL_COMMAND"
 
-if [ "$ENABLE_SERVER_FORWARD" = "1" -a -n "$SERVER_FORWARD_HOST" ]; then
-	log 3 "Info: Forwarding connection to $SERVER_FORWARD_HOST with secret key $SERVER_FORWARD_KEY."
-	$COMMAND_SSH -i "$SERVER_FORWARD_KEY" "-p$SERVER_FORWARD_PORT" \
-		"nx@$SERVER_FORWARD_HOST" "host=$SERVER_NAME"
-	exit_proc 0
-fi
-
 # Get the hostname out of SSH_ORIGINAL_COMMAND
 PREFERRED_HOST=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 
-# forward the connection to commercial NoMachine server?
-if [ "$ENABLE_NOMACHINE_FORWARD_PORT" = "1" -a "$NOMACHINE_FORWARD_PORT" = \
-		"$(cutfn "$SSH_CLIENT $SSH2_CLIENT" " " 2)" -a \
-		-n "$NOMACHINE_SERVER" ]; then
-	log 3 "Info: Detected SSH destination port $NOMACHINE_FORWARD_PORT. Forwarding connection to commercial NoMachine server."
-	exec $NOMACHINE_SERVER
-	log 1 "Error: Forwarding to NoMachine Server $NOMACHINE_SERVER failed. Using FreeNX server instead."
-fi
-
-#
-# nxnode slave mode preparations
-#
-
-NXNODE_LOGIN_SLAVE_ENABLED="0"; NXNODE_LOGIN_SLAVE=""
-
-# slave mode does not work with load balancing
-if [ -n "$LOAD_BALANCE_SERVERS" -a "$ENABLE_SLAVE_MODE" = "1" ]; then
-	log 2 "Warning: Disabled slave mode. It does not work together with load balancing."
-	ENABLE_SLAVE_MODE="0"
-fi
-
-if [ "$ENABLE_SLAVE_MODE" = "1" -a "$NXSERVER_HELPER_ACTIVE" != "1" -a \
-		-z "$NX_TRUSTED_USER" ]; then
-	export SSH_ORIGINAL_COMMAND; export NXSERVER_HELPER_ACTIVE="1"
-	exec $PATH_BIN/nxserver-helper "$0"
-	log 1 "Error: Execution of $PATH_BIN/nxserver-helper failed. Disabling slave mode of nxnode."
-	export NXSERVER_HELPER_ACTIVE="0"
-fi
-
-if [ "$ENABLE_SLAVE_MODE" = "1" -a "$NXSERVER_HELPER_ACTIVE" = "1" ]; then
-	log 3 "Info: Using fds #$NX_SERVERFD and #$NX_COMMFD for communication with nxnode."
-	NXNODE_LOGIN_SLAVE_ENABLED="1"
-fi
-
-if [ -n "$NX_TRUSTED_USER" -a -n "$NX_COMMFD" ]; then
-	NXNODE_LOGIN_SLAVE_ENABLED="1"
-	USER=$NX_TRUSTED_USER
-	# check that communication works
-	nxnode_login "" -- su "$USER" "" "$PATH_BIN/nxnode" --check 2>&1 >/dev/null
-	if [ $? -ne 0 ]; then
-		log 1 "Error: Could not establish communication with trusted user ($USER) nxnode."
-		echo_x "NX> 404 ERROR: wrong password or login"
-		echo_x "NX> 999 Bye"
-		exit_proc 1
-	fi
-	LOGIN_SUCCESS="1"; LOGIN_METHOD="SU"
-	log 3 "Info: Using fd #$NX_COMMFD for communication with trusted user ($USER) established nxnode."
-	# Reread the config files (so that $USER.node.conf get sourced)
-	. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
-elif [ "$NX_USERMODE" = "1" ]; then
+if [ "$NX_USERMODE" = "1" ]; then
 	log 3 "Info: Usermode authentication: Logged in as $USER."
 else
 	echo_x "HELLO NXSERVER - Version $NX_VERSION $NX_LICENSE"
-
-# Login stage
-while true; do
-	echo_x -n "NX> 105 "
-	read CMD
-	# FIXME?
-	[ "$CMD" = "" ] && CMD="quit"
-	echo_x "$CMD"
-	case "$CMD" in
-		quit|QUIT)
-			echo_x "Quit"
-			echo_x "NX> 999 Bye"
-			exit_proc 0
-		;;
-		exit|EXIT)
-			echo_x "Exit"
-			echo_x "NX> 999 Bye"
-			exit_proc 0
-		;;
-		bye|BYE)
-			echo_x "Bye"
-			echo_x "NX> 999 Bye"
-			exit_proc 0
-		;;
-		hello*|HELLO*)
-			PROTO=$(rematchfn 'Version ([[:digit:][:punct:]]+)' "$CMD") #'
-			echo_x "NX> 134 Accepted protocol: $PROTO"
-			if [ "$PROTO" = "1.3.0" -o "$PROTO" = "1.3.2" ]
-			then
-				[ "$ENABLE_AUTORECONNECT_BEFORE_140" = "1" ] && \
-					ENABLE_AUTORECONNECT="1"
-			fi
-		;;
-		"set auth_mode*"|"SET AUTH_MODE*")
-			if [ "$CMD" = "set auth_mode password" -o \
+	# Login stage
+	while true; do
+		echo_x -n "NX> 105 "
+		read CMD
+		[ "$CMD" = "" ] && CMD="quit" # FIXME?
+		echo_x "$CMD"
+		case "$CMD" in
+			quit|QUIT)
+				echo_x "Quit"; echo_x "NX> 999 Bye"; exit_proc 0;
+			;;
+			exit|EXIT)
+				echo_x "Exit"; echo_x "NX> 999 Bye"; exit_proc 0;
+			;;
+			bye|BYE)
+				echo_x "Bye"; 	echo_x "NX> 999 Bye"; exit_proc 0;
+			;;
+			hello*|HELLO*)
+				PROTO=$(rematchfn 'Version ([[:digit:][:punct:]]+)' "$CMD") #'
+				echo_x "NX> 134 Accepted protocol: $PROTO"
+				if [ "$PROTO" = "1.3.0" -o "$PROTO" = "1.3.2" ]; then
+					[ "$ENABLE_AUTORECONNECT_BEFORE_140" = "1" ] && \
+						ENABLE_AUTORECONNECT="1"
+				fi
+			;;
+			"set auth_mode*"|"SET AUTH_MODE*")
+				if [ "$CMD" = "set auth_mode password" -o \
 					"$CMD" = "SET AUTH_MODE PASSWORD" ]; then
-				echo_x "Set auth_mode: password"
-			else
-				echo_x "NX> 500 ERROR: unknown auth mode ''"
-			fi
-		;;
-		login|LOGIN)
-			LOGIN_SUCCESS="0"
-			echo_x -n "NX> 101 User: "
-			read USER2
-			echo_x $USER2
-			echo_x -n "NX> 102 Password: "
-			old_ifs="$IFS"
-			export IFS=$'\n'
-			read -r -s PASS
-			export IFS="$old_ifs"
-			echo_x ""
-			log 6 -n "Info: Auth method: "
-			# USER already logged in?
-			if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]; then
-				LOGIN_SUCCESS="1"
-				# we have read the user config already above,
-				# so we don't get any new information here
-				break
-			fi
-			USER=$USER2
+					echo_x "Set auth_mode: password"
+				else
+					echo_x "NX> 500 ERROR: unknown auth mode ''"
+				fi
+			;;
+			login|LOGIN)
+				LOGIN_SUCCESS="0"
+				echo_x -n "NX> 101 User: "; read USER2; echo_x $USER2;
+				echo_x -n "NX> 102 Password: ";
+				old_ifs="$IFS"; export IFS=$'\n';
+				read -r -s PASS; export IFS="$old_ifs"; echo_x ""
+				log 6 -n "Info: Auth method: "
+				# USER already logged in?
+				if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]; then
+					LOGIN_SUCCESS="1"
+					# we have read the user config already above,
+					# so we don't get any new information here
+					break
+				fi
+				USER=$USER2
 
-			# Guest authentication
-			if [ "$USER" = "NX guest user" ]; then
-				if [ "$ENABLE_GUEST_LOGIN" != "1" -o \
+				# Guest authentication
+				if [ "$USER" = "NX guest user" ]; then
+					if [ "$ENABLE_GUEST_LOGIN" != "1" -o \
 								! -x "$COMMAND_GUEST_LOGIN" ]; then
-					if [ "$ENABLE_GUEST_LOGIN" != "1" ]; then
-						echo_x "NX> 404 ERROR: guest authentication not enabled"
-					else
-						echo_x "NX> 404 ERROR: $COMMAND_GUEST_LOGIN not correct"
+						if [ "$ENABLE_GUEST_LOGIN" != "1" ]; then
+							echo_x "NX> 404 ERROR: guest authentication not enabled"
+						else
+							echo_x "NX> 404 ERROR: $COMMAND_GUEST_LOGIN not correct"
+						fi
+						echo_x "NX> 999 Bye"
+						if [ "$ENABLE_LOG_FAILED_LOGINS" = "1" ]; then
+							logger -t nxserver -i -p auth.info \
+								"($(whoami)) Failed login for user=$USER from IP=$(echo $SSH_CLIENT | awk '{print $1}')"
+						fi
+						exit_proc 1
 					fi
+					log 6 -n "guest "
+					nxnode_login "" -- guest "" "" "$COMMAND_GUEST_LOGIN" \
+						--check 2>&1 >/dev/null
+					if [ $? -eq 0 ]; then LOGIN_SUCCESS="1"; LOGIN_METHOD="GUEST"; fi
+				fi
+
+				# PASSDB based auth
+				if [ "$ENABLE_PASSDB_AUTHENTICATION" = "1" -a \
+					"$LOGIN_SUCCESS" = "0" ]; then
+					log 6 -n "passdb "
+					if [ $(passdb_get_crypt_pass "$PASS") = \
+						$(passdb_get_pass "$USER") ]; then
+						LOGIN_SUCCESS="1"; LOGIN_METHOD="PASSDB"
+					fi
+				fi
+
+				# SSH based auth
+				if [ "$ENABLE_SSH_AUTHENTICATION" = "1" -a "$LOGIN_SUCCESS" = "0" ]; then
+					log 6 -n "ssh "; export COMMAND_SSH;
+					nxnode_login "$PASS" -- ssh "$USER" "$SSHD_PORT" \
+						"$PATH_BIN/nxnode" --check 2>&1 >/dev/null
+					if [ $? -eq 0 ]; then LOGIN_SUCCESS="1"; LOGIN_METHOD="SSH"; fi
+				fi
+
+				# SU based auth
+				if [ "$ENABLE_SU_AUTHENTICATION" = "1" -a \
+						"$LOGIN_SUCCESS" = "0" ]; then
+					log 6 -n "su "
+					# experimental don't start nxnode --check
+					LOGIN_SUCCESS="1"; LOGIN_METHOD="SU";
+					#nxnode_login "$PASS" -- su "$USER" "" \
+					#	"$PATH_BIN/nxnode" --check 2>&1 >/dev/null
+					#if [ $? -eq 0 ]; then LOGIN_SUCCESS="1"; LOGIN_METHOD="SU"; fi
+				fi
+
+				# Check if user in passdb
+				if [ "$ENABLE_USER_DB" = "1" ]; then
+					log 6 "userdb check"
+					passdb_user_exists "$USER" || LOGIN_SUCCESS="0"
+				fi
+				log 6 ""
+
+				if [ "$LOGIN_SUCCESS" = "1" ]; then
+					# Reread the config files (so that $USER.node.conf get sourced)
+					# dimbor: it's temporary
+					. /usr/bin/nxloadconfig --userconf
+					break
+				else
+					echo_x "NX> 404 ERROR: wrong password or login"
 					echo_x "NX> 999 Bye"
 					if [ "$ENABLE_LOG_FAILED_LOGINS" = "1" ]; then
 						logger -t nxserver -i -p auth.info \
-							"($(whoami)) Failed login for user=$USER from IP=$(echo $SSH_CLIENT \
-							| awk '{print $1}')"
+						"($(whoami)) Failed login for user=$USER from IP=$(echo $SSH_CLIENT | awk '{print $1}')"
 					fi
 					exit_proc 1
 				fi
-				log 6 -n "guest "
-				nxnode_login "" -- guest "" "" "$COMMAND_GUEST_LOGIN" \
-					--check 2>&1 >/dev/null
-				if [ $? -eq 0 ]; then LOGIN_SUCCESS="1"; LOGIN_METHOD="GUEST"; fi
-			fi
-
-			# PASSDB based auth
-			if [ "$ENABLE_PASSDB_AUTHENTICATION" = "1" -a \
-				"$LOGIN_SUCCESS" = "0" ]; then
-				log 6 -n "passdb "
-				if [ $(passdb_get_crypt_pass "$PASS") = \
-					$(passdb_get_pass "$USER") ]; then
-					LOGIN_SUCCESS="1"; LOGIN_METHOD="PASSDB"
-				fi
-			fi
-
-			# SSH based auth
-			if [ "$ENABLE_SSH_AUTHENTICATION" = "1" -a "$LOGIN_SUCCESS" = "0" ]; then
-				log 6 -n "ssh "
-				export COMMAND_SSH
-				nxnode_login "$PASS" -- ssh "$USER" "$SSHD_PORT" \
-					"$PATH_BIN/nxnode" --check 2>&1 >/dev/null
-				if [ $? -eq 0 ]; then LOGIN_SUCCESS="1"; LOGIN_METHOD="SSH"; fi
-			fi
-
-			# SU based auth
-			if [ "$ENABLE_SU_AUTHENTICATION" = "1" -a \
-					"$LOGIN_SUCCESS" = "0" ]; then
-				log 6 -n "su "
-				# experimental don't start nxnode --check
-				LOGIN_SUCCESS="1"; LOGIN_METHOD="SU";
-				#nxnode_login "$PASS" -- su "$USER" "" \
-				#	"$PATH_BIN/nxnode" --check 2>&1 >/dev/null
-				#if [ $? -eq 0 ]; then LOGIN_SUCCESS="1"; LOGIN_METHOD="SU"; fi
-			fi
-
-			# Check if user in passdb
-			if [ "$ENABLE_USER_DB" = "1" ]; then
-				log 6 "userdb check"
-				passdb_user_exists "$USER" || LOGIN_SUCCESS="0"
-			fi
-			log 6 ""
-
-			if [ "$LOGIN_SUCCESS" = "1" ]; then
-				# Reread the config files (so that $USER.node.conf get sourced)
-				# dimbor: it's temporary
-				. /usr/bin/nxloadconfig --userconf
-				break
-			else
-				echo_x "NX> 404 ERROR: wrong password or login"
-				echo_x "NX> 999 Bye"
-				if [ "$ENABLE_LOG_FAILED_LOGINS" = "1" ]; then
-					logger -t nxserver -i -p auth.info \
-						"($(whoami)) Failed login for user=$USER from IP=$(echo $SSH_CLIENT \
-							| awk '{print $1}')"
-				fi
-				exit_proc 1
-			fi
-		;;
-	esac
-done
+			;;
+		esac
+	done
 fi
 echo_x "NX> 103 Welcome to: $SERVER_NAME user: $USER"
-
-# Add the slave mode shutdown trap (just in case)
-[ -n "$NXNODE_LOGIN_SLAVE" ] && trap nxnode_login_stop_slave EXIT
 
 # remove old session infos from history
 session_cleanup
@@ -890,19 +722,8 @@ server_get_params() {
 	SERVER_PARAMS=${SERVER_PARAMS//%20/ };
 }
 
-nxnode_start() {
-	:
-	#CMD="$1"
-	#shift
-	#echo "$@" | $PATH_BIN/nxnode "$CMD"
-}
-
-#NX> 1002 Commit
-#NX> 1006 Session status: running
-
 server_nxnode_start() {
-	CMD="$1"; USER="$2";
-	shift; shift;
+	CMD="$1"; USER="$2"; shift; shift;
 
 	# Find NODE_HOSTNAME
 	NODE_HOSTNAME=""
@@ -963,8 +784,6 @@ server_nxnode_exit_func() {
 	server_remove_usession
 	# remove lock file
 	[ -e "/tmp/.nX$SESS_DISPLAY-lock" ] && rm -f /tmp/.nX$SESS_DISPLAY-lock
-	# Kill possible slave node
-	nxnode_login_stop_slave
 }
 
 server_nxnode_start_wait() {
@@ -1050,7 +869,6 @@ server_nxnode_start_wait() {
 		# remove lock file
 		[ -e "/tmp/.nX$SESS_DISPLAY-lock" ] && rm -f /tmp/.nX$SESS_DISPLAY-lock
 
-		nxnode_login_stop_slave
 	# $1 = restore
 	else
 		KILL_WAIT_PID=1
@@ -1096,7 +914,6 @@ server_nxnode_start_wait() {
 				;;
 			esac
 		done
-		nxnode_login_stop_slave
 		# $1 = start
 	fi
 }
