@@ -65,13 +65,15 @@ log_secure() {
 }
 
 log_tee() {
-	[ "$NX_LOG_LEVEL" -ge "4" -a -w "$NX_LOGFILE" ] && exec tee -a "$NX_LOGFILE"
-	[ "$NX_LOG_LEVEL" -ge "4" -a -w "$NX_LOGFILE" ] || exec cat -
+	if [ "$NX_LOG_LEVEL" -ge "4" ]; then exec tee -a "$NX_LOGFILE"
+	else exec cat -
+	fi
 }
 
 log_error() {
-	[ "$NX_LOG_LEVEL" -ge "7" -a -w "$NX_LOGFILE" ] && exec tee -a "$NX_LOGFILE"
-	[ "$NX_LOG_LEVEL" -ge "7" -a -w "$NX_LOGFILE" ] || exec cat -
+	if [ "$NX_LOG_LEVEL" -ge "7" ]; then exec tee -a "$NX_LOGFILE"
+	else exec cat -
+	fi
 }
 
 echo_x() { log "4" "$@"; echo "$@"; }
@@ -139,7 +141,9 @@ passdb_list_user() {
 # Library of session management functions
 #
 
-# Needed global vars: $NX_SESS_DIR
+# Needed global vars: NX_SESS_DIR SESSION_COUNT SESSION_COUNT_USER
+# COMMAND_MD5SUM SESSION_USER_LIMIT SESSION_LIMIT SESSION_HISTORY
+# COMMAND_NXSHADOWACL USER ENABLE_MIRROR_VIA_VNC
 
 # =================== sqlite3 stuff =====================
 
@@ -262,9 +266,6 @@ session_get_user_suspended() {
 	a=($r); ((${#a[@]}==2)) && echo "${a[1]}"
 }
 
-# Count all sessions of a user
-# and save it in SESSION_COUNT and SESSION_COUNT_USER
-
 session_get_user_suspended() {
 #params: user status
 #ret: sessionId line[s] or empty
@@ -277,6 +278,8 @@ session_get_user_suspended() {
 
 session_count_user() {
 #params: userName [status]
+# Count all sessions of a user
+# and save it in SESSION_COUNT and SESSION_COUNT_USER
 	local st wstr r u="" sc="" uc
 	SESSION_COUNT=0; SESSION_COUNT_USER=0
 	st="Running|Suspended"; [ -n "$2" ] && st="$2"
@@ -299,12 +302,13 @@ session_count_user() {
 }
 
 _session_list_user_suspended() {
-	local cmdstrs pattern geom depth render udepth urender mode;
+# use conf vars: COMMAND_NXSHADOWACL ENABLE_MIRROR_VIA_VNC COMMAND_MD5SUM
+# use glob: USER
+	local CMDLINE cmdstrs pattern geom depth render udepth urender mode;
 	local options available uniqueid geo2 displays;
 	echo "NX> 127 Sessions list of user '$1' for reconnect:"
 	echo
-	if [ -z "$4" ]
-	then
+	if [ -z "$4" ]; then
 		echo "Display Type             Session ID                       Options  Depth Screensize     Available Session Name"
 		echo "------- ---------------- -------------------------------- -------- ----- -------------- --------- ----------------------"
 	else
@@ -376,7 +380,7 @@ _session_list_user_suspended() {
 }
 
 session_list_user_suspended() {
-	local SESSION_LIST_CACHE_DATA=$(_session_list_user_suspended "$@")
+	local SESSION_LIST_CACHE_DATA=$(_session_list_user_suspended $@)
 	echo "$SESSION_LIST_CACHE_DATA" | log_tee
 }
 
@@ -491,29 +495,29 @@ session_suspend() {
 #
 
 # config variables in use:
-# NX_VERSION NX_LICENSE SERVER_NAME SSHD_PORT NX_LOGFILE
-# COMMAND_SSH COMMAND_NETCAT
+# NX_VERSION NX_LICENSE SERVER_NAME SSHD_PORT NX_LOGFILE NX_LOG_LEVEL
+# SHARED_CONFS NX_SESS_DIR NX_HOME_DIR NX_ETC_DIR
+# COMMAND_SSH COMMAND_NETCAT COMMAND_MD5SUM COMMAND_NXSHADOWACL COMMAND_NXACL
+# COMMAND_SESSREG COMMAND_XAUTH
 # ENABLE_LOG_FAILED_LOGINS ENABLE_USER_DB ENABLE_AUTORECONNECT_BEFORE_140
 # ENABLE_PASSDB_AUTHENTICATION ENABLE_SSH_AUTHENTICATION
 # ENABLE_SU_AUTHENTICATION ENABLE_USERMODE_AUTHENTICATION
-# LOAD_BALANCE_SERVERS
+# LOAD_BALANCE_SERVERS ENABLE_MIRROR_VIA_VNC
+# SESSION_USER_LIMIT SESSION_LIMIT SESSION_HISTORY
 
 # lost? conf vars:
 # COMMAND_GUEST_LOGIN ENABLE_GUEST_LOGIN
 
 # declare global variables:
 declare -g CMD CMDLINE SERVER_PARAMS PROTO LOGIN_SUCCESS LOGIN_METHOD
-declare -g SERVER_MODE NX_SESS_DIR PREFERRED_HOST
-declare -g USER2 ENCRYPTION PROXY_DISPLAY SESS_DISPLAY SERVER_HOST RC
+declare -g SERVER_MODE PREFERRED_HOST SESSION_COUNT SESSION_COUNT_USER
+declare -g USER2 ENCRYPTION PROXY_DISPLAY SESS_DISPLAY SERVER_HOST
+declare -g OIFS RC
 
 # env variables?
 # NX_USERMODE USER
 
-# do not run in server mode loop
-SERVER_MODE="0"
-
-# For users nxfree and nx run in SERVER MODE
-[ "$USER" = "nx" ] && SERVER_MODE="1"
+SERVER_MODE="0"; [ "$USER" = "nx" ] && SERVER_MODE="1"
 
 # We can override usermode via environment var
 [ "$NX_USERMODE" = "1" ] && ENABLE_USERMODE_AUTHENTICATION="1"
@@ -614,8 +618,8 @@ else
 				LOGIN_SUCCESS="0"
 				echo_x -n "NX> 101 User: "; read USER2; echo_x $USER2;
 				echo_x -n "NX> 102 Password: ";
-				old_ifs="$IFS"; export IFS=$'\n';
-				read -r -s PASS; export IFS="$old_ifs"; echo_x ""
+				OIFS="$IFS"; export IFS=$'\n';
+				read -r -s PASS; export IFS=$OIFS; echo_x ""
 				log 6 -n "Info: Auth method: "
 				# USER already logged in?
 				if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]; then
@@ -687,7 +691,7 @@ else
 				if [ "$LOGIN_SUCCESS" = "1" ]; then
 					# Reread the config files (so that $USER.node.conf get sourced)
 					# dimbor: it's temporary
-					. /usr/bin/nxloadconfig --userconf
+					# . /usr/bin/nxloadconfig --userconf
 					break
 				else
 					echo_x "NX> 404 ERROR: wrong password or login"
@@ -736,16 +740,16 @@ server_nxnode_start() {
 	[ -z "$NODE_HOSTNAME" ] && NODE_HOSTNAME="127.0.0.1"
 	export NODE_HOSTNAME
 	# Use nxnode-login?
-	if [ "$LOGIN_METHOD" = "GUEST" ]; then
-		NXNODE_TOSEND="$@" nxnode_login "" -- \
-			guest "" "" "$COMMAND_GUEST_LOGIN" "$CMD" 2>&1 | log_tee
+	if [ "$LOGIN_METHOD" = "SU" ]; then
+	    NXNODE_TOSEND="$@" nxnode_login "$PASS" -- \
+			su "$USER" "" "$PATH_BIN/nxnode" "$CMD" 2>&1 | log_tee
 	elif [ "$LOGIN_METHOD" = "SSH" ]; then
 	    export COMMAND_SSH
 	    NXNODE_TOSEND="$@" nxnode_login "$PASS" -- \
 			ssh "$USER" "$SSHD_PORT" "$PATH_BIN/nxnode" "$CMD" 2>&1 | log_tee
-	elif [ "$LOGIN_METHOD" = "SU" ]; then
-	    NXNODE_TOSEND="$@" nxnode_login "$PASS" -- \
-			su "$USER" "" "$PATH_BIN/nxnode" "$CMD" 2>&1 | log_tee
+	elif [ "$LOGIN_METHOD" = "GUEST" ]; then
+		NXNODE_TOSEND="$@" nxnode_login "" -- \
+			guest "" "" "$COMMAND_GUEST_LOGIN" "$CMD" 2>&1 | log_tee
 	elif [ "$LOGIN_METHOD" = "USERMODE" ]; then
 	    # we need to unset SSH_* variables so that nxnode
 	    # chooses the right accept= value.
@@ -774,8 +778,9 @@ server_remove_usession() {
 
 server_nxnode_echo() {
 	log 6 "server_nxnode_echo: $@"
-	[ "$SERVER_CHANNEL" = "1" ] && echo "$@"
-	[ "$SERVER_CHANNEL" = "2" ] && echo "$@" >&2
+	if [ "$SERVER_CHANNEL" = "1" ]; then echo "$@"
+	elif [ "$SERVER_CHANNEL" = "2" ]; then echo "$@" >&2
+	fi
 }
 
 server_nxnode_exit_func() {
