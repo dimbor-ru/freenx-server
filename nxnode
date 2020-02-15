@@ -1173,7 +1173,7 @@ node_umount_smb() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting with sess_id='$sess_id'"
 	local scr_dir mport mpoints ssname sname desc_fn descstr new_dir new_port rc;
-	local smbport fsname username password IDS_OPTS;
+	local smbport fsname username password ids_opts;
 	scr_dir="$nx_dir/C-$sess_id/scripts"
 	[ -r "$scr_dir/smbport" ] && \
 		smbport=$(< $scr_dir/smbport)
@@ -1187,71 +1187,47 @@ node_umount_smb() {
 			return 1;
 		}
 	}
-	#dimbor: if sessions with same shares found, we try to remount them
-	if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]; then
-		[ -r "$scr_dir/mport" ] && mport=$(< $scr_dir/mport)
-		[ -r "$scr_dir/mpoint" ] && \
-			mpoints=$(< $scr_dir/mpoint) \
-		|| {
-			nxlog "$lp No shares controlled by session found. Stop remounting."
-			return;
-		}
-		for ssname in $scr_dir/@s@*; do
-			sname=$(cutfn "$ssname" "/" -1); sname=${sname/@s@/}
-			desc_fn="$nx_dir/shares_priv/@s@$sname"
-			[ ! -r "$desc_fn" ] && {
-				nxlog "$lp description file \"$desc_fn\" for share \"$sname\" NOT ACCESSIBLE, stop remounting it"
-				continue;
-			}
-			descstr=$(< $desc_fn); mpoint=$(cutfn "$descstr" "&" 1)
-			stringinstring "$mpoint" "$mpoints" || {
-				nxlog "$lp share \"$sname\" at \"$mpoint\" is not controlled by session. Stop remounting."
-				continue;
-			}
-			try_umount_smb "$mpoint"; rc=$? # umount here
-			[ $rc -ne 0 ] && {
-				nxlog "$lp mountpoint \"$mpoint\" failed to unmount."
-				continue;
-			}
-			new_dir=$(get_sessdir4res "@s@$sname")
-			[ -z "$new_dir" ] && {
-				nxlog "$lp no running sessions found for share \"$sname\", stop remounting"
-				rmdir "$mpoint" >/dev/null 2>/dev/null; continue;
-			}
-			new_port=$(< $new_dir/scripts/mport)
-			fsname=$(cutfn "$descstr" "&" 0)
-			username=$(cutfn "$descstr" "&" 2)
-			password=$(cutfn "$descstr" "&" 3)
-			IDS_OPTS=$(cutfn "$descstr" "&" 4)
-			try_mount_smb "$fsname" "$mpoint" "$username" $new_port "$IDS_OPTS" "$password"
-			rc=$?
-			[ $rc -eq 0 ] && {
-				nxlog "$lp share \"$fsname\" remount to \"$mpoint\""
-				echo "$mpoint" >> "$new_dir/scripts/mpoint"
-			} || {
-				nxlog "$lp share \"$fsname\" failed to remount: $error"
-				rmdir "$mpoint" >/dev/null 2>/dev/null
-			}
-		done
-		nxlog "$lp end"
-		return
-	fi
 
-	if [ -e "$nx_dir/C-$sess_id/scripts/mpoint" ]; then
-		nxlog "$lp File scripts/mpoint present. Continue umounting..."
-	else
-		nxlog "$lp File scripts/mpoint not present. Abort umounting..."
-		return 1
-	fi
-	while read mpoint; do
+	[ -r "$scr_dir/mport" ] && mport=$(< $scr_dir/mport)
+	[ -r "$scr_dir/mpoint" ] && mpoints=$(< $scr_dir/mpoint) || {
+		nxlog "$lp No shares controlled by session found. Stop remounting."
+		return;
+	}
+	for ssname in $scr_dir/@s@*; do
+		sname=$(cutfn "$ssname" "/" -1); sname=${sname/@s@/}
+		desc_fn="$nx_dir/shares_priv/@s@$sname"
+		[ ! -r "$desc_fn" ] && {
+			nxlog "$lp description file \"$desc_fn\" for share \"$sname\" NOT ACCESSIBLE, stop remounting it"
+			continue;
+		}
+		descstr=$(< $desc_fn); mpoint=$(cutfn "$descstr" "&" 1)
+		stringinstring "$mpoint" "$mpoints" || {
+			nxlog "$lp share \"$sname\" at \"$mpoint\" is not controlled by session. Stop remounting."
+			continue;
+		}
 		try_umount_smb "$mpoint"; rc=$? # umount here
 		[ $rc -ne 0 ] && {
 			nxlog "$lp mountpoint \"$mpoint\" failed to unmount."
 			continue;
 		}
-		nxlog "$lp Remove mountpoint \"$mpoint\""
-		rmdir "$mpoint" >/dev/null 2>/dev/null #JJK:Remove mount point if empty
-	done < "$nx_dir/C-$sess_id/scripts/mpoint"
+		new_dir=$(get_sessdir4res "@s@$sname")
+		[ -z "$new_dir" ] && {
+			nxlog "$lp no running sessions found for share \"$sname\", stop remounting"
+			rmdir "$mpoint" >/dev/null 2>/dev/null; continue;
+		}
+		new_port=$(< $new_dir/scripts/mport); fsname=$(cutfn "$descstr" "&" 0)
+		username=$(cutfn "$descstr" "&" 2); password=$(cutfn "$descstr" "&" 3)
+		ids_opts=$(cutfn "$descstr" "&" 4)
+		try_mount_smb "$fsname" "$mpoint" "$username" $new_port "$ids_opts" "$password"
+		rc=$?
+		[ $rc -eq 0 ] && {
+			nxlog "$lp share \"$fsname\" remount to \"$mpoint\""
+			echo "$mpoint" >> "$new_dir/scripts/mpoint"
+		} || {
+			nxlog "$lp share \"$fsname\" failed to remount: $error"
+			rmdir "$mpoint" >/dev/null 2>/dev/null
+		}
+	done
 	nxlog "$lp end"
 }
 
@@ -1686,21 +1662,15 @@ cmd_node_smbmount() {
 	#do not mount twice
 	local mnts=$(rematchfn "(.+)[[:space:]].+$dir" "$(mount)") #"
 	if [ -n "$mnts" ]; then
-			nxlog "$lp share $mnts already mounted on $dir"
-		if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]; then
-			if [ -z "$(get_sessdir4res "@s@$share")" ]; then
-				nxlog "$lp Try to force umount dead mountpoint \"$dir\""
-				try_umount_smb "$dir"; rc=$?
-				[ $rc -ne 0 ] && {
-					nxlog "$lp Umounting FAILED! Stop mounting."
-					return 1;
-				}
-			else
-				touch "$sess_dir/scripts/@s@$share"; return;
-			fi
+		nxlog "$lp share $mnts already mounted on $dir"
+		if [ -z "$(get_sessdir4res "@s@$share")" ]; then
+			nxlog "$lp Try to force umount dead mountpoint \"$dir\""
+			try_umount_smb "$dir"; rc=$?
+			[ $rc -ne 0 ] && {
+				nxlog "$lp Umounting FAILED! Stop mounting."; return 1;
+			}
 		else
-			echo "$dir" >> "$sess_dir/scripts/mpoint"
-			return
+			touch "$sess_dir/scripts/@s@$share"; return;
 		fi
 	fi
 	# wait up to 30 sec until nxagent has opened the listener port
@@ -1715,23 +1685,15 @@ cmd_node_smbmount() {
 	try_mount_smb "//$computername/$share" "$dir" "$username" $port "$ids_ops" "$password"
 	rc=$?
 	if [ $rc -eq 0 ]; then
-		if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]; then
-			nxlog "$lp share \"//$computername/$share\" mount on \"$dir\""
-			sfn="@s@$share"
-			touch "$sess_dir/scripts/$sfn"
-			desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
-			[ -d "$desc_dir" ] || {
-				mkdir "$desc_dir" && chmod 700 "$desc_dir";
-			}
-			[ ! -e "$desc_dir/$sfn" ] && touch "$desc_dir/$sfn" && \
-				chmod 600 "$desc_dir/$sfn" # create "top-secret" description file
-			echo "//$computername/$share&$dir&$username&$password&$ids_ops" > "$desc_dir/$sfn"
-		else # not multimount case
-			nxlog "$lp share \"//$computername/$share\" mount on \"$dir\""
-			$PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" \
-				-message "Info: Share: '//$computername/$share' mounted on: '$dir'" \
-				-display :$display &
-		fi
+		nxlog "$lp share \"//$computername/$share\" mount on \"$dir\""
+		sfn="@s@$share"; touch "$sess_dir/scripts/$sfn"
+		desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
+		[ -d "$desc_dir" ] || {
+			mkdir "$desc_dir" && chmod 700 "$desc_dir";
+		}
+		[ ! -e "$desc_dir/$sfn" ] && touch "$desc_dir/$sfn" && \
+			chmod 600 "$desc_dir/$sfn" # create "top-secret" description file
+		echo "//$computername/$share&$dir&$username&$password&$ids_ops" > "$desc_dir/$sfn"
 		echo "$dir" >> "$nx_dir/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
 	else
 		nxlog "$lp Share //$computername/$share mount FAILED."
