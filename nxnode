@@ -142,8 +142,6 @@ get_sessdir4res() {
 # (flag-file) fl_current - if set then includes in search current session-dir
 # if share is nx-controlled and nxagent from his session are leave,
 # then returns name of session dir (except dir of own sesson)
-# functuion used with $ENABLE_SHARE_MULTIMOUNT=1 or
-# $ENABLE_CUPS_SERVER_MODE=1 modes only
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting with args \"$@\"; sess_id='$sess_id'"
 	local digarg agent_pids sessdir node_agent_pid curport;
@@ -170,53 +168,6 @@ get_sessdir4res() {
 		fi
 	done
 	nxlog "$lp target sessdir not found"
-}
-
-check_remote_printer() {
-# args: type - "smb" or "ipp"
-# short sharename/printername
-# port - nx controlled mount port
-# name - user name
-# pass - password (optional)
-# if shared printer accessible, returns 1, else - 0
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting with args \"$@\""
-	local res i nxredir_lib cmdstr numa upass ret dport;
-	if [ "$1" = "ipp" ]; then # checking ipp printer port only
-		res=0;
-		for (( i=10; $i; --i )); do
-			nxlog "$lp wait for ipp-port 127.0.0.1:$3 - $((10-i))"
-			$COMMAND_NETCAT -znvw 1 127.0.0.1 $3 2> /dev/null > /dev/null
-			[ $? -eq 0 ] && { res=1; break; }
-			sleep 1
-		done
-		nxlog "$lp end with res = $res"
-		echo $res; return 0;
-	fi
-	[ "$(cutfn "$2" "-" "-1")" = "nocheck" ] && {
-		res=1
-		nxlog "$lp special sharename \"$2\" - stop checking, end with res='$res'"
-		echo $res; return 0;
-	}
-	nxredir_lib="$PATH_LIB/freenx-server/libnxredir.so.0"
-	[ -n "$5" ] && upass="$4%$5" || upass="$4 -N"
-	[ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
-	cmdstr="/usr/bin/rpcclient -U '$upass' -c 'openprinter $2' \
--p $dport -I 127.0.0.1 127.0.0.1 2>&1"
-	nxlog "$lp invoke command \"$cmdstr\""
-	res=""; numa="0"; ret="0"
-	while [ "$ret" = "0" ]; do
-		# addprinter and addmount try to use one mport at the same time,
-		# we need to endure ;)
-		(( numa++ ))
-		res=$(NXSAMBA_PORT=$3 LD_PRELOAD=$nxredir_lib eval $cmdstr)
-		nxlog "$lp on attempt $numa says \"$res\""
-		[ -n "$(rematchfn '(successfully)' "$res")" ] && { ret="1"; continue; }
-		[ "$numa" -gt 4 ] && ret="1" && res="timeout"
-	done
-	[ -n "$(rematchfn '(successfully)' "$res")" ] && res=1 || res=0
-	nxlog "$lp end with res = $res"
-	echo $res
 }
 
 check_local_pa_tunnel() {
@@ -628,15 +579,9 @@ node_start_applications() {
 		fi
 	fi
 
-	[ "$ENABLE_CUPS_SERVER_MODE" = "1" ] && {
-		cups_server_socket=$(LC_ALL=C /usr/bin/lpstat -H 2>/dev/null)
-		[ -r $cups_server_socket ] || cups_server_socket=""
-	} || cups_server_socket="$NXSESSION_DIRECTORY/cups/cups.sock"
-	[ "$ENABLE_CUPS_SERVER_EXPORT" = "1" -a -n "$cups_server_socket" ] && {
-		[ "$cups" = "1" -o "$samba" = "1" ] && {
-			nxlog "$lp export CUPS_SERVER=$cups_server_socket"
-			export CUPS_SERVER="$cups_server_socket"
-		}
+	[ "$cups" = "1" -o "$samba" = "1" ] && {
+		nxlog "$lp export CUPS_SERVER=$CUPS_DEFAULT_SOCK"
+		export CUPS_SERVER=$CUPS_DEFAULT_SOCK
 	}
 	if [ "$ENABLE_SAMBA_PRELOAD" = "1" -a -x "$PATH_BIN/nxredir" ]; then
 		let NXSAMBA_PORT=$display+3000
@@ -958,7 +903,54 @@ node_start_agent() {
 		node_start_monitor; } 4>&1
 }
 
-try_remount_printers() {
+check_remote_printer() {
+# args: type - "smb" or "ipp"
+# short sharename/printername
+# port - nx controlled mount port
+# name - user name
+# pass - password (optional)
+# if shared printer accessible, returns 1, else - 0
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting with args \"$@\""
+	local res i nxredir_lib cmdstr numa upass ret dport;
+	if [ "$1" = "ipp" ]; then # checking ipp printer port only
+		res=0;
+		for (( i=10; $i; --i )); do
+			nxlog "$lp wait for ipp-port 127.0.0.1:$3 - $((10-i))"
+			$COMMAND_NETCAT -znvw 1 127.0.0.1 $3 2> /dev/null > /dev/null
+			[ $? -eq 0 ] && { res=1; break; }
+			sleep 1
+		done
+		nxlog "$lp end with res = $res"
+		echo $res; return 0;
+	fi
+	[ "$(cutfn "$2" "-" "-1")" = "nocheck" ] && {
+		res=1
+		nxlog "$lp special sharename \"$2\" - stop checking, end with res='$res'"
+		echo $res; return 0;
+	}
+	nxredir_lib="$PATH_LIB/freenx-server/libnxredir.so.0"
+	[ -n "$5" ] && upass="$4%$5" || upass="$4 -N"
+	[ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
+	cmdstr="/usr/bin/rpcclient -U '$upass' -c 'openprinter $2' \
+-p $dport -I 127.0.0.1 127.0.0.1 2>&1"
+	nxlog "$lp invoke command \"$cmdstr\""
+	res=""; numa="0"; ret="0"
+	while [ "$ret" = "0" ]; do
+		# addprinter and addmount try to use one mport at the same time,
+		# we need to endure ;)
+		(( numa++ ))
+		res=$(NXSAMBA_PORT=$3 LD_PRELOAD=$nxredir_lib eval $cmdstr)
+		nxlog "$lp on attempt $numa says \"$res\""
+		[ -n "$(rematchfn '(successfully)' "$res")" ] && { ret="1"; continue; }
+		[ "$numa" -gt 4 ] && ret="1" && res="timeout"
+	done
+	[ -n "$(rematchfn '(successfully)' "$res")" ] && res=1 || res=0
+	nxlog "$lp end with res = $res"
+	echo $res
+}
+
+node_cups_reconnect() {
 # args: none
 # if found another running session with same smb/ipp-printers,
 # try to remount from current, else - umount
@@ -968,7 +960,7 @@ try_remount_printers() {
 	local share upass username password model defaultPrinter cmdstr id drv pname;
 	local sessdir="$nx_dir/C-$sess_id"
 	local scr_dir="$sessdir/scripts"
-	[ ! -d "$sessdir" ] && { nxlog "$lp Dir sessdir='$sessdir' NOT FOUND! Calling twice? Why?"
+	[ ! -d "$sessdir" ] && { nxlog "$lp Dir sessdir='$sessdir' NOT FOUND!"
 		return 1; }
 	for spname in $scr_dir/@p@* ; do
 		[ "$spname" = "*" ] && { nxlog "$lp No printers found. end."
@@ -1042,182 +1034,6 @@ try_remount_printers() {
 		fi
 	done
 	nxlog "$lp end."
-}
-
-# node_cupsd_stop
-# Used glob vars: $sess_id
-node_cupsd_stop() {
-# dimbor: if system cupsd is used, we try to remove/remount printers
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]; then
-		nxlog "$lp starting with  ENABLE_CUPS_SERVER_MODE = 1, call try_remount_printers()"
-		try_remount_printers
-		nxlog "$lp end"
-		return
-	fi
-
-	# original behaviour
-	# Cleanup userspace cups daemon
-	[ -e "$nx_dir/C-$sess_id/pids/cupsd" ] || return
-	NODE_CUPSD_PID=$(cat "$nx_dir/C-$sess_id/pids/cupsd")
-	# Check for a running userspace cupsd, look if its still active
-	# and kill it if so
-	( [ -n "$NODE_CUPSD_PID" ] && kill -0 $NODE_CUPSD_PID && kill $NODE_CUPSD_PID && sleep 2 && kill -0 $NODE_CUPSD_PID && kill -9 $NODE_CUPSD_PID ) 2>/dev/null
-	# delete pid file
-	rm -f "$nx_dir/C-$sess_id/pids/cupsd"
-	# remove all printers
-	echo >"$nx_dir/C-$sess_id/cups/printers.conf"
-	[ -z "$KDE_PRINTRC" ] || sed "s|^Host=$nx_dir/C-$sess_id/cups/cups.sock||" -i "$KDE_PRINTRC"
-}
-
-# node_cupsd_setup
-# Used glob vars: $sess_id, $display
-node_cupsd_setup() {
-	let NODE_CUPSD_PORT=$display+9000 # offset 9000 for userspace cupsd's
-	export NODE_CUPSD_PORT
-	export NODE_CUPSD_SOCKET="$nx_dir/C-$sess_id/cups/cups.sock"
-	mkdir -p "$nx_dir/C-$sess_id/pids/"
-	[ -e "$nx_dir/C-$sess_id/pids/cupsd" ] && return
-	touch "$nx_dir/C-$sess_id/pids/cupsd"
-	mkdir -p "$nx_dir/C-$sess_id/cups/spool/tmp" "$nx_dir/C-$sess_id/cups/spool/certs" "$nx_dir/C-$sess_id/cups/ppd" "$nx_dir/C-$sess_id/cups/cache"
-	mkdir -p "$nx_dir/C-$sess_id/cups/log" #JJK cups log file home
-#JJK: Modifications to cupsd.conf
-#JJK:   - Added SystemGroup line in order to add $USER to SystemGroup
-#JJK:   - Moved all the log files to log/<log>
-#JJK:   - Set AccessLog to: log/access_log (was /dev/null)
-#JJK:   - Added listening on $NODE_CUPSD_PORT
-#JJK:			 Listen localhost: $NODE_CUPSD_PORT
-#JJK:   - Removed following line because directive is specific to Debian
-#JJK:       PidFile $nx_dir/C-$sess_id/pids/cupsd
-#JJK:   -  Access restrictions borrowed from /etc/cups/cupsd.conf
-#JJK:   -  Default policy borrowed from /etc/cups/cupsd.conf but modified
-#JJK:        to allow Add, Delete, and Default printer without (password)
-#JJK:        authentication
-#JJK:   - Note for more detailed logging set: LogLevel debug
-
-CUPSPidFileString="PidFile $nx_dir/C-$sess_id/pids/cupsd"
-if [ "$CUPS_PidFile" == "0" ] ; then
-	CUPSPidFileString=""
-fi
-
-cat <<EOF > $nx_dir/C-$sess_id/cups/cupsd.conf
-SystemGroup sys root $USER
-AccessLog log/access_log
-ErrorLog log/error_log
-PageLog log/page_log
-LogLevel $CUPSLogLevel
-TempDir $nx_dir/C-$sess_id/cups/spool/tmp
-RequestRoot $nx_dir/C-$sess_id/cups/spool
-ServerRoot $nx_dir/C-$sess_id/cups/
-StateDir $nx_dir/C-$sess_id/cups/
-CacheDir $nx_dir/C-$sess_id/cups/cache
-
-Listen localhost:$NODE_CUPSD_PORT
-Listen $NODE_CUPSD_SOCKET
-Browsing Off
-ServerName localhost
-$CUPSPidFileString
-
-#JJK:  Restrict access to the server...
-<Location />
-Order Deny,Allow
-Deny From All
-Allow from 127.0.0.1
-</Location>
-
-#JJK: Restrict access to the admin pages...
-<Location /admin>
-  Encryption Required
-  Order allow,deny
-  Allow localhost
-</Location>
-
-#JJK: Restrict access to configuration files...
-<Location /admin/conf>
-  AuthType Basic
-  Require user @SYSTEM
-  Order allow,deny
-  Allow localhost
-</Location>
-
-# Allow everything for anonymous, because we are protected through UNIX socket
-#JJK: Since allowing access via $NODE_CUPSD_PORT, need to add protection
-<Policy default>
-  #JJK: Job-related operations must be done by the owner or an adminstrator...
-  <Limit Send-Document Send-URI Hold-Job Release-Job Restart-Job Purge-Jobs Set-Job-Attributes Create-Job-Subscription Renew-Subscription Cancel-Subscription Get-Notifications Reprocess-Job Cancel-Current-Job Suspend-Current-Job Resume-Job CUPS-Move-Job>
-	Require user @OWNER @SYSTEM
-	Order deny,allow
-  </Limit>
-
-  #JJK:All administration operations require an adminstrator to authenticate...
-  <Limit Pause-Printer Resume-Printer Set-Printer-Attributes Enable-Printer Disable-Printer Pause-Printer-After-Current-Job Hold-New-Jobs Release-Held-New-Jobs Deactivate-Printer Activate-Printer Restart-Printer Shutdown-Printer Startup-Printer Promote-Job Schedule-Job-After CUPS-Add-Class CUPS-Delete-Class CUPS-Accept-Jobs CUPS-Reject-Jobs>
-	AuthType Basic
-	Require user @SYSTEM
-	Order deny,allow
-  </Limit>
-
-  #JJK: Except need to allow these for nxnode to work
-  <Limit CUPS-Add-Printer CUPS-Delete-Printer CUPS-Set-Default>
-	Order deny,allow
-  </Limit>
-
-  # Only the owner or an administrator can cancel or authenticate a job...
-  <Limit Cancel-Job CUPS-Authenticate-Job>
-	Require user @OWNER @SYSTEM
-	Order deny,allow
-  </Limit>
-
-  <Limit All>
-	AuthType None
-	Order deny,allow
-  </Limit>
-</Policy>
-EOF
-
-	touch "$nx_dir/C-$sess_id/cups/printers.conf" "$nx_dir/C-$sess_id/cups/classes.conf"
-
-	#JJK: Also copy over pstoraster.convs
-	cp -af "$CUPS_ETC"/mime.* "$CUPS_ETC"/pstoraster.convs "$nx_dir/C-$sess_id/cups/"
-
-	# start cupsd
-#JJK: Note the directive PidFile in the original cupsd.conf intended for
-#JJK: recording the pid is a Debianism. Instead, we will use the non-daemon
-#JJK: form of cupsd and capture the pid directly
-#JJK:	$COMMAND_CUPSD -c "$nx_dir/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null
-	$COMMAND_CUPSD -F -c "$nx_dir/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null &
-	NODE_CUPSD_PID=$!
-	echo $NODE_CUPSD_PID >"$nx_dir/C-$sess_id/pids/cupsd"
-
-	# setup KDE
-	if [ "$ENABLE_KDE_CUPS" = "1" -a -e "$KDE_PRINTRC" ]; then
-		if egrep -q "^Host=" "$KDE_PRINTRC"; then
-			[ "$ENABLE_KDE_CUPS_DYNAMIC" = "1" ] && sed -i -e 's|^Host=.*|Host=\$('"$PATH_BIN/nxcups-gethost"')|g' "$KDE_PRINTRC"
-			[ "$ENABLE_KDE_CUPS_DYNAMIC" != "1" ] && sed -i -e 's|^Host=.*|Host='"$NODE_CUPSD_SOCKET"'|g' "$KDE_PRINTRC"
-		else
-			echo "[CUPS]" >> "$KDE_PRINTRC"
-			[ "$ENABLE_KDE_CUPS_DYNAMIC" = "1" ] && echo "Host[\$ie]=\$($PATH_BIN/nxcups-gethost)" >> "$KDE_PRINTRC"
-			[ "$ENABLE_KDE_CUPS_DYNAMIC" != "1" ] && echo "Host=$NODE_CUPSD_SOCKET" >> "$KDE_PRINTRC"
-		fi
-	fi
-}
-
-# node_cupsd_reload
-# Used glob vars: $sess_id
-node_cupsd_reload() {
-	local node_cupsd_pid
-	[ -e "$nx_dir/C-$sess_id/pids/cupsd" ] || return
-	node_cupsd_pid=$(cat "$nx_dir/C-$sess_id/pids/cupsd")
-	[ -n "$node_cupsd_pid" ] && \
-		kill -0 $node_cupsd_pid && kill -HUP $node_cupsd_pid
-}
-
-node_cupsd_get_socket() {
-	# dimbor: for use system cupsd
-	[ "$ENABLE_CUPS_SERVER_MODE" = "1" ] && { \
-		echo "$CUPS_DEFAULT_SOCK"; return;
-	}
-	node_cupsd_setup
-	echo $NODE_CUPSD_SOCKET
 }
 
 create_mountpoint() {
@@ -1444,8 +1260,8 @@ node_stop_services() {
 	nxlog "$lp starting"
 	nxlog "$lp call node_umount_smb"
 	node_umount_smb
-	nxlog "$lp call node_cupsd_stop"
-	node_cupsd_stop
+	nxlog "$lp call node_cups_reconnect"
+	node_cups_reconnect
 	nxlog "$lp call reconnect_pa"
 	reconnect_pa
 	nxlog "$lp end"
@@ -1563,7 +1379,7 @@ NX> 707 SSL tunneling: $encryption\n"
 #
 startsession() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local txt gvars old_umask realtype
+	local txt gvars old_umask realtype #smbport
 	nxlog "$lp starting with args \"$@\""
 #	gvars="agent_domain, agent_password, agent_server, agent_user,\
 # application, aux, backingstore, cache, client, clientproto,\
@@ -1929,7 +1745,7 @@ cmd_node_smbmount() {
 
 cmd_node_addprinter() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting"
+	nxlog "$lp starting with args \"$@\""
 	# Due to a too quick session start, port does not have time to initialize
 	sleep 0.2s
 	sessionid=$(getparam_sessionid)
@@ -1943,6 +1759,7 @@ cmd_node_addprinter() {
 	public=$(getparam public)
 	model=$(getparam model 1)
 	defaultPrinter=$(getparam defaultPrinter)
+
 	[ -z "$defaultPrinter" ] && defaultPrinter=$(getparam defaultprinter) # for opennx
 	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
 	display=$(cutfn "$sdir" "-" -2)
@@ -1952,22 +1769,15 @@ cmd_node_addprinter() {
 	password=$(norm_param $password)
 	share=$(norm_param $share)
 	computername=$(norm_param $computername)
-	# this will also setup the userspace cupsd
-	export CUPS_SERVER=$(node_cupsd_get_socket)
+	export CUPS_SERVER=$CUPS_DEFAULT_SOCK
 
 	if [ "$type" = "smb" ]; then
-		if [ -x "$CUPS_BACKEND/nxsmb" ]; then
-			[ -r $nx_dir/C-$sess_id/scripts/smbport ] && \
-				smbport=$(< $nx_dir/C-$sess_id/scripts/smbport)
-			[ -z "$smbport" ] && smbport=139 # should not happen
-			if [ "$smbport" = "445" ]; then smbproto="cifs"
-			else smbproto="smb"
-			fi
-			device_uri="nxsmb://$username:$password@127.0.0.1:$port/$smbproto/$share"
-		else
-			device_uri="smb://$username:$password@127.0.0.1:$port/$share"
-		fi
-		name="$share"; ENABLE_CUPS_SEAMLESS="0"
+		[ -r $nx_dir/C-$sess_id/scripts/smbport ] && \
+			smbport=$(< $nx_dir/C-$sess_id/scripts/smbport)
+		[ -z "$smbport" ] && smbport=139 # should not happen
+		[ "$smbport" = "445" ] && smbproto="cifs" || smbproto="smb"
+		device_uri="nxsmb://$username:$password@127.0.0.1:$port/$smbproto/$share"
+		name="$share";
 		nxlog "$lp set name = $name; smbport=$smbport; device_uri=$device_uri"
 	else
 		printer=$(norm_param $printer)
@@ -1982,177 +1792,135 @@ cmd_node_addprinter() {
 	#JJK:	public="-u allow:$USER"
 	public="-u allow:$USER,guest,root"
 	[ "$public" == "1" ] && public=""
-	export PATH_BIN
-	user_ppd_dir="$nx_dir/config/ppd"
-	mkdir -p "$user_ppd_dir"
-	nxlog "$lp run with ENABLE_CUPS_SERVER_MODE=$ENABLE_CUPS_SERVER_MODE"
 	# dimbor: We use system cupsd
-	if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]; then
-		# dimbor: Name of windows share or ipp-printer may be set to name
-		# of driver.ppd from $NX_ETC_DIR/ppd/ (without ".ppd").
-		# For ipp if driver not found we try it to download like
-		# oriiginal behaviour (need installed curl).
-		# In case of ENABLE_FOOMATIC="1" share/printer name may set to
-		# [@]<printer id>[#<N>][__<driver_num>][-nocheck]
-		# @: if sharename started with char "@", force setup to anyone
-		# share name driver "HP-LaserJet_4M-Postscript.ppd"
-		# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)
-		# <printer id>: significant part of drver's uri.
-		# <N>: number of printer instance
-		# "__": char "_" twice
-		# <driver_num>: number from drver's uri.
-		# Driver-uri is first field of output '/usr/lib/cups/driver/* list'
-		# -nocheck: do not check remote smb-share by rpclient (to W7 Home clients)
-		pre=""; [ "${name:0:1}" = "@" ] && { pre="1"; name=${name:1}; }
-		nocheck=""; stringinstring "-nocheck" "$name" && {
-			 nocheck="1"; name=${name/-nocheck/}; }
-		drv=""; stringinstring "__" "$name" && {
-			drv=${name#*__}; name=${name%__*}; }
-		nn=""; stringinstring "#" "$name" && {
-			nn=${name#*#}; name=${name%#*}; }
-		pname="$USER""_""$name""$nn" # user's printer name
-		[ -n "$pre" ] && { id="HP-LaserJet_4M-Postscript"; drv="0"; }
-		model="$NX_ETC_DIR/ppd/$id.ppd"
-		nxlog "$lp set pname = \"$pname\", try to install \"$model\" - N=$nn, drv=$drv, pname=$pname."
-		[ "$type" = "smb" ] || [ -r "$model" ] || {
-			# try to download "left-nx" ppd (original scheme), needs to use
-			# wrapper for nxprint on client side
-			# TODO: Rewrite
-			[ "$(check_remote_printer "ipp" "fake_param" $port)" = "0" ] && {
-				nxlog "$lp Remote CUPS not found!"
+	# Name of windows share or ipp-printer may be set to name
+	# of driver.ppd from $NX_ETC_DIR/ppd/ (without ".ppd").
+	# For ipp if driver not found we try it to download like
+	# oriiginal behaviour (need installed curl).
+	# In case of ENABLE_FOOMATIC="1" share/printer name may set to
+	# [@]<printer id>[#<N>][__<driver_num>][-nocheck]
+	# @: if sharename started with char "@", force setup to anyone
+	# share name driver "HP-LaserJet_4M-Postscript.ppd"
+	# http://www.nixp.ru/articles/win_printing_in_linux (hello to DjSpike)
+	# <printer id>: significant part of drver's uri.
+	# <N>: number of printer instance
+	# "__": char "_" twice
+	# <driver_num>: number from drver's uri.
+	# Driver-uri is first field of output '/usr/lib/cups/driver/* list'
+	# -nocheck: do not check remote smb-share by rpclient (to W7 Home clients)
+	pre=""; [ "${name:0:1}" = "@" ] && { pre="1"; name=${name:1}; }
+	nocheck=""; stringinstring "-nocheck" "$name" && {
+		 nocheck="1"; name=${name/-nocheck/}; }
+	drv=""; stringinstring "__" "$name" && {
+		drv=${name#*__}; name=${name%__*}; }
+	nn=""; stringinstring "#" "$name" && { nn=${name#*#}; name=${name%#*}; }
+	pname="$USER""_""$name""$nn" # user's printer name
+	[ -n "$pre" ] && { id="HP-LaserJet_4M-Postscript"; drv="0"; }
+	model="$NX_ETC_DIR/ppd/$id.ppd"
+	nxlog "$lp set pname = \"$pname\", try to install \"$model\" - N=$nn, drv=$drv, pname=$pname."
+	[ "$type" = "smb" ] || [ -r "$model" ] || {
+		# try to download "left-nx" ppd (original scheme), needs to use
+		# wrapper for nxprint on client side
+		# TODO: Rewrite
+		[ "$(check_remote_printer "ipp" "fake_param" $port)" = "0" ] && {
+			nxlog "$lp Remote CUPS not found!"; return 1; }
+		errstr=$(curl --proxy "" --digest -o "$model" \
+			"http://$username:$password@127.0.0.1:$port/ppd/${name}_nxdl.ppd" 2>&1)
+		cmdstr="curl --proxy \"\" --digest -o $model http://$username:******@127.0.0.1:$port/ppd/${name}_nxdl.ppd"
+		[ -r "$model" -a -n "$(head -n1 "$model" 2>/dev/null | grep "*PPD-Adobe")" ] && {
+			nxlog "$lp $model download SUCCESSFUL."
+		} || {
+			nxlog "$lp $model is NOT a PPD-file! Contents: \"$(cat $model 2>/dev/null)\""
+			nxlog "$lp cmd: $cmdstr"
+			nxlog "$lp $errstr"
+			rm -f "$model"
+		}
+	}
+	if [ ! -r "$model" ]; then
+		# TODO: Rewrite
+		[ "$ENABLE_FOOMATIC" != "0" ] &&  { # search ppd-file in cups
+			cups_driver_dir="/usr/lib/cups/driver"; uris=""
+			for prog in $cups_driver_dir/*; do
+				[ -x $prog ] || continue
+				stringinstring "gutenprint" "$prog" && mn="$id"|| mn="$id.ppd"
+				strs=$($prog list 2>/dev/null | grep "$mn")
+				[ -z "$strs" ] && continue
+				strs=$(echo "$strs" | awk -F'"' '{ printf("%s\n",$2)}') #'
+				uris="$uris""$strs"
+			done
+			[ -n "$HASDRV" ] && uris=$(echo "$uris" | awk -F'/' \
+				'{nd=substr($1,index($1,":")+1); if (nd ~ '$drv') {printf("%s\n",$0)}}')
+			drv_uri=$(echo "$uris" | head -n1)
+			[ -n "$drv_uri" ] && {
+				nxlog "$lp Try to get \"$model\" from URI \"$drv_uri\""
+				prog="$cups_driver_dir/$(echo "$drv_uri" |  awk -F':' '{ printf("%s",$1)}')" #'
+				cmdstr="$prog cat $drv_uri"
+				$cmdstr > $model
+			} || {
+				nxlog "$lp Driver for \"$name\" not found in CUPS. STOP installing."
 				return 1
 			}
-			errstr=$(curl --proxy "" --digest -o "$model" \
-				"http://$username:$password@127.0.0.1:$port/ppd/${name}_nxdl.ppd" 2>&1)
-			cmdstr="curl --proxy \"\" --digest -o $model http://$username:******@127.0.0.1:$port/ppd/${name}_nxdl.ppd"
-			[ -r "$model" -a -n "$(head -n1 "$model" 2>/dev/null | grep "*PPD-Adobe")" ] && {
-				nxlog "$lp $model download SUCCESSFUL."
-			} || {
-				nxlog "$lp $model is NOT a PPD-file! Contents: \"$(cat $model 2>/dev/null)\""
-				nxlog "$lp cmd: $cmdstr"
-				nxlog "$lp $errstr"
-				rm -f "$model"
-			}
 		}
-		if [ ! -r "$model" ]; then
-			# TODO: Rewrite
-			[ "$ENABLE_FOOMATIC" != "0" ] &&  { # search ppd-file in cups
-				cups_driver_dir="/usr/lib/cups/driver"; uris=""
-				for prog in $cups_driver_dir/*; do
-					[ -x $prog ] || continue
-					stringinstring "gutenprint" "$prog" && \
-						mn="$id"|| mn="$id.ppd"
-					strs=$($prog list 2>/dev/null | grep "$mn")
-					[ -z "$strs" ] && continue
-					strs=$(echo "$strs" | \
-						awk -F'"' '{ printf("%s\n",$2)}')
-					uris="$uris""$strs"
-				done
-				[ -n "$HASDRV" ] && uris=$(echo "$uris" | awk -F'/' \
-					'{nd=substr($1,index($1,":")+1); if (nd ~ '$drv') {printf("%s\n",$0)}}')
-				drv_uri=$(echo "$uris" | head -n1)
-				[ -n "$drv_uri" ] && {
-					nxlog "$lp Try to get \"$model\" from URI \"$drv_uri\""
-					prog="$cups_driver_dir/$(echo "$drv_uri" |  awk -F':' '{ printf("%s",$1)}')" #'
-					cmdstr="$prog cat $drv_uri"
-					$cmdstr > $model
-				} || {
-					nxlog "$lp Driver for \"$name\" not found in CUPS. STOP installing."
-					return 1
-				}
-			}
+	fi
+	pfn="@p@$pname" # filename of flag and description files
+	sess_dir="$nx_dir/C-$sess_id"
+	desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
+	[ -d "$desc_dir" ] || { mkdir "$desc_dir" && chmod 700 "$desc_dir"; }
+	[ "$type" = "smb" ] && {
+		for (( i=30; $i; --i )); do
+			nxlog "$lp wait for smb-port $((30-i))"
+			[ -f "$sess_dir/scripts/mport" ] && break
+			sleep 1
+		done
+	} || share=$printer
+	# check existing printers
+	pstr=$(LC_ALL=C /usr/bin/lpstat -v "$pname" 2>/dev/null)
+	if [ -n "$pstr" ]; then # printer present
+		iport=$(rematchfn ':([[:digit:]]+)/' "$pstr") #'
+		[ "$iport" -gt 0 2>/dev/null ] && drop=0 || { drop=1; dbs="wrong port"; }
+		[ -n "$nocheck" ] && { drop=1; dbs="don't check remote printer"; }
+		if [ "$drop" = "0" ]; then
+			[ "$(check_remote_printer $type $name $iport $username $password)" = "0" ] && \
+				{ drop=1; dbs="not accessible"; }
 		fi
-		pfn="@p@$pname" # filename of flag and description files
-		sess_dir="$nx_dir/C-$sess_id"
-		desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
-		[ -d "$desc_dir" ] || { mkdir "$desc_dir" && chmod 700 "$desc_dir"; }
-		[ "$type" = "smb" ] && {
-			for (( i=30; $i; --i )); do
-				nxlog "$lp wait for smb-port $((30-i))"
-				[ -f "$sess_dir/scripts/mport" ] && break
-				sleep 1
-			done
-		} || share=$printer
-		# check existing printers
-		pstr=$(LC_ALL=C /usr/bin/lpstat -v "$pname" 2>/dev/null)
-		if [ -n "$pstr" ]; then # printer present
-			iport=$(rematchfn ':([[:digit:]]+)/' "$pstr") #'
-			[ "$iport" -gt 0 2>/dev/null ] && drop=0 || { drop=1; dbs="wrong port"; }
-			[ -n "$nocheck" ] && { drop=1; dbs="don't check remote printer"; }
-			if [ "$drop" = "0" ]; then
-				[ "$(check_remote_printer $type $name $iport $username $password)" = "0" ] && \
-					{ drop=1; dbs="not accessible"; }
-			fi
-			[ "$drop" = "0" ] && [ "$type" = "ipp" -o "$iport" = "$port" ] && \
-				{ drop=1; dbs="for reinstall"; }
-			if [ "$drop" = "1" ]; then
-				nxlog "$lp delete printer \"$pname\" (port:$iport) - $dbs"
-				/usr/bin/sudo /usr/sbin/lpadmin -x "$pname"
-			else
-				nxlog "$lp printer \"$pname\" already exist at port:$iport - stop adding, mark only"
-				echo $password > "$sess_dir/scripts/$pfn"; chmod 600 "$sess_dir/scripts/$pfn"
-				return 0
-			fi
+		[ "$drop" = "0" ] && [ "$type" = "ipp" -o "$iport" = "$port" ] && \
+			{ drop=1; dbs="for reinstall"; }
+		if [ "$drop" = "1" ]; then
+			nxlog "$lp delete printer \"$pname\" (port:$iport) - $dbs"
+			/usr/bin/sudo /usr/sbin/lpadmin -x "$pname"
+		else
+			nxlog "$lp printer \"$pname\" already exist at port:$iport - stop adding, mark only"
+			echo $password > "$sess_dir/scripts/$pfn"; chmod 600 "$sess_dir/scripts/$pfn"
+			return 0
 		fi
-		[ "$(check_remote_printer $type $name $port $username $password)" = "0" ] && {
-			nxlog "$lp \"$name\" (mport:$port) NOT ACCESSIBLE stop adding."
-			return 1;
+	fi
+	[ "$(check_remote_printer $type $name $port $username $password)" = "0" ] && {
+		nxlog "$lp \"$name\" (mport:$port) NOT ACCESSIBLE stop adding."
+		return 1;
+	}
+	echo $password > "$sess_dir/scripts/$pfn"; chmod 600 "$sess_dir/scripts/$pfn" # set share present flag
+	if [ -r "$model" ] ; then
+		[ ! -e "$desc_dir/$pfn" ] && touch "$desc_dir/$pfn" \
+			&& chmod 600 "$desc_dir/$pfn" # create "top-secret" description file
+		echo "$model&$device_uri&$public&$defaultPrinter" > "$desc_dir/$pfn" # confidential access data
+		cmdstr="/usr/bin/sudo /usr/sbin/lpadmin -p $pname -P $model -v $device_uri -E"
+	else
+		nxlog "$lp $model driver not found! Printer $name not installed."
+		return 1
+	fi
+	nxlog "$lp invoke $cmdstr"
+	error="$($cmdstr 2>&1)"
+	if [ $? -eq 0 ] ; then
+		nxlog "$lp printer \"$pname\" installed"
+		[ -n "$public" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $pname $public;
+			[ $? -ne 0 ] && nxlog "$lp FAILED to set options \"$public\" for printer \"$pname\""
 		}
-		echo $password > "$sess_dir/scripts/$pfn"; chmod 600 "$sess_dir/scripts/$pfn" # set share present flag
-		if [ -r "$model" ] ; then
-			[ ! -e "$desc_dir/$pfn" ] && touch "$desc_dir/$pfn" \
-				&& chmod 600 "$desc_dir/$pfn" # create "top-secret" description file
-			echo "$model&$device_uri&$public&$defaultPrinter" > "$desc_dir/$pfn" # confidential access data
-			cmdstr="/usr/bin/sudo /usr/sbin/lpadmin -p $pname -P $model -v $device_uri -E"
-		else
-			nxlog "$lp $model driver not found! Printer $name not installed."
-			return 1
-		fi
-		nxlog "$lp invoke $cmdstr"
-		error="$($cmdstr 2>&1)"
-		if [ $? -eq 0 ] ; then
-			nxlog "$lp printer \"$pname\" installed"
-			[ -n "$public" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $pname $public;
-				[ $? -ne 0 ] && nxlog "$lp FAILED to set options \"$public\" for printer \"$pname\""
-			}
-			[ "$defaultPrinter" = "1" ] && {
-				/usr/bin/sudo /usr/sbin/lpadmin -d "$pname";
-				[ $? -ne 0 ] && nxlog "$lp FAILED to set default printer \"$pname\""
-			}
-		else
-			nxlog "$lp FAILED to install printer \"$pname\": $error"
-		fi
-	else # original behaviour
-		mkdir -p "$nx_dir/config/ppd/"
-		if [ "$ENABLE_CUPS_SEAMLESS" != "1" ]; then
-			#JJK: Export the following variables for use by nxdialog/nxprint
-			#JJK: Note they are also exported in nxdialog but doesn't help there
-			export ENABLE_FOOMATIC COMMAND_FOOMATIC PPD_DIR
-			model=$($PATH_BIN/nxdialog -printer "$name" -display :$display)
-			[ -z "$model" -o "$model" = "cancel: aborted" ] && return
-		else
-			sleep $CUPS_SEAMLESS_DELAY
-			model="download_cached"
-		fi
-
-		if [ "$model" = "download_new" -o "$model" = "download_cached" ]; then
-			if [ "$model" = "download_new" -o ! -r "$nx_dir/config/ppd/$printer.ppd" ]; then
-				curl --proxy "" --digest -o "$nx_dir/config/ppd/$printer.ppd" "http://$username:$password@127.0.0.1:$port/ppd/${printer}_nxdl.ppd" >>"$nx_dir/C-$sess_id/cups/curl.log" 2>&1
-				rc=$?
-				[ $rc -eq 0 -a "$ENABLE_CUPS_SEAMLESS" != "1" ] && $PATH_BIN/nxdialog --message "Download successful." -display :$display
-				[ $rc -ne 0 -a "$ENABLE_CUPS_SEAMLESS" != "1" ] && $PATH_BIN/nxdialog --message "Download failed. Log is: $nx_dir/C-$sess_id/cups/curl.log" -display :$display
-			fi
-			model="$nx_dir/config/ppd/$printer.ppd"
-		fi
-		if [ ! -r "$model" ]; then
-			# Foomatic and co
-			/usr/sbin/lpadmin -p "$name" -E -v "$device_uri" -m "$model" $public
-		else
-			/usr/sbin/lpadmin -p "$name" -E -v "$device_uri" -P "$model" $public
-		fi
-
-		[ "$defaultPrinter" = "1" ] && /usr/sbin/lpadmin -d "$name"
-	fi # end of original
+		[ "$defaultPrinter" = "1" ] && {
+			/usr/bin/sudo /usr/sbin/lpadmin -d "$pname";
+			[ $? -ne 0 ] && nxlog "$lp FAILED to set default printer \"$pname\""
+		}
+	else nxlog "$lp FAILED to install printer \"$pname\": $error"
+	fi
 }
 
 case "$1" in
@@ -2175,7 +1943,7 @@ case "$1" in
 		cmd_node_smbmount
 	;;
 	--addprinter)
-			cmd_node_addprinter
+		cmd_node_addprinter
 	;;
 	--check)
 		echo "NX> 716 finished"
