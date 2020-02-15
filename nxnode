@@ -18,7 +18,7 @@
 
 # use env vars: USER
 
-declare -g delim CMDLINE
+declare -g delim CMDLINE nx_dir;
 
 
 #JJK: Added	following 'if' stanza as a kluge since the following variables
@@ -69,10 +69,14 @@ nxlog() {
 	echo_secure "$(date "+%T.%3N"): $@" >> "$nxuser_logfile"
 }
 
-if [ "$USER" = "nx" ]; then nxuser_logfile="/var/log/nx/nxnode.log"
+
+if [ "$USER" = "nx" ]; then
+	nx_dir="" # ???
+	nxuser_logfile="/var/log/nx/nxnode.log"
 else
-	nxuser_logfile="$USER_FAKE_HOME/.nx/nxnode.log"
-	mkdir -p "$USER_FAKE_HOME/.nx"
+	nx_dir="$USER_FAKE_HOME/.nx"
+	nxuser_logfile="$nx_dir/nxnode.log"
+	mkdir -p "$nx_dir"
 fi
 
 if [ -n "$CMDLINE" ]; then
@@ -83,7 +87,7 @@ if [ -n "$CMDLINE" ]; then
 		[ -z "$ssid4log" ] && ssid4log=$(getparam sessionid)
 		ssid4log=${ssid4log##*-}
 		[ -n "$ssid4log" ] && \
-			nxuser_logfile="$USER_FAKE_HOME/.nx/nxnode-$ssid4log.log"
+			nxuser_logfile="$nx_dir/nxnode-$ssid4log.log"
 	fi
 	nxlog "$0 ($$): run nxnode with PARAMS:\"$@\"; CMDLINE='$CMDLINE'"
 else
@@ -142,8 +146,8 @@ get_sessdir4res() {
 	local digarg agent_pids sessdir node_agent_pid curport;
 	[ "$1" -gt 0 2>/dev/null ] && digarg=1 || digarg=0
 	agent_pids=$(ps -wo pid= -C "nxagent")
-	for sessdir in $USER_FAKE_HOME/.nx/C-* ; do
-		[ -z "$2" -a "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
+	for sessdir in $nx_dir/C-* ; do
+		[ -z "$2" -a "$sessdir" == "$nx_dir/C-$sess_id" ] && continue
 		node_agent_pid=""
 		[ -r "$sessdir/pids/agent" ] && node_agent_pid=$(< $sessdir/pids/agent)
 		[ -z "$node_agent_pid" ] && continue
@@ -298,12 +302,12 @@ check_local_pa_tunnel() {
 reconnect_pa() {
 	local mmport="" papars="" node_agent_pid rate channels papid="" agent_pids;
 	local sessdir;
-	[ -r "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid" ] && \
-		papid=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/pa_pid)
+	[ -r "$nx_dir/C-$sess_id/scripts/pa_pid" ] && \
+		papid=$(< $nx_dir/C-$sess_id/scripts/pa_pid)
 	[ -z "$papid" ] && return
 	agent_pids=$(ps -wo pid= -C "nxagent")
-	for sessdir in $USER_FAKE_HOME/.nx/C-*; do # start port search
-		[ "$sessdir" == "$USER_FAKE_HOME/.nx/C-$sess_id" ] && continue
+	for sessdir in $nx_dir/C-*; do # start port search
+		[ "$sessdir" == "$nx_dir/C-$sess_id" ] && continue
 		node_agent_pid=""; [ -r "$sessdir/pids/agent" ] && \
 			node_agent_pid=$(< $sessdir/pids/agent)
 		[ -z "$node_agent_pid" ] && continue
@@ -313,7 +317,7 @@ reconnect_pa() {
 		[ -n "$mmport" ] && break
 	done
 	if [ -n "$mmport" ]; then # try reconnect
-		papars=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/params.pa)
+		papars=$(< $nx_dir/C-$sess_id/scripts/params.pa)
 		rate=$(cutfn "$papars" ":" 0)
 		channels=$(cutfn "$papars" ":" 1)
 		[ -z "$(check_local_pa_tunnel 127.0.0.1:$mmport $rate $channels)" ] && {
@@ -328,8 +332,8 @@ reconnect_pa() {
 node_terminate_agent() {
 	nxlog "$FUNCNAME ($$): starting"
 	local node_agent_pid;
-	[ -r "$USER_FAKE_HOME/.nx/C-$1/pids/agent" ] && \
-		node_agent_pid=$(< $USER_FAKE_HOME/.nx/C-$1/pids/agent)
+	[ -r "$nx_dir/C-$1/pids/agent" ] && \
+		node_agent_pid=$(< $nx_dir/C-$1/pids/agent)
 	[ -n "$node_agent_pid" ] && {
 		nxlog "$FUNCNAME ($$): killing node_agent_pid='$node_agent_pid'"
 		kill $node_agent_pid 2>/dev/null;
@@ -348,7 +352,7 @@ node_terminate_agent() {
 node_terminate_session() {
 	local node_agent_pid node_tail_pid="" display sessdir
 	nxlog "$FUNCNAME ($$): Start terminating session \"$1\" with status \"$2\""
-	sessdir="$USER_FAKE_HOME/.nx/C-$1"
+	sessdir="$nx_dir/C-$1"
 	[ -e "$sessdir/terminating" ] && {\
 		nxlog "$FUNCNAME ($$): Terminating still in progress. Bye."
 		return;
@@ -390,24 +394,24 @@ node_terminate_session() {
 
 	# Remove magic cookie information
 	nxlog "$FUNCNAME ($$): Remove magic cookie information"
-	$COMMAND_XAUTH -v source "$USER_FAKE_HOME/.nx/C-$1/scripts/authority" >/dev/null 2>&1
+	$COMMAND_XAUTH -v source "$nx_dir/C-$1/scripts/authority" >/dev/null 2>&1
 
 	# Preserve or remove session information
 	nxlog "$FUNCNAME ($$): Preserve or remove session information"
 	if [ "$SESSION_LOG_CLEAN" = "1" ]; then
 		nxlog "$FUNCNAME ($$): Clean session information."
-		rm -rf "$USER_FAKE_HOME/.nx/C-$1/"
-		rm -f  "$USER_FAKE_HOME/.nx/nxnode-$1.log"
-		rm -f  "$USER_FAKE_HOME/.nx/nxnode.log"
+		rm -rf "$nx_dir/C-$1/"
+		rm -f  "$nx_dir/nxnode-$1.log"
+		rm -f  "$nx_dir/nxnode.log"
 	fi
 	if [ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] ; then
-		nxlog "$FUNCNAME ($$): Session failed. Rename session directory from \"$USER_FAKE_HOME/.nx/C-$1/\" to \"$USER_FAKE_HOME/.nx/F-C-$1\""
-		mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/F-C-$1"
-		rm -f "$USER_FAKE_HOME/.nx/F-C-$1/terminating"
+		nxlog "$FUNCNAME ($$): Session failed. Rename session directory from \"$nx_dir/C-$1/\" to \"$nx_dir/F-C-$1\""
+		mv "$nx_dir/C-$1/" "$nx_dir/F-C-$1"
+		rm -f "$nx_dir/F-C-$1/terminating"
 	elif [ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] ; then
-		nxlog "$FUNCNAME ($$): Session terminated. Rename session directory from \"$USER_FAKE_HOME/.nx/C-$1/\" to \"$USER_FAKE_HOME/.nx/T-C-$1\""
-		mv "$USER_FAKE_HOME/.nx/C-$1/" "$USER_FAKE_HOME/.nx/T-C-$1"
-		rm -f "$USER_FAKE_HOME/.nx/T-C-$1/terminating"
+		nxlog "$FUNCNAME ($$): Session terminated. Rename session directory from \"$nx_dir/C-$1/\" to \"$nx_dir/T-C-$1\""
+		mv "$nx_dir/C-$1/" "$nx_dir/T-C-$1"
+		rm -f "$nx_dir/T-C-$1/terminating"
 	fi
 	nxlog "$FUNCNAME ($$): end"
 }
@@ -419,8 +423,8 @@ node_fail_restore_session() {
 	local node_tail_pid;
 	nxlog "$FUNCNAME ($$): starting"
 	echo "NX> 1004 Error: Could not resume session. nxagent process could not be found."
-	[ -r "$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail" ] && {
-		node_tail_pid=$(< $USER_FAKE_HOME/.nx/C-$sess_id/pids/tail)
+	[ -r "$nx_dir/C-$sess_id/pids/tail" ] && {
+		node_tail_pid=$(< $nx_dir/C-$sess_id/pids/tail)
 		nxlog "$FUNCNAME ($$): kill tail process"
 		kill $node_tail_pid 2>/dev/null;
 		echo "NX 1004> kill $node_tail_pid"
@@ -435,8 +439,8 @@ node_fail_restore_session() {
 node_suspend_session() {
 	nxlog "$FUNCNAME ($$): starting"
 	local node_agent_pid;
-	[ -r "$USER_FAKE_HOME/.nx/C-$1/pids/agent" ] && \
-		node_agent_pid=$(< $USER_FAKE_HOME/.nx/C-$1/pids/agent)
+	[ -r "$nx_dir/C-$1/pids/agent" ] && \
+		node_agent_pid=$(< $nx_dir/C-$1/pids/agent)
 	if [ -n "$node_agent_pid" ]; then
 		nxlog "$FUNCNAME ($$): node_agent_pid='$node_agent_pid' Killing..."
 		kill -0 $node_agent_pid || {
@@ -939,7 +943,7 @@ node_start_agent() {
 	nxlog "$FUNCNAME ($$): node_agent_exit_status='$node_agent_exit_status'"
 	node_failed=""
 	if [ $node_agent_exit_status -ne 0 ]; then
-		echo "NX> 1004 Error: NX Agent exited with exit status 1. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$USER_FAKE_HOME/.nx/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
+		echo "NX> 1004 Error: NX Agent exited with exit status 1. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$nx_dir/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
 		echo "$(< $NXSESSION_DIRECTORY/session)" >&2
 		node_failed="failed"
 		nxlog "$FUNCNAME ($$): node_failed='$node_failed'"
@@ -971,7 +975,7 @@ try_remount_printers() {
 	nxlog "$FUNCNAME ($$): starting."
 	local spname type mport new_port new_dir desc_fn descstr device_uri prstr;
 	local share upass username password model defaultPrinter cmdstr id drv pname;
-	local sessdir="$USER_FAKE_HOME/.nx/C-$sess_id"
+	local sessdir="$nx_dir/C-$sess_id"
 	local scr_dir="$sessdir/scripts"
 	[ ! -d "$sessdir" ] && { nxlog "$FUNCNAME ($$): Dir sessdir='$sessdir' NOT FOUND! Calling twice? Why?"
 		return 1; }
@@ -996,7 +1000,7 @@ try_remount_printers() {
 			continue;
 		}
 		new_port=$(get_mport2sessdir "$new_dir" "$type")
-		desc_fn="$USER_FAKE_HOME/.nx/shares_priv/@p@$pname"
+		desc_fn="$nx_dir/shares_priv/@p@$pname"
 		[ -r "$desc_fn" ] || { nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for printer \"$pname\" NOT ACCESSIBLE, stop remounting"
 			continue; }
 		descstr=$(< $desc_fn)
@@ -1062,16 +1066,16 @@ node_cupsd_stop() {
 
 	# original behaviour
 	# Cleanup userspace cups daemon
-	[ -e "$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd" ] || return
-	NODE_CUPSD_PID=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd")
+	[ -e "$nx_dir/C-$sess_id/pids/cupsd" ] || return
+	NODE_CUPSD_PID=$(cat "$nx_dir/C-$sess_id/pids/cupsd")
 	# Check for a running userspace cupsd, look if its still active
 	# and kill it if so
 	( [ -n "$NODE_CUPSD_PID" ] && kill -0 $NODE_CUPSD_PID && kill $NODE_CUPSD_PID && sleep 2 && kill -0 $NODE_CUPSD_PID && kill -9 $NODE_CUPSD_PID ) 2>/dev/null
 	# delete pid file
-	rm -f "$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd"
+	rm -f "$nx_dir/C-$sess_id/pids/cupsd"
 	# remove all printers
-	echo >"$USER_FAKE_HOME/.nx/C-$sess_id/cups/printers.conf"
-	[ -z "$KDE_PRINTRC" ] || sed "s|^Host=$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock||" -i "$KDE_PRINTRC"
+	echo >"$nx_dir/C-$sess_id/cups/printers.conf"
+	[ -z "$KDE_PRINTRC" ] || sed "s|^Host=$nx_dir/C-$sess_id/cups/cups.sock||" -i "$KDE_PRINTRC"
 }
 
 # node_cupsd_setup
@@ -1079,12 +1083,12 @@ node_cupsd_stop() {
 node_cupsd_setup() {
 	let NODE_CUPSD_PORT=$display+9000 # offset 9000 for userspace cupsd's
 	export NODE_CUPSD_PORT
-	export NODE_CUPSD_SOCKET="$USER_FAKE_HOME/.nx/C-$sess_id/cups/cups.sock"
-	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/pids/"
-	[ -e "$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd" ] && return
-	touch "$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd"
-	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/cups/spool/tmp" "$USER_FAKE_HOME/.nx/C-$sess_id/cups/spool/certs" "$USER_FAKE_HOME/.nx/C-$sess_id/cups/ppd" "$USER_FAKE_HOME/.nx/C-$sess_id/cups/cache"
-	mkdir -p "$USER_FAKE_HOME/.nx/C-$sess_id/cups/log" #JJK cups log file home
+	export NODE_CUPSD_SOCKET="$nx_dir/C-$sess_id/cups/cups.sock"
+	mkdir -p "$nx_dir/C-$sess_id/pids/"
+	[ -e "$nx_dir/C-$sess_id/pids/cupsd" ] && return
+	touch "$nx_dir/C-$sess_id/pids/cupsd"
+	mkdir -p "$nx_dir/C-$sess_id/cups/spool/tmp" "$nx_dir/C-$sess_id/cups/spool/certs" "$nx_dir/C-$sess_id/cups/ppd" "$nx_dir/C-$sess_id/cups/cache"
+	mkdir -p "$nx_dir/C-$sess_id/cups/log" #JJK cups log file home
 #JJK: Modifications to cupsd.conf
 #JJK:   - Added SystemGroup line in order to add $USER to SystemGroup
 #JJK:   - Moved all the log files to log/<log>
@@ -1092,29 +1096,29 @@ node_cupsd_setup() {
 #JJK:   - Added listening on $NODE_CUPSD_PORT
 #JJK:			 Listen localhost: $NODE_CUPSD_PORT
 #JJK:   - Removed following line because directive is specific to Debian
-#JJK:       PidFile $USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd
+#JJK:       PidFile $nx_dir/C-$sess_id/pids/cupsd
 #JJK:   -  Access restrictions borrowed from /etc/cups/cupsd.conf
 #JJK:   -  Default policy borrowed from /etc/cups/cupsd.conf but modified
 #JJK:        to allow Add, Delete, and Default printer without (password)
 #JJK:        authentication
 #JJK:   - Note for more detailed logging set: LogLevel debug
 
-CUPSPidFileString="PidFile $USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd"
+CUPSPidFileString="PidFile $nx_dir/C-$sess_id/pids/cupsd"
 if [ "$CUPS_PidFile" == "0" ] ; then
 	CUPSPidFileString=""
 fi
 
-cat <<EOF > $USER_FAKE_HOME/.nx/C-$sess_id/cups/cupsd.conf
+cat <<EOF > $nx_dir/C-$sess_id/cups/cupsd.conf
 SystemGroup sys root $USER
 AccessLog log/access_log
 ErrorLog log/error_log
 PageLog log/page_log
 LogLevel $CUPSLogLevel
-TempDir $USER_FAKE_HOME/.nx/C-$sess_id/cups/spool/tmp
-RequestRoot $USER_FAKE_HOME/.nx/C-$sess_id/cups/spool
-ServerRoot $USER_FAKE_HOME/.nx/C-$sess_id/cups/
-StateDir $USER_FAKE_HOME/.nx/C-$sess_id/cups/
-CacheDir $USER_FAKE_HOME/.nx/C-$sess_id/cups/cache
+TempDir $nx_dir/C-$sess_id/cups/spool/tmp
+RequestRoot $nx_dir/C-$sess_id/cups/spool
+ServerRoot $nx_dir/C-$sess_id/cups/
+StateDir $nx_dir/C-$sess_id/cups/
+CacheDir $nx_dir/C-$sess_id/cups/cache
 
 Listen localhost:$NODE_CUPSD_PORT
 Listen $NODE_CUPSD_SOCKET
@@ -1178,19 +1182,19 @@ Allow from 127.0.0.1
 </Policy>
 EOF
 
-	touch "$USER_FAKE_HOME/.nx/C-$sess_id/cups/printers.conf" "$USER_FAKE_HOME/.nx/C-$sess_id/cups/classes.conf"
+	touch "$nx_dir/C-$sess_id/cups/printers.conf" "$nx_dir/C-$sess_id/cups/classes.conf"
 
 	#JJK: Also copy over pstoraster.convs
-	cp -af "$CUPS_ETC"/mime.* "$CUPS_ETC"/pstoraster.convs "$USER_FAKE_HOME/.nx/C-$sess_id/cups/"
+	cp -af "$CUPS_ETC"/mime.* "$CUPS_ETC"/pstoraster.convs "$nx_dir/C-$sess_id/cups/"
 
 	# start cupsd
 #JJK: Note the directive PidFile in the original cupsd.conf intended for
 #JJK: recording the pid is a Debianism. Instead, we will use the non-daemon
 #JJK: form of cupsd and capture the pid directly
-#JJK:	$COMMAND_CUPSD -c "$USER_FAKE_HOME/.nx/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null
-	$COMMAND_CUPSD -F -c "$USER_FAKE_HOME/.nx/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null &
+#JJK:	$COMMAND_CUPSD -c "$nx_dir/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null
+	$COMMAND_CUPSD -F -c "$nx_dir/C-$sess_id/cups/cupsd.conf" &>/dev/null </dev/null &
 	NODE_CUPSD_PID=$!
-	echo $NODE_CUPSD_PID >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd"
+	echo $NODE_CUPSD_PID >"$nx_dir/C-$sess_id/pids/cupsd"
 
 	# setup KDE
 	if [ "$ENABLE_KDE_CUPS" = "1" -a -e "$KDE_PRINTRC" ]; then
@@ -1209,8 +1213,8 @@ EOF
 # Used glob vars: $sess_id
 node_cupsd_reload() {
 	local node_cupsd_pid
-	[ -e "$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd" ] || return
-	node_cupsd_pid=$(cat "$USER_FAKE_HOME/.nx/C-$sess_id/pids/cupsd")
+	[ -e "$nx_dir/C-$sess_id/pids/cupsd" ] || return
+	node_cupsd_pid=$(cat "$nx_dir/C-$sess_id/pids/cupsd")
 	[ -n "$node_cupsd_pid" ] && \
 		kill -0 $node_cupsd_pid && kill -HUP $node_cupsd_pid
 }
@@ -1357,7 +1361,7 @@ node_umount_smb() {
 	nxlog "$FUNCNAME ($$): starting with sess_id='$sess_id'"
 	local scr_dir mport mpoints ssname sname desc_fn descstr new_dir new_port rc;
 	local smbport fsname username password IDS_OPTS;
-	scr_dir="$USER_FAKE_HOME/.nx/C-$sess_id/scripts"
+	scr_dir="$nx_dir/C-$sess_id/scripts"
 	[ -r "$scr_dir/smbport" ] && \
 		smbport=$(< $scr_dir/smbport)
 	try_user=1; try_sudo=0;
@@ -1381,7 +1385,7 @@ node_umount_smb() {
 		}
 		for ssname in $scr_dir/@s@*; do
 			sname=$(cutfn "$ssname" "/" -1); sname=${sname/@s@/}
-			desc_fn="$USER_FAKE_HOME/.nx/shares_priv/@s@$sname"
+			desc_fn="$nx_dir/shares_priv/@s@$sname"
 			[ ! -r "$desc_fn" ] && {
 				nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for share \"$sname\" NOT ACCESSIBLE, stop remounting it"
 				continue;
@@ -1420,7 +1424,7 @@ node_umount_smb() {
 		return
 	fi
 
-	if [ -e "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint" ]; then
+	if [ -e "$nx_dir/C-$sess_id/scripts/mpoint" ]; then
 		nxlog "$FUNCNAME ($$): File scripts/mpoint present. Continue umounting..."
 	else
 		nxlog "$FUNCNAME ($$): File scripts/mpoint not present. Abort umounting..."
@@ -1434,7 +1438,7 @@ node_umount_smb() {
 		}
 		nxlog "$FUNCNAME ($$): Remove mountpoint \"$mpoint\""
 		rmdir "$mpoint" >/dev/null 2>/dev/null #JJK:Remove mount point if empty
-	done < "$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mpoint"
+	done < "$nx_dir/C-$sess_id/scripts/mpoint"
 	nxlog "$FUNCNAME ($$): end"
 }
 
@@ -1476,15 +1480,15 @@ node_start_monitor() {
 		# Catch tail pid
 		if stringinstring "Info: tail -f running with pid" "$line"; then
 			node_tail_pid=$(cutfn "$line" "'" 1)
-			echo "$node_tail_pid" >"$USER_FAKE_HOME/.nx/C-$sess_id/pids/tail"
+			echo "$node_tail_pid" >"$nx_dir/C-$sess_id/pids/tail"
 		elif stringinstring "Info: Listening * SMB connections on port" "$line"; then
 			# Catch NXAGENT SMB Port (sometimes the port differs from what we got from nxserver)
 			smbmount_port=$(cutfn "$line" "'" 1); smbmount_port=${smbmount_port##*:}
-			echo "$smbmount_port" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mport"
+			echo "$smbmount_port" >"$nx_dir/C-$sess_id/scripts/mport"
 		elif stringinstring "Info: Listening * multimedia connections on port" "$line"; then
 			# Catch NXAGENT Multimedia Port
 			media_port=$(cutfn "$line" "'" 1); media_port=${media_port##*:}
-			echo "$media_port" >"$USER_FAKE_HOME/.nx/C-$sess_id/scripts/mmport"
+			echo "$media_port" >"$nx_dir/C-$sess_id/scripts/mmport"
 		elif stringinstring "Session: Starting session at" "$line"; then
 		# Session messages
 			echo "NX> 1009 Session status: starting"
@@ -1585,7 +1589,7 @@ startsession() {
 
 	windows_app=$application
 	sess_id="$SERVER_NAME-$display-$uniqueid"
-	NXSESSION_DIRECTORY="$USER_FAKE_HOME/.nx/C-$sess_id"
+	NXSESSION_DIRECTORY="$nx_dir/C-$sess_id"
 	# ok, lets make the session dir first:
 	old_umask=$(umask);
 	[ -d $USER_FAKE_HOME ] || { umask 0022; mkdir -p $USER_FAKE_HOME; }
@@ -1805,7 +1809,7 @@ exit"
 cmd_node_terminate() {
 	sessionid=$(getparam_sessionid)
 	echo "$delim 716 Terminating session $sessionid on user request."
-	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
+	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
 	display=$(cutfn "$sdir" "-" -2)
 	sess_id="$SERVER_NAME-$display-$sessionid"
 	node_terminate_session "$sess_id"
@@ -1814,7 +1818,7 @@ cmd_node_terminate() {
 cmd_node_suspend() {
 	sessionid=$(getparam_sessionid)
 	echo "$delim 716 Suspending session $sessionid on user request."
-	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
+	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
 	display=$(cutfn "$sdir" "-" -2)
 	sess_id="$SERVER_NAME-$display-$sessionid"
 	node_suspend_session "$sess_id"
@@ -1825,10 +1829,10 @@ cmd_node_smbmount() {
 	# Due to a too quick session start, port does not have time to initialize
 	sleep 0.2s
 	sessionid=$(getparam_sessionid)
-	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
+	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
 	display=$(cutfn "$sdir" "-" -2)
 	sess_id="$SERVER_NAME-$display-$sessionid" # dimbor: for called functions
-	sess_dir="$USER_FAKE_HOME/.nx/C-$sess_id"
+	sess_dir="$nx_dir/C-$sess_id"
 	nxlog "$FUNCNAME ($$): starting with sessionid = $sessionid"
 	port=$(getparam port)
 	username=$(getparam username 1)
@@ -1897,7 +1901,7 @@ cmd_node_smbmount() {
 			nxlog "$FUNCNAME ($$): share \"//$computername/$share\" mount on \"$dir\""
 			SFN="@s@$share"
 			touch "$sess_dir/scripts/$SFN"
-			desc_dir="$USER_FAKE_HOME/.nx/shares_priv" # directory with connection parameters to use sessions together
+			desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
 			[ -d "$desc_dir" ] || {
 				mkdir "$desc_dir" && chmod 700 "$desc_dir";
 			}
@@ -1910,7 +1914,7 @@ cmd_node_smbmount() {
 				-message "Info: Share: '//$computername/$share' mounted on: '$dir'" \
 				-display :$display &
 		fi
-		echo "$dir" >> "$USER_FAKE_HOME/.nx/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
+		echo "$dir" >> "$nx_dir/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
 	else
 		nxlog "$FUNCNAME ($$): Share //$computername/$share mount FAILED."
 		rmdir "$dir" >/dev/null 2>/dev/null #JJK: Remove mount point if empty
@@ -1937,7 +1941,7 @@ cmd_node_addprinter() {
 	model=$(getparam model 1)
 	defaultPrinter=$(getparam defaultPrinter)
 	[ -z "$defaultPrinter" ] && defaultPrinter=$(getparam defaultprinter) # for opennx
-	sdir=$(cd $USER_FAKE_HOME/.nx/; echo C-$SERVER_NAME-*-$sessionid)
+	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
 	display=$(cutfn "$sdir" "-" -2)
 	sess_id="$SERVER_NAME-$display-$sessionid"
 	# normalize
@@ -1950,8 +1954,8 @@ cmd_node_addprinter() {
 
 	if [ "$type" = "smb" ]; then
 		if [ -x "$CUPS_BACKEND/nxsmb" ]; then
-			[ -r $USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport ] && \
-				smbport=$(< $USER_FAKE_HOME/.nx/C-$sess_id/scripts/smbport)
+			[ -r $nx_dir/C-$sess_id/scripts/smbport ] && \
+				smbport=$(< $nx_dir/C-$sess_id/scripts/smbport)
 			[ -z "$smbport" ] && smbport=139 # should not happen
 			if [ "$smbport" = "445" ]; then smbproto="cifs"
 			else smbproto="smb"
@@ -1976,7 +1980,7 @@ cmd_node_addprinter() {
 	public="-u allow:$USER,guest,root"
 	[ "$public" == "1" ] && public=""
 	export PATH_BIN
-	user_ppd_dir="$USER_FAKE_HOME/.nx/config/ppd"
+	user_ppd_dir="$nx_dir/config/ppd"
 	mkdir -p "$user_ppd_dir"
 	nxlog "$FUNCNAME ($$): run with ENABLE_CUPS_SERVER_MODE=$ENABLE_CUPS_SERVER_MODE"
 	# dimbor: We use system cupsd
@@ -2056,8 +2060,8 @@ cmd_node_addprinter() {
 			}
 		fi
 		pfn="@p@$pname" # filename of flag and description files
-		sess_dir="$USER_FAKE_HOME/.nx/C-$sess_id"
-		desc_dir="$USER_FAKE_HOME/.nx/shares_priv" # directory with connection parameters to use sessions together
+		sess_dir="$nx_dir/C-$sess_id"
+		desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
 		[ -d "$desc_dir" ] || { mkdir "$desc_dir" && chmod 700 "$desc_dir"; }
 		[ "$type" = "smb" ] && {
 			for (( i=30; $i; --i )); do
@@ -2116,7 +2120,7 @@ cmd_node_addprinter() {
 			nxlog "$FUNCNAME ($$): FAILED to install printer \"$pname\": $error"
 		fi
 	else # original behaviour
-		mkdir -p "$USER_FAKE_HOME/.nx/config/ppd/"
+		mkdir -p "$nx_dir/config/ppd/"
 		if [ "$ENABLE_CUPS_SEAMLESS" != "1" ]; then
 			#JJK: Export the following variables for use by nxdialog/nxprint
 			#JJK: Note they are also exported in nxdialog but doesn't help there
@@ -2129,13 +2133,13 @@ cmd_node_addprinter() {
 		fi
 
 		if [ "$model" = "download_new" -o "$model" = "download_cached" ]; then
-			if [ "$model" = "download_new" -o ! -r "$USER_FAKE_HOME/.nx/config/ppd/$printer.ppd" ]; then
-				curl --proxy "" --digest -o "$USER_FAKE_HOME/.nx/config/ppd/$printer.ppd" "http://$username:$password@127.0.0.1:$port/ppd/${printer}_nxdl.ppd" >>"$USER_FAKE_HOME/.nx/C-$sess_id/cups/curl.log" 2>&1
+			if [ "$model" = "download_new" -o ! -r "$nx_dir/config/ppd/$printer.ppd" ]; then
+				curl --proxy "" --digest -o "$nx_dir/config/ppd/$printer.ppd" "http://$username:$password@127.0.0.1:$port/ppd/${printer}_nxdl.ppd" >>"$nx_dir/C-$sess_id/cups/curl.log" 2>&1
 				rc=$?
 				[ $rc -eq 0 -a "$ENABLE_CUPS_SEAMLESS" != "1" ] && $PATH_BIN/nxdialog --message "Download successful." -display :$display
-				[ $rc -ne 0 -a "$ENABLE_CUPS_SEAMLESS" != "1" ] && $PATH_BIN/nxdialog --message "Download failed. Log is: $USER_FAKE_HOME/.nx/C-$sess_id/cups/curl.log" -display :$display
+				[ $rc -ne 0 -a "$ENABLE_CUPS_SEAMLESS" != "1" ] && $PATH_BIN/nxdialog --message "Download failed. Log is: $nx_dir/C-$sess_id/cups/curl.log" -display :$display
 			fi
-			model="$USER_FAKE_HOME/.nx/config/ppd/$printer.ppd"
+			model="$nx_dir/config/ppd/$printer.ppd"
 		fi
 		if [ ! -r "$model" ]; then
 			# Foomatic and co
