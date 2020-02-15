@@ -104,15 +104,16 @@ norm_param() {
 # arg: string
 # dimbor: normalize string from hex (thnx 2Civil at unixforum.org) and convert
 # charset if needed
-	#nxlog "$FUNCNAME ($$): starting with args \"$@\""
+	#nxlog "$lp starting with args \"$@\""
 	local res=${1/+/ } cp_pair cp_from cp_to;
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	for cp_pair in $WIN_CP_CONVERT_CHAIN ; do
 		cp_from=$(cutfn "$cp_pair" '>' 0); [ -n "$cp_from" ] || cp_from="UTF-8"
 		cp_to=$(cutfn "$cp_pair" '>' 1); [ -n "$cp_to" ] || cp_to="UTF-8"
 		res=$(echo "$res" | iconv -f $cp_from -t $cp_to)
-		#nxlog "$FUNCNAME ($$): converting $cp_from > $cp_to == \"$res\""
+		#nxlog "$lp converting $cp_from > $cp_to == \"$res\""
 	done
-	#nxlog "$FUNCNAME ($$): return res='$res'"
+	#nxlog "$lp return res='$res'"
 	echo "$res"
 }
 
@@ -122,6 +123,7 @@ norm_param() {
 get_mport2sessdir() {
 # args: session dir type="smb"|"ipp""
 # ret: cups listening port or samba mount port
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local type=$2 mport="" smbport cport;
 	[ -r "$1/scripts/mport" ] && 	smbport=$(< $1/scripts/mport)
 	[ -r "$1/session" ] && cport=$(< $1/session);
@@ -131,7 +133,7 @@ get_mport2sessdir() {
 		mport=$smbport; type="smb";
 	fi
 	mport=${mport##*:}
-	nxlog "$FUNCNAME ($$): sessdir \"$1\"; mport='$mport' type='$type'"
+	nxlog "$lp sessdir \"$1\"; mport='$mport' type='$type'"
 	echo $mport
 }
 
@@ -142,7 +144,8 @@ get_sessdir4res() {
 # then returns name of session dir (except dir of own sesson)
 # functuion used with $ENABLE_SHARE_MULTIMOUNT=1 or
 # $ENABLE_CUPS_SERVER_MODE=1 modes only
-	nxlog "$FUNCNAME ($$): starting with args \"$@\"; sess_id='$sess_id'"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting with args \"$@\"; sess_id='$sess_id'"
 	local digarg agent_pids sessdir node_agent_pid curport;
 	[ "$1" -gt 0 2>/dev/null ] && digarg=1 || digarg=0
 	agent_pids=$(ps -wo pid= -C "nxagent")
@@ -152,21 +155,21 @@ get_sessdir4res() {
 		[ -r "$sessdir/pids/agent" ] && node_agent_pid=$(< $sessdir/pids/agent)
 		[ -z "$node_agent_pid" ] && continue
 		stringinstring "$node_agent_pid" "$agent_pids" || continue
-		#nxlog "$FUNCNAME ($$): browse sessdir \"$sessdir\" for filename = \"$sessdir/scripts/$1\", digarg=$digarg"
+		#nxlog "$lp browse sessdir \"$sessdir\" for filename = \"$sessdir/scripts/$1\", digarg=$digarg"
 		if [ "$digarg" = "1" ]; then
 			curport=$(get_mport2sessdir "$sessdir")
 			[ "$curport" = "$1" ] && {
-				nxlog "$FUNCNAME ($$): found sessdir='$sessdir' for mport = $1"
+				nxlog "$lp found sessdir='$sessdir' for mport = $1"
 				echo "$sessdir"; return;
 			}
 		else
 			[ -f "$sessdir/scripts/$1" ] && {
-				nxlog "$FUNCNAME ($$): found sessdir='$sessdir' for filename = $1"
+				nxlog "$lp found sessdir='$sessdir' for filename = $1"
 				echo "$sessdir"; return;
 			}
 		fi
 	done
-	nxlog "$FUNCNAME ($$): target sessdir not found"
+	nxlog "$lp target sessdir not found"
 }
 
 check_remote_printer() {
@@ -176,22 +179,23 @@ check_remote_printer() {
 # name - user name
 # pass - password (optional)
 # if shared printer accessible, returns 1, else - 0
-	nxlog "$FUNCNAME ($$): starting with args \"$@\""
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting with args \"$@\""
 	local res i nxredir_lib cmdstr numa upass ret dport;
 	if [ "$1" = "ipp" ]; then # checking ipp printer port only
 		res=0;
 		for (( i=10; $i; --i )); do
-			nxlog "$FUNCNAME ($$): wait for ipp-port 127.0.0.1:$3 - $((10-i))"
+			nxlog "$lp wait for ipp-port 127.0.0.1:$3 - $((10-i))"
 			$COMMAND_NETCAT -znvw 1 127.0.0.1 $3 2> /dev/null > /dev/null
 			[ $? -eq 0 ] && { res=1; break; }
 			sleep 1
 		done
-		nxlog "$FUNCNAME ($$): end with res = $res"
+		nxlog "$lp end with res = $res"
 		echo $res; return 0;
 	fi
 	[ "$(cutfn "$2" "-" "-1")" = "nocheck" ] && {
 		res=1
-		nxlog "$FUNCNAME ($$): special sharename \"$2\" - stop checking, end with res='$res'"
+		nxlog "$lp special sharename \"$2\" - stop checking, end with res='$res'"
 		echo $res; return 0;
 	}
 	nxredir_lib="$PATH_LIB/freenx-server/libnxredir.so.0"
@@ -199,19 +203,19 @@ check_remote_printer() {
 	[ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
 	cmdstr="/usr/bin/rpcclient -U '$upass' -c 'openprinter $2' \
 -p $dport -I 127.0.0.1 127.0.0.1 2>&1"
-	nxlog "$FUNCNAME ($$): invoke command \"$cmdstr\""
+	nxlog "$lp invoke command \"$cmdstr\""
 	res=""; numa="0"; ret="0"
 	while [ "$ret" = "0" ]; do
 		# addprinter and addmount try to use one mport at the same time,
 		# we need to endure ;)
 		(( numa++ ))
 		res=$(NXSAMBA_PORT=$3 LD_PRELOAD=$nxredir_lib eval $cmdstr)
-		nxlog "$FUNCNAME ($$): on attempt $numa says \"$res\""
+		nxlog "$lp on attempt $numa says \"$res\""
 		[ -n "$(rematchfn '(successfully)' "$res")" ] && { ret="1"; continue; }
 		[ "$numa" -gt 4 ] && ret="1" && res="timeout"
 	done
 	[ -n "$(rematchfn '(successfully)' "$res")" ] && res=1 || res=0
-	nxlog "$FUNCNAME ($$): end with res = $res"
+	nxlog "$lp end with res = $res"
 	echo $res
 }
 
@@ -222,6 +226,7 @@ check_local_pa_tunnel() {
 # return:	pid of pa process
 # This starts user's local pulseaudio server if not running and tune its own
 # modules - (re)create tunneled sink and source to remote pa
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local errstr retpid lpa_mods tunn_opts tunn_exists mname rmids rpa_info;
 	local errids="" errstr="" errstr2="" mname_tunn_sink mname_tunn_source;
 	local success="" def_rsink def_rsource rsi_args rso_args
@@ -230,16 +235,16 @@ check_local_pa_tunnel() {
 	# automatic start user's pa is here (pa starting with default system settings)
 	errstr=$($pactl_bin info 2>&1)
 	[ -n "$(rematchfn '(failure)' "$errstr")" ] && {
-		nxlog "$FUNCNAME ($$): Local PA is not reachable ($errstr)."
+		nxlog "$lp Local PA is not reachable ($errstr)."
 		echo ""; return 1;
 	}
 	retpid=$(ps -wo pid= -C "pulseaudio")
-	[ -n "$retpid" ] && nxlog "$FUNCNAME ($$): Found PA:$retpid"
+	[ -n "$retpid" ] && nxlog "$lp Found PA:$retpid"
 	lpa_mods=$($pactl_bin list short 2>/dev/null)
 	tunn_opts="server=$1"
 	tunn_exists=$(rematchfn "($tunn_opts)" "$lpa_mods") #"
 	[ -n "$tunn_exists" ] && {
-		nxlog "$FUNCNAME ($$): Right modules already exists: $tunn_exists"
+		nxlog "$lp Right modules already exists: $tunn_exists"
 		echo $retpid; return 0;
 	}
 	mname="module-always-sink" # automatic null-sinks will be disabled
@@ -254,12 +259,12 @@ check_local_pa_tunnel() {
 		done
 	}
 	[ -n "$errids" ] && {
-		nxlog "$FUNCNAME ($$): Removing PA modules error. errids='$errids'; errsrr='$errstr' "
+		nxlog "$lp Removing PA modules error. errids='$errids'; errsrr='$errstr' "
 	}
 	mname_tunn_sink="module-tunnel-sink"; mname_tunn_source="module-tunnel-source";
 	rpa_info=$($pactl_bin -s $1 info 2>/dev/null)
 	[ -z "$rpa_info" ] && {
-		nxlog "$FUNCNAME ($$): Couldn't get defaults from REMOTE pulseaudio $1."
+		nxlog "$lp Couldn't get defaults from REMOTE pulseaudio $1."
 		echo ""; return 1;
 	}
 	[ -n "$2" ] && {
@@ -271,35 +276,36 @@ check_local_pa_tunnel() {
 	}
 	def_rsink=$(rematchfn "Default Sink:[[:space:]]+(.+)" "$rpa_info") #"
 	if [ -z "$def_rsink" -o "$def_rsink" == "(null)" ]; then
-		nxlog "$FUNCNAME ($$): Couldn't get default sink from REMOTE pulseaudio $1."
+		nxlog "$lp Couldn't get default sink from REMOTE pulseaudio $1."
 	else # load module-tunnel-sink
 		rsi_args="sink_name=tcl_out sink=$def_rsink $tunn_opts"
 		errstr=$($pactl_bin load-module $mname_tunn_sink $rsi_args 2>&1)
 		[ $? -ne 0 ] && {
-			nxlog "$FUNCNAME ($$): Loading module $mname_tunn_sink error (\"$rsi_args\"); \"$errstr\""
+			nxlog "$lp Loading module $mname_tunn_sink error (\"$rsi_args\"); \"$errstr\""
 		} || {
 			success="1"
-			nxlog "$FUNCNAME ($$): Successfully loadded module $mname_tunn_sink  (\"$rsi_args\")."
+			nxlog "$lp Successfully loadded module $mname_tunn_sink  (\"$rsi_args\")."
 		}
 	fi
 	def_rsource=$(rematchfn "Default Source:[[:space:]]+(.+)" "$rpa_info") #"
 	if [ -z "$def_rsource" -o "$def_rsource" == "(null)" -o \
 			"$def_rsource" == "$def_rsink.monitor" ]; then
-		nxlog "$FUNCNAME ($$): Couldn't get default source from REMOTE pulseaudio $1."
+		nxlog "$lp Couldn't get default source from REMOTE pulseaudio $1."
 	else # load module-tunnel-source
 		rso_args="source_name=tcl_in source=$def_rsource $tunn_opts"
 		errstr=$($pactl_bin load-module $mname_tunn_source $rso_args 2>&1)
 		[ $? -ne 0 ] && {
-			nxlog "$FUNCNAME ($$): Loading module $mname_tunn_source error (\"$rso_args\"); \"$errstr\""
+			nxlog "$lp Loading module $mname_tunn_source error (\"$rso_args\"); \"$errstr\""
 		} || {
 			success="1"
-			nxlog "$FUNCNAME ($$): Successfully loadded module $mname_tunn_source  (\"$rso_args\")."
+			nxlog "$lp Successfully loadded module $mname_tunn_source  (\"$rso_args\")."
 		}
 	fi
 	[ -n "$success" ] && echo $retpid || echo ""
 }
 
 reconnect_pa() {
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local mmport="" papars="" node_agent_pid rate channels papid="" agent_pids;
 	local sessdir;
 	[ -r "$nx_dir/C-$sess_id/scripts/pa_pid" ] && \
@@ -321,7 +327,7 @@ reconnect_pa() {
 		rate=$(cutfn "$papars" ":" 0)
 		channels=$(cutfn "$papars" ":" 1)
 		[ -z "$(check_local_pa_tunnel 127.0.0.1:$mmport $rate $channels)" ] && {
-			nxlog "$FUNCNAME ($$): Couldn't reconnect PA tunnel to port $mmport."
+			nxlog "$lp Couldn't reconnect PA tunnel to port $mmport."
 		}
 	else # kill local PA
 		kill $papid 2>/dev/null
@@ -330,35 +336,37 @@ reconnect_pa() {
 
 # node_terminate_agent <session id>
 node_terminate_agent() {
-	nxlog "$FUNCNAME ($$): starting"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting"
 	local node_agent_pid;
 	[ -r "$nx_dir/C-$1/pids/agent" ] && \
 		node_agent_pid=$(< $nx_dir/C-$1/pids/agent)
 	[ -n "$node_agent_pid" ] && {
-		nxlog "$FUNCNAME ($$): killing node_agent_pid='$node_agent_pid'"
+		nxlog "$lp killing node_agent_pid='$node_agent_pid'"
 		kill $node_agent_pid 2>/dev/null;
 		sleep 0.3s
 	}
 	kill -0 $node_agent_pid && {
-		nxlog "$FUNCNAME ($$): killing node_agent_pid. Try #2"
+		nxlog "$lp killing node_agent_pid. Try #2"
 		kill -9 $node_agent_pid 2>/dev/null
 	}
-	nxlog "$FUNCNAME ($$): end"
+	nxlog "$lp end"
 }
 
 # node_terminate_session <session id>
 #	Used glob vars: $virtualdesktop, $rootless
 #	Used config vars: $COMMAND_XAUTH, $SESSION_LOG_CLEAN
 node_terminate_session() {
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local node_agent_pid node_tail_pid="" display sessdir
-	nxlog "$FUNCNAME ($$): Start terminating session \"$1\" with status \"$2\""
+	nxlog "$lp Start terminating session \"$1\" with status \"$2\""
 	sessdir="$nx_dir/C-$1"
 	[ -e "$sessdir/terminating" ] && {\
-		nxlog "$FUNCNAME ($$): Terminating still in progress. Bye."
+		nxlog "$lp Terminating still in progress. Bye."
 		return;
 	}
 	[ -d "$sessdir" ] || {\
-		nxlog "$FUNCNAME ($$): Session directory not found."
+		nxlog "$lp Session directory not found."
 		return;
 	}
 	touch "$sessdir/terminating"
@@ -370,88 +378,90 @@ node_terminate_session() {
 	# JJK: Kill running services
 	# FF: Seems this is needed also here ...
 	# dimbor: ... but have to be a little more tender ;)
-	nxlog "$FUNCNAME ($$): call node_stop_services"
+	nxlog "$lp call node_stop_services"
 	node_stop_services
 	if [ -n "$node_agent_pid" ]; then
-		nxlog "$FUNCNAME ($$): start killing of nxagent"
+		nxlog "$lp start killing of nxagent"
 		kill $node_agent_pid 2>/dev/null
 		wait $node_agent_pid 2>/dev/null
 		kill -0 $node_agent_pid ||
-			nxlog "$FUNCNAME ($$): nxagent ($node_agent_pid) is dead now"
+			nxlog "$lp nxagent ($node_agent_pid) is dead now"
 	fi
 
 	# Kill tail process
 	[ -r "$sessdir/pids/tail" ] && {
 		node_tail_pid=$(< $sessdir/pids/tail)
-		nxlog "$FUNCNAME ($$): kill tail process"
+		nxlog "$lp kill tail process"
 		kill $node_tail_pid 2>/dev/null;
 	}
 
 	# Remove display information
-	nxlog "$FUNCNAME ($$): Remove display information"
+	nxlog "$lp Remove display information"
 	display=$(cutfn "$1" "-" -2)
 	rm -f /tmp/.X$display-lock; rm -f /tmp/.X11-unix/X$display
 
 	# Remove magic cookie information
-	nxlog "$FUNCNAME ($$): Remove magic cookie information"
+	nxlog "$lp Remove magic cookie information"
 	$COMMAND_XAUTH -v source "$nx_dir/C-$1/scripts/authority" >/dev/null 2>&1
 
 	# Preserve or remove session information
-	nxlog "$FUNCNAME ($$): Preserve or remove session information"
+	nxlog "$lp Preserve or remove session information"
 	if [ "$SESSION_LOG_CLEAN" = "1" ]; then
-		nxlog "$FUNCNAME ($$): Clean session information."
+		nxlog "$lp Clean session information."
 		rm -rf "$nx_dir/C-$1/"
 		rm -f  "$nx_dir/nxnode-$1.log"
 		rm -f  "$nx_dir/nxnode.log"
 	fi
 	if [ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] ; then
-		nxlog "$FUNCNAME ($$): Session failed. Rename session directory from \"$nx_dir/C-$1/\" to \"$nx_dir/F-C-$1\""
+		nxlog "$lp Session failed. Rename session directory from \"$nx_dir/C-$1/\" to \"$nx_dir/F-C-$1\""
 		mv "$nx_dir/C-$1/" "$nx_dir/F-C-$1"
 		rm -f "$nx_dir/F-C-$1/terminating"
 	elif [ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] ; then
-		nxlog "$FUNCNAME ($$): Session terminated. Rename session directory from \"$nx_dir/C-$1/\" to \"$nx_dir/T-C-$1\""
+		nxlog "$lp Session terminated. Rename session directory from \"$nx_dir/C-$1/\" to \"$nx_dir/T-C-$1\""
 		mv "$nx_dir/C-$1/" "$nx_dir/T-C-$1"
 		rm -f "$nx_dir/T-C-$1/terminating"
 	fi
-	nxlog "$FUNCNAME ($$): end"
+	nxlog "$lp end"
 }
 
 
 # node_fail_restore_session <session id>
 # TODO: Kill still running tail -f process.
 node_fail_restore_session() {
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local node_tail_pid;
-	nxlog "$FUNCNAME ($$): starting"
+	nxlog "$lp starting"
 	echo "NX> 1004 Error: Could not resume session. nxagent process could not be found."
 	[ -r "$nx_dir/C-$sess_id/pids/tail" ] && {
 		node_tail_pid=$(< $nx_dir/C-$sess_id/pids/tail)
-		nxlog "$FUNCNAME ($$): kill tail process"
+		nxlog "$lp kill tail process"
 		kill $node_tail_pid 2>/dev/null;
 		echo "NX 1004> kill $node_tail_pid"
 	}
 	node_terminate_session "$1" "failed"
-	nxlog "$FUNCNAME ($$): end. Next is 'exit 1'"
+	nxlog "$lp end. Next is 'exit 1'"
 	exit 1
 }
 
 
 # node_suspend_session <session id>
 node_suspend_session() {
-	nxlog "$FUNCNAME ($$): starting"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting"
 	local node_agent_pid;
 	[ -r "$nx_dir/C-$1/pids/agent" ] && \
 		node_agent_pid=$(< $nx_dir/C-$1/pids/agent)
 	if [ -n "$node_agent_pid" ]; then
-		nxlog "$FUNCNAME ($$): node_agent_pid='$node_agent_pid' Killing..."
+		nxlog "$lp node_agent_pid='$node_agent_pid' Killing..."
 		kill -0 $node_agent_pid || {
-			nxlog "$FUNCNAME ($$): end (0)"
+			nxlog "$lp end (0)"
 			return 1;
 		}
 		kill -HUP $node_agent_pid && {
-			nxlog "$FUNCNAME ($$): end (HUP)"
+			nxlog "$lp end (HUP)"
 			return 0;
 		}
-	else nxlog "$FUNCNAME ($$): node_agent_pid is empty; end"
+	else nxlog "$lp node_agent_pid is empty; end"
 	fi
 	return 1
 }
@@ -462,7 +472,8 @@ node_suspend_session() {
 #			  $COMMAND_START_CDE, $COMMAND_XTERM, $USER_X_STARTUP_SCRIPT,
 #			  $DEFAULT_X_SESSION
 node_find_application() {
-	nxlog "$FUNCNAME ($$): starting with args \"$@\""
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting with args \"$@\""
 	local node_startx=""
 	case $1 in
 		shadow|windows|vnc)
@@ -502,36 +513,37 @@ node_find_application() {
 
 	# dimbor: another personalyzed way to ACLS control and replace X-application
 	[ -d "$NX_ACL_DIR" -a -x "$PATH_BIN/nxacl.app" ] && {
-		nxlog "$FUNCNAME ($$): !!! call nxacl.app with source node_startx='$node_startx'"
+		nxlog "$lp !!! call nxacl.app with source node_startx='$node_startx'"
 		node_startx=$($PATH_BIN/nxacl.app "$node_startx" "$CMDLINE")
 	}
 
 	echo "$node_startx"
-	nxlog "$FUNCNAME ($$): return node_startx='$node_startx'"
+	nxlog "$lp return node_startx='$node_startx'"
 }
 
 get_pa_sound_mode() {
 # params:	port of pa server
 #		ipaddr
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local cl_pa_mods
 	[ -z "$2" ] && {
-		nxlog "$FUNCNAME ($$): Client's IP-address is not defined."
+		nxlog "$lp Client's IP-address is not defined."
 		echo ""; return 1;
 	}
 	stringinstring "open" "$($COMMAND_NETCAT -nvz -w 1 $2 $1 2>&1)" || {
-		nxlog "$FUNCNAME ($$): Client's pulseaudio at $2:$1 is not reachable."
+		nxlog "$lp Client's pulseaudio at $2:$1 is not reachable."
 		echo ""; return 1;
 	}
 	pactl_bin="env LANG=C /usr/bin/pactl -s $2:$1"
-	nxlog "$FUNCNAME ($$): $pactl_bin list short"
+	nxlog "$lp $pactl_bin list short"
 	cl_pa_mods=$($pactl_bin list short)
-	#nxlog "$FUNCNAME ($$): $cl_pa_mods"
+	#nxlog "$lp $cl_pa_mods"
 	stringinstring "ts_receiver" "$cl_pa_mods" && \
 		stringinstring "ts_sender" "$cl_pa_mods" && {
-		nxlog "$FUNCNAME ($$): Specials sink and source at $2:$1 are found."
+		nxlog "$lp Specials sink and source at $2:$1 are found."
 		echo "special"; return 0;
 	}
-	nxlog "$FUNCNAME ($$): Defaults sink and source at $2:$1 be used."
+	nxlog "$lp Defaults sink and source at $2:$1 be used."
 	echo "default"; return 0;
 }
 
@@ -540,37 +552,36 @@ get_pa_sound_mode() {
 #				 $virtualdesktop, $rootless, $display
 #	Used config vars: <several>
 node_start_applications() {
-	nxlog "$FUNCNAME ($$): starting"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting"
 	local node_app mmode rate channels mmport pa_remote pa_pid params;
 	local native_sound_mode second_app="" sapp_pids0="" napp;
 	local spid node_app_pid sapp_pids="" sapp_pids1 node_wm_pid;
 	# close input and output file descriptors
-	exec 0<&-
-	exec 1>&-
-	exec 2>&-
+	exec 0<&-; exec 1>&-; exec 2>&-
 
 	# Prepare application startup
 	export DISPLAY=:$display
 	if [ "$ENABLE_SOURCE_PROFILE" = "1" ]; then
-		nxlog "$FUNCNAME ($$): source profile"
+		nxlog "$lp source profile"
 		. /etc/profile
 	fi
 	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ]; then
-		nxlog "$FUNCNAME ($$): source bash profile"
+		nxlog "$lp source bash profile"
 		[ -f ~/.bash_profile ] && . ~/.bash_profile
 		[ -f /etc/bashrc ] && . /etc/bashrc
 	fi
 
-	nxlog "$FUNCNAME ($$): display='$display', waiting for it's ready"
+	nxlog "$lp display='$display', waiting for it's ready"
 	local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
 	while [ ! -f /tmp/.X$display-lock ]; do
 		sleep 0.01s; ((cntr--)); ((cntr<=0)) && break
 	done
-	nxlog "$FUNCNAME ($$): Stop waiting for DISPLAY $((cntr0-cntr))0 ms"
+	nxlog "$lp Stop waiting for DISPLAY $((cntr0-cntr))0 ms"
 
 	#numlockx
 	if [ "$NUMLOCKX_STATUS" != "system" ]; then
-		nxlog "$FUNCNAME ($$): Run \"$NUMLOCKX $NUMLOCKX_STATUS\""
+		nxlog "$lp Run \"$NUMLOCKX $NUMLOCKX_STATUS\""
 		"$NUMLOCKX" "$NUMLOCKX_STATUS"
 	fi
 
@@ -579,9 +590,9 @@ node_start_applications() {
 	node_app=$(node_find_application "$type")
 	# For rdesktop/VNC, there is no application to start
 	if [ -n "$node_app" ]; then
-		nxlog "$FUNCNAME ($$): Got node_app is \"$node_app\""
+		nxlog "$lp Got node_app is \"$node_app\""
 	else
-		nxlog "$FUNCNAME ($$): node_app is empty"
+		nxlog "$lp node_app is empty"
 		return
 	fi
 
@@ -595,19 +606,19 @@ node_start_applications() {
 		pa_remote="127.0.0.1:$mmport"
 		pa_pid="$(check_local_pa_tunnel $pa_remote $rate $channels)"
 		if [ -n "$pa_pid" ]; then
-			nxlog "$FUNCNAME ($$): Local pulseaudio is started ($pa_pid). Sound mode set to tunneled."
+			nxlog "$lp Local pulseaudio is started ($pa_pid). Sound mode set to tunneled."
 			echo $pa_pid > "$NXSESSION_DIRECTORY/scripts/pa_pid"
 			params=$rate
 			[ -n "$channels" ] && params+=":$channels"
 			[ -n "$params" ] && echo "$params" > "$NXSESSION_DIRECTORY/scripts/params.pa"
 		else
-			nxlog "$FUNCNAME ($$): Local pulseaudio NOT STARTED. Set PULSE_SERVER=127.0.0.1:$mmport"
+			nxlog "$lp Local pulseaudio NOT STARTED. Set PULSE_SERVER=127.0.0.1:$mmport"
 			export PULSE_SERVER="127.0.0.1:$mmport"
 		fi
 	elif [ "$ENABLE_DIRECT_NATIVE_PA_CHECK" = "1" ] ; then
 		native_sound_mode="$(get_pa_sound_mode 4713 $NXUSERIP)"
 		if [ -n "$native_sound_mode" ]; then
-			nxlog "$FUNCNAME ($$): Sound mode set to direct $native_sound_mode"
+			nxlog "$lp Sound mode set to direct $native_sound_mode"
 			export PULSE_SERVER="$NXUSERIP:4713"
 			if [ "$native_sound_mode" = "special" ]; then
 				export PULSE_SINK="ts_receiver"
@@ -624,9 +635,9 @@ node_start_applications() {
 		# Check for config file directive
 		if [ "$ENABLE_ESD_PRELOAD" = "1" -a \
 				-x "$ESD_BIN_PRELOAD" ]; then
-			nxlog "$FUNCNAME ($$): Preload \"$ESD_BIN_PRELOAD\""
+			nxlog "$lp Preload \"$ESD_BIN_PRELOAD\""
 			node_app="$ESD_BIN_PRELOAD $node_app"
-			nxlog "$FUNCNAME ($$): node_app is \"$node_app\""
+			nxlog "$lp node_app is \"$node_app\""
 			echo "Info: NXNODE - Using $ESD_BIN_PRELOAD wrapper script." >> "$NXSESSION_DIRECTORY/session"
 		fi
 	elif [ "$mediahelper" = "artsd" ]; then
@@ -645,14 +656,14 @@ node_start_applications() {
 	} || cups_server_socket="$NXSESSION_DIRECTORY/cups/cups.sock"
 	[ "$ENABLE_CUPS_SERVER_EXPORT" = "1" -a -n "$cups_server_socket" ] && {
 		[ "$cups" = "1" -o "$samba" = "1" ] && {
-			nxlog "$FUNCNAME ($$): export CUPS_SERVER=$cups_server_socket"
+			nxlog "$lp export CUPS_SERVER=$cups_server_socket"
 			export CUPS_SERVER="$cups_server_socket"
 		}
 	}
 	if [ "$ENABLE_SAMBA_PRELOAD" = "1" -a -x "$PATH_BIN/nxredir" ]; then
 		let NXSAMBA_PORT=$display+3000
 		export NXSAMBA_PORT
-		nxlog "$FUNCNAME ($$): Preload SAMBA using nxredir. NXSAMBA_PORT is \"$NXSAMBA_PORT\""
+		nxlog "$lp Preload SAMBA using nxredir. NXSAMBA_PORT is \"$NXSAMBA_PORT\""
 		node_app="$PATH_BIN/nxredir $node_app"
 		echo "Info: NXNODE - Using nxredir wrapper script to forward SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 	fi
@@ -664,10 +675,10 @@ node_start_applications() {
 	# Should we start a window manager?
 	if [ "$virtualdesktop" = "1" -a "$type" = "unix-application" -a \
 			-x "$DEFAULT_X_WM" ]; then
-		nxlog "$FUNCNAME ($$): start a window manager - \"DISPLAY=:$display $DEFAULT_X_WM\""
+		nxlog "$lp start a window manager - \"DISPLAY=:$display $DEFAULT_X_WM\""
 		DISPLAY=:$display $DEFAULT_X_WM >>"$NXSESSION_DIRECTORY/session" 2>&1 &
 		node_wm_pid=$!
-		nxlog "$FUNCNAME ($$): node_wm_pid='$node_wm_pid'}"
+		nxlog "$lp node_wm_pid='$node_wm_pid'}"
 	fi
 
 	# Use Xsession to execute the Desktop session
@@ -695,34 +706,34 @@ node_start_applications() {
 		second_app=$(rematchfn "$napp:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
 		[ -n "$second_app" ] && {
 			sapp_pids0=$(ps -wo pid= -C $(cutfn "$second_app" "/" -1))
-			nxlog "$FUNCNAME ($$): PID of $second_app will be waiting too. Initial: \"$sapp_pids0\""
+			nxlog "$lp PID of $second_app will be waiting too. Initial: \"$sapp_pids0\""
 		}
 	}
 
 	# Startup the application
-	nxlog "$FUNCNAME ($$): Starting node_app with /etc/nxserver/Xsession"
+	nxlog "$lp Starting node_app with /etc/nxserver/Xsession"
 	DISPLAY=:$display /etc/nxserver/Xsession $node_app >> \
 		"$NXSESSION_DIRECTORY/session" 2>&1 &
 	node_app_pid=$!
-	nxlog "$FUNCNAME ($$): Start successful. node_app_pid='$node_app_pid'"
+	nxlog "$lp Start successful. node_app_pid='$node_app_pid'"
 
 	mkdir -p "$NXSESSION_DIRECTORY/pids/"
 	echo "$node_app_pid" >"$NXSESSION_DIRECTORY/pids/apps/$node_app_pid"
-	nxlog "$FUNCNAME ($$): Waiting for node_app_pid"
+	nxlog "$lp Waiting for node_app_pid"
 	wait $node_app_pid
-	nxlog "$FUNCNAME ($$): node_app_pid finished"
+	nxlog "$lp node_app_pid finished"
 
 	# Kill or wait for the started window manager
 	[ -n "$node_wm_pid" ] && {
-		nxlog "$FUNCNAME ($$): node_wm_pid is not empty"
+		nxlog "$lp node_wm_pid is not empty"
 		# kill the WM after application is finished?
-		[ "$KILL_DEFAULT_X_WM" = "1" ] && { nxlog "$FUNCNAME ($$): killing $node_wm_pid"
+		[ "$KILL_DEFAULT_X_WM" = "1" ] && { nxlog "$lp killing $node_wm_pid"
 			kill $node_wm_pid 2>/dev/null; }
 		# or just wait until it finishes?
-		[ "$KILL_DEFAULT_X_WM" = "1" ] || { nxlog "$FUNCNAME ($$): wait for $node_wm_pid is dead"
+		[ "$KILL_DEFAULT_X_WM" = "1" ] || { nxlog "$lp wait for $node_wm_pid is dead"
 			wait $node_wm_pid; }
 	}
-	nxlog "$FUNCNAME ($$): Clean pids/apps/$node_app_pid"
+	nxlog "$lp Clean pids/apps/$node_app_pid"
 	rm -f "$NXSESSION_DIRECTORY/pids/apps/$node_app_pid"
 	sleep "$NODE_APP_WAIT_TIMEOUT"
 
@@ -733,11 +744,11 @@ node_start_applications() {
 				stringinstring "$spid" "$sapp_pids0" && continue
 				sapp_pids+="${sapp_pids:+$' '}$spid"
 			done <<< "$sapp_pids1"
-			nxlog "$FUNCNAME ($$): Waiting for $second_app PID(S) \"$sapp_pids\""
+			nxlog "$lp Waiting for $second_app PID(S) \"$sapp_pids\""
 			while [ -n "$(ps -o pid= -p $sapp_pids 2>/dev/null)" ]; do
 				sleep 1s
 			done
-			nxlog "$FUNCNAME ($$): PID(S) \"$sapp_pids\" finished"
+			nxlog "$lp PID(S) \"$sapp_pids\" finished"
 			node_terminate_session "$sess_id"
 		else  node_terminate_session "$sess_id"
 		fi
@@ -746,11 +757,11 @@ node_start_applications() {
 	# Do not terminate agent in case of rootless agent mode.
 	# The agent times out after a while by itself anyway.
 	if [ "$virtualdesktop" = "1" -o "$rootless" != "1" ] ; then
-		nxlog "$FUNCNAME ($$): Call node_terminate_agent for non-rootless or virtualdesktop session type"
-		nxlog "$FUNCNAME ($$): Call 'node_terminate_agent \"$sess_id\"'"
+		nxlog "$lp Call node_terminate_agent for non-rootless or virtualdesktop session type"
+		nxlog "$lp Call 'node_terminate_agent \"$sess_id\"'"
 		node_terminate_session "$sess_id"
 	fi
-	nxlog "$FUNCNAME ($$): end"
+	nxlog "$lp end"
 }
 
 
@@ -794,9 +805,10 @@ node_start_agent() {
 	#    leaving all other output flow through like normally.
 
 	# preparations
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local k g b r fp vncfullscreen u p d agent_port viewonly
 	local node_agent_exit_status node_failed
-	nxlog "$FUNCNAME ($$): starting"
+	nxlog "$lp starting"
 	exec 3>&2; exec 4>&1;
 
 	{
@@ -805,11 +817,11 @@ node_start_agent() {
 
 	# Setup environment
 	if [ "$ENABLE_SOURCE_PROFILE" = "1" ]; then
-		nxlog "$FUNCNAME ($$): source profile"
+		nxlog "$lp source profile"
 		. /etc/profile
 	fi
 	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ]; then
-		nxlog "$FUNCNAME ($$): source bash profile"
+		nxlog "$lp source bash profile"
 		[ -f ~/.bash_profile ] && . ~/.bash_profile
 		[ -f /etc/bashrc ] && . /etc/bashrc
 	fi
@@ -849,7 +861,7 @@ node_start_agent() {
 
 	# Start the wanted nxagent
 	if [ "$type" = "windows" ]; then
-		nxlog "$FUNCNAME ($$): Type \"windows\""
+		nxlog "$lp Type \"windows\""
 		# nxdesktop session (Windows RDP)
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
 			export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
@@ -865,7 +877,7 @@ node_start_agent() {
 			$k $g $u $p $d $agent_server $AGENT_EXTRA_OPTIONS_RDP 2>&3 &
 
 	elif [ "$type" = "vnc" ]; then
-		nxlog "$FUNCNAME ($$): Type \"vnc\""
+		nxlog "$lp Type \"vnc\""
 		# nxviewer session (VNC RFB)
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
 			export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
@@ -904,13 +916,13 @@ node_start_agent() {
 			$g $k $agent_server $AGENT_EXTRA_OPTIONS_RFB 2>&3 &
 	elif [ "$r" = "-R" -a "$rootless" != "1" ]; 	then
 		# nxproxy single application mode session
-		nxlog "$FUNCNAME ($$): Start nxproxy for single application session mode"
+		nxlog "$lp Start nxproxy for single application session mode"
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
 			export LD_LIBRARY_PATH="$PROXY_LIBRARY_PATH:$LD_LIBRARY_PATH"
-		nxlog "$FUNCNAME ($$): Start nxproxy by command: '$PATH_BIN/nxproxy -C :$display $PROXY_EXTRA_OPTIONS'"
+		nxlog "$lp Start nxproxy by command: '$PATH_BIN/nxproxy -C :$display $PROXY_EXTRA_OPTIONS'"
 		$PATH_BIN/nxproxy -C :$display $PROXY_EXTRA_OPTIONS 2>&3 &
 	else
-		nxlog "$FUNCNAME ($$): NXAgent session type"
+		nxlog "$lp NXAgent session type"
 		# nxagent session (X11)
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
 			export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
@@ -918,14 +930,14 @@ node_start_agent() {
 		p=$(node_agent_persistent_session)
 		fp=""; [ -n "$AGENT_FONT_SERVER" ] && fp="-fp $AGENT_FONT_SERVER"
 		if [ "$type" = "shadow" ]; then
-			nxlog "$FUNCNAME ($$): Type \"shadow\". Add some args to nxagent"
+			nxlog "$lp Type \"shadow\". Add some args to nxagent"
 			r="-S -shadow $shadowhost:$shadowdisplay -shadowmode $ENABLE_INTERACTIVE_SESSION_SHADOWING"
 			p="-nopersistent"
 		fi
 		# Start the agent
-#		nxlog "$FUNCNAME ($$): env start `env`"
-#		nxlog "$FUNCNAME ($$): env end"
-		nxlog "$FUNCNAME ($$): Start nxagent by command: '$COMMAND_NXAGENT $p $r -name \"NX - $user@$SERVER_NAME:$display - $session (GPL Edition)\" -option \"$NXSESSION_DIRECTORY/options\" $b $fp $AGENT_EXTRA_OPTIONS_X :$display'"
+#		nxlog "$lp env start `env`"
+#		nxlog "$lp env end"
+		nxlog "$lp Start nxagent by command: '$COMMAND_NXAGENT $p $r -name \"NX - $user@$SERVER_NAME:$display - $session (GPL Edition)\" -option \"$NXSESSION_DIRECTORY/options\" $b $fp $AGENT_EXTRA_OPTIONS_X :$display'"
 		#PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $p $r -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$NXSESSION_DIRECTORY/options" $k $g $b $fp $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 		PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $p $r \
 			-name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" \
@@ -937,31 +949,31 @@ node_start_agent() {
 	node_agent_pid=$!
 	mkdir -p "$NXSESSION_DIRECTORY/pids/"
 	echo "$node_agent_pid" >"$NXSESSION_DIRECTORY/pids/agent"
-	nxlog "$FUNCNAME ($$): Wait for node_agent_pid='$node_agent_pid'"
+	nxlog "$lp Wait for node_agent_pid='$node_agent_pid'"
 	wait $node_agent_pid
 	node_agent_exit_status=$?
-	nxlog "$FUNCNAME ($$): node_agent_exit_status='$node_agent_exit_status'"
+	nxlog "$lp node_agent_exit_status='$node_agent_exit_status'"
 	node_failed=""
 	if [ $node_agent_exit_status -ne 0 ]; then
 		echo "NX> 1004 Error: NX Agent exited with exit status 1. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$nx_dir/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
 		echo "$(< $NXSESSION_DIRECTORY/session)" >&2
 		node_failed="failed"
-		nxlog "$FUNCNAME ($$): node_failed='$node_failed'"
+		nxlog "$lp node_failed='$node_failed'"
 	fi
-	nxlog "$FUNCNAME ($$): close session"
+	nxlog "$lp close session"
 	echo "NX> 1006 Session status: closed"
 
 	# Cleanup session information
-	nxlog "$FUNCNAME ($$): cleanup session information '$sess_id'"
-	nxlog "$FUNCNAME ($$): remove agent pidfile -- '$NXSESSION_DIRECTORY/pids/agent'"
+	nxlog "$lp cleanup session information '$sess_id'"
+	nxlog "$lp remove agent pidfile -- '$NXSESSION_DIRECTORY/pids/agent'"
 	rm -f "$NXSESSION_DIRECTORY/pids/agent"
-	nxlog "$FUNCNAME ($$): call 'node_terminate_session \"$sess_id\" \"$node_failed\"'"
+	nxlog "$lp call 'node_terminate_session \"$sess_id\" \"$node_failed\"'"
 	node_terminate_session "$sess_id" "$node_failed"
 
 	# remove possible leftovers of nxagent
 	nxlog "$FUNCNAME ($$):remove /tmp/.X$display-lock"
 	rm -f /tmp/.X$display-lock
-	nxlog "$FUNCNAME ($$): remove /tmp/.X11-unix/X$display"
+	nxlog "$lp remove /tmp/.X11-unix/X$display"
 	rm -f /tmp/.X11-unix/X$display
 
 	} 3>&1 1>&4 | tee "$NXSESSION_DIRECTORY/session" | \
@@ -972,36 +984,37 @@ try_remount_printers() {
 # args: none
 # if found another running session with same smb/ipp-printers,
 # try to remount from current, else - umount
-	nxlog "$FUNCNAME ($$): starting."
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting."
 	local spname type mport new_port new_dir desc_fn descstr device_uri prstr;
 	local share upass username password model defaultPrinter cmdstr id drv pname;
 	local sessdir="$nx_dir/C-$sess_id"
 	local scr_dir="$sessdir/scripts"
-	[ ! -d "$sessdir" ] && { nxlog "$FUNCNAME ($$): Dir sessdir='$sessdir' NOT FOUND! Calling twice? Why?"
+	[ ! -d "$sessdir" ] && { nxlog "$lp Dir sessdir='$sessdir' NOT FOUND! Calling twice? Why?"
 		return 1; }
 	for spname in $scr_dir/@p@* ; do
-		[ "$spname" = "*" ] && { nxlog "$FUNCNAME ($$): No printers found. end."
+		[ "$spname" = "*" ] && { nxlog "$lp No printers found. end."
 			return 1; }
 		pname=$(cutfn "$spname" "/" -1); pname=${pname/@p@/}
-		nxlog "$FUNCNAME ($$): process printer \"$pname\", search in system cups."
+		nxlog "$lp process printer \"$pname\", search in system cups."
 		prstr=$(LC_ALL=C /usr/bin/lpstat -v "$pname" 2>/dev/null)
-		[ -z "$prstr" ] && { nxlog "$FUNCNAME ($$): printer \"$pname\" NOT FOUND in system cups"
+		[ -z "$prstr" ] && { nxlog "$lp printer \"$pname\" NOT FOUND in system cups"
 			continue;
 		}
 		[ -n "$(rematchfn '(ipp)://' "$prstr")" ] && type="ipp" || type="smb"
 		mport=$(get_mport2sessdir "$sessdir" "$type")
-		[ -z "$(rematchfn ':('$mport')/' "$prstr")" ] && { nxlog "$FUNCNAME ($$): printer \"$pname\" has mport rather than $mport, skiping."
+		[ -z "$(rematchfn ':('$mport')/' "$prstr")" ] && { nxlog "$lp printer \"$pname\" has mport rather than $mport, skiping."
 			continue; }
 		# printer already present at own mport
-		nxlog "$FUNCNAME ($$): printer \"$pname\" (port:$mport) found - deleting"
+		nxlog "$lp printer \"$pname\" (port:$mport) found - deleting"
 		/usr/bin/sudo /usr/sbin/lpadmin -x "$pname"
 		new_dir=$(get_sessdir4res "@p@$pname")
-		[ -z "$new_dir" ] && { nxlog "$FUNCNAME ($$): no running sessions found for printer \"$pname\", stop remounting"
+		[ -z "$new_dir" ] && { nxlog "$lp no running sessions found for printer \"$pname\", stop remounting"
 			continue;
 		}
 		new_port=$(get_mport2sessdir "$new_dir" "$type")
 		desc_fn="$nx_dir/shares_priv/@p@$pname"
-		[ -r "$desc_fn" ] || { nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for printer \"$pname\" NOT ACCESSIBLE, stop remounting"
+		[ -r "$desc_fn" ] || { nxlog "$lp description file \"$desc_fn\" for printer \"$pname\" NOT ACCESSIBLE, stop remounting"
 			continue; }
 		descstr=$(< $desc_fn)
 		device_uri=$(cutfn "$descstr" "&" 1)
@@ -1012,14 +1025,14 @@ try_remount_printers() {
 		password="$(cutfn "$upass" ":" 1)"
 		#[ "$type" = "ipp" ] && {
 		#	newpass=$(cat "$new_dir/scripts/@p@$pname" 2>/dev/null)
-		#	[ ! -z "$newpass" ] && { nxlog "$FUNCNAME ($$): new password for printer \"$pname\" ARE LOST, stop remounting"
+		#	[ ! -z "$newpass" ] && { nxlog "$lp new password for printer \"$pname\" ARE LOST, stop remounting"
 		#	continue;
 		#	}
 		#	device_uri=${device_uri/:$password/:$newpass}
 		#	password="$newpass"
 		#}
 		[ "$(check_remote_printer $type $share $new_port $username $password)" \
-				= "0" ] && { nxlog "$FUNCNAME ($$): smb/cifs-share \"$share\" for printer \"$pname\" NOT ACCESSIBLE, stop remounting"
+				= "0" ] && { nxlog "$lp smb/cifs-share \"$share\" for printer \"$pname\" NOT ACCESSIBLE, stop remounting"
 			continue;
 		}
 		model=$(cutfn "$descstr" "&" 0)
@@ -1030,37 +1043,38 @@ try_remount_printers() {
 			id="$model"; drv=$(cutfn "$descstr" "&" 4)
 			cmdstr="/usr/bin/sudo /usr/bin/foomatic-configure -s cups -n $pname -p $id -d $drv -c $device_uri -q"
 		fi
-		nxlog "$FUNCNAME ($$): invoke $cmdstr"
+		nxlog "$lp invoke $cmdstr"
 		$cmdstr
 		if [ $? -eq 0 ]; then
-			nxlog "$FUNCNAME ($$): printer \"$pname\" installed"
+			nxlog "$lp printer \"$pname\" installed"
 			[ "$type" = "ipp" ] && {
 				descstr=${descstr/:$mport/:$new_port}
 				echo "$descstr" > "$desc_fn"
 			}
 			public=$(cutfn "$descstr" "&" 2)
 			[ -n "$public" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $pname $public;
-				[ $? -ne 0 ] && nxlog "$FUNCNAME ($$): FAILED to set options \"$public\" for printer \"$pname\""
+				[ $? -ne 0 ] && nxlog "$lp FAILED to set options \"$public\" for printer \"$pname\""
 			}
 			[ "$defaultPrinter" = "1" ] && {
 				/usr/bin/sudo /usr/sbin/lpadmin -d "$pname";
-				[ $? -ne 0 ] && nxlog "$FUNCNAME ($$): FAILED to set default printer \"$pname\""
+				[ $? -ne 0 ] && nxlog "$lp FAILED to set default printer \"$pname\""
 			}
 		else
-			nxlog "$FUNCNAME ($$): FAILED to reinstall printer \"$pname\""
+			nxlog "$lp FAILED to reinstall printer \"$pname\""
 		fi
 	done
-	nxlog "$FUNCNAME ($$): end."
+	nxlog "$lp end."
 }
 
 # node_cupsd_stop
 # Used glob vars: $sess_id
 node_cupsd_stop() {
 # dimbor: if system cupsd is used, we try to remove/remount printers
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]; then
-		nxlog "$FUNCNAME ($$): starting with  ENABLE_CUPS_SERVER_MODE = 1, call try_remount_printers()"
+		nxlog "$lp starting with  ENABLE_CUPS_SERVER_MODE = 1, call try_remount_printers()"
 		try_remount_printers
-		nxlog "$FUNCNAME ($$): end"
+		nxlog "$lp end"
 		return
 	fi
 
@@ -1259,40 +1273,42 @@ create_mountpoint() {
 
 usermount_enable() {
 # check if available starting mode of mount/umount.cifs
-	local ret=1 logstr0="$FUNCNAME ($$):" ostr rc
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	local ret=1 ostr rc
 	ostr=$(stat -c %a "$COMMAND_SMBMOUNT" 2>&1); rc=$?
-	[ $rc -ne 0 ] && { nxlog "$logstr0 $ostr"; ret="0"; }
+	[ $rc -ne 0 ] && { nxlog "$lp $ostr"; ret="0"; }
 	[ "$ret" != "0" ] && [ "$ostr" != "4711" -a "$ostr" != "4755" ] && { ret="0"
-		nxlog "$logstr0 Permissions of $COMMAND_SMBMOUNT ($ostr) != 4711 or 4755. Mounting in user-mode is disabled."
+		nxlog "$lp Permissions of $COMMAND_SMBMOUNT ($ostr) != 4711 or 4755. Mounting in user-mode is disabled."
 	}
 	[ "$ret" != "0" -a $rc -eq 0 ] && {
 		ostr=$($COMMAND_SMBMOUNT 2>&1)
 		stringinstring "setuid root program disabled" "$ostr" && {
-			nxlog "$logstr0 $ostr"; ret="0";
+			nxlog "$lp $ostr"; ret="0";
 		}
 	}
 	ostr=$(stat -c %a "$COMMAND_SMBUMOUNT" 2>&1); rc2=$?
-	[ $rc2 -ne 0 ] && { nxlog "$logstr0 $ostr"
+	[ $rc2 -ne 0 ] && { nxlog "$lp $ostr"
 		ret="0"; rc=$rc2; }
 	[ "$ret" != "0" ] && [ "$ostr" != "4711" -a "$ostr" != "4755" ] && { ret="0"
-		nxlog "$logstr0 Permissions of  $COMMAND_SMBUMOUNT ($ostr) != 4711 or 4755. Umounting in user-mode is disabled."
+		nxlog "$lp Permissions of  $COMMAND_SMBUMOUNT ($ostr) != 4711 or 4755. Umounting in user-mode is disabled."
 	}
 	echo $ret; return $rc
 }
 
 sudomount_enable() {
 # checks available starting mode with sudo of mount/umount.cifs
-	local ret=1 logstr0="$FUNCNAME ($$):" ostr rc
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	local ret=1 ostr rc
 	ostr=$(/usr/bin/sudo -l 2>&1); rc=$?
-	if [ $rc -ne 0 ]; then nxlog "$logstr0 $ostr"; ret=0
+	if [ $rc -ne 0 ]; then nxlog "$lp $ostr"; ret=0
 	else
 		[ -z "$(rematchfn "NOPASSWD.+($COMMAND_SMBMOUNT)" "$ostr")" ] && { #"
 			ret=0
-			nxlog "$logstr0 Mounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
+			nxlog "$lp Mounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
 		}
 		[ -z "$(rematchfn "NOPASSWD.+($COMMAND_SMBUMOUNT)" "$ostr")" ] && { #"
 			ret=0
-			nxlog "$logstr0 Umounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
+			nxlog "$lp Umounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
 		}
 	fi
 	echo $ret; return $rc
@@ -1301,8 +1317,9 @@ sudomount_enable() {
 try_mount_smb() {
 # params: sharename(1), mountpoint(2), smb-username(3), port(4),
 # ex-options/uid,gid/(5), smb-password(6)
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local rc=1 smb_opts error mntstr
-	nxlog "$FUNCNAME ($$): Starting: try_user='$try_user', try_sudo='$try_sudo'}"
+	nxlog "$lp Starting: try_user='$try_user', try_sudo='$try_sudo'}"
 	[ -n "$SMB_MOUNT_OPTIONS" -a "${SMB_MOUNT_OPTIONS:0:1}" != "," ] && \
 		SMB_MOUNT_OPTIONS=",$SMB_MOUNT_OPTIONS"
 	smb_opts="username=$3,"
@@ -1311,29 +1328,30 @@ try_mount_smb() {
 	smb_opts="$smb_opts""ip=127.0.0.1,port=$4$SMB_MOUNT_OPTIONS"
 	[ $try_user -ne 0 ] && {
 		mntstr="$COMMAND_SMBMOUNT $1 $2 -o $smb_opts"
-		nxlog "$FUNCNAME ($$): invoke $mntstr 2>&1"
+		nxlog "$lp invoke $mntstr 2>&1"
 		error=$($mntstr 2>&1); rc=$?
-		[ $rc -ne 0 ] && nxlog "$FUNCNAME ($$): Mount error: \"$error\""
+		[ $rc -ne 0 ] && nxlog "$lp Mount error: \"$error\""
 	}
 	[ $try_sudo -ne 0 -a $rc -ne 0 ] && {
 		mntstr="/usr/bin/sudo $COMMAND_SMBMOUNT $1 $2 -o $5$smb_opts"
-		nxlog "$FUNCNAME ($$): invoke $mntstr 2>&1"
+		nxlog "$lp invoke $mntstr 2>&1"
 		error=$($mntstr 2>&1); rc=$?
-		[ $rc -ne 0 ] && nxlog "$FUNCNAME ($$): Mount error: \"$error\""
+		[ $rc -ne 0 ] && nxlog "$lp Mount error: \"$error\""
 	}
-	[ $rc -eq 0 ] && nxlog "$FUNCNAME ($$): Finished successfully."
+	[ $rc -eq 0 ] && nxlog "$lp Finished successfully."
 	return $rc
 }
 
 try_umount_smb() {
 # param: mountpoint
-	local amnt=3 cn=0 logstr0="$FUNCNAME ($$):" ostr;
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	local amnt=3 cn=0 ostr;
 	local logstr1 logstr2 rc=0 i ffl;
-	nxlog "$logstr0 Starting arg \"$1\". try_user='$try_user', try_sudo='$try_sudo', remain $amnt attempts."
+	nxlog "$lp Starting arg \"$1\". try_user='$try_user', try_sudo='$try_sudo', remain $amnt attempts."
 	for (( i=$amnt; $i; --i )); do
 		if stringinstring "$1" "$(mount)"; then
-			((i<amnt/2)) && { ffl="-f"; logstr1="$logstr0 force (-f)";
-			} || { ffl=""; logstr1="$logstr0"; }
+			((i<amnt/2)) && { ffl="-f"; logstr1="$lp force (-f)";
+			} || { ffl=""; logstr1="$lp"; }
 			rc=1; (( cn++ ))
 			[ $try_user -ne 0 ] && {
 				logstr2="$logstr1"" umount attempt #$cn \"$1\" in user-mode"
@@ -1348,17 +1366,18 @@ try_umount_smb() {
 					break; } || nxlog "$logstr2 FAILED. Error: \"$ostr\""
 			}
 		else
-			nxlog "$logstr0 Mountpoint \"$1\" not mounted"
+			nxlog "$lp Mountpoint \"$1\" not mounted"
 			return 0;
 		fi
 		sleep 0.5s
 	done
-	[ $rc -eq 0 ] && nxlog "$FUNCNAME ($$): Finished successfully."
+	[ $rc -eq 0 ] && nxlog "$lp Finished successfully."
 	return $rc
 }
 
 node_umount_smb() {
-	nxlog "$FUNCNAME ($$): starting with sess_id='$sess_id'"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting with sess_id='$sess_id'"
 	local scr_dir mport mpoints ssname sname desc_fn descstr new_dir new_port rc;
 	local smbport fsname username password IDS_OPTS;
 	scr_dir="$nx_dir/C-$sess_id/scripts"
@@ -1370,7 +1389,7 @@ node_umount_smb() {
 		try_user=$(usermount_enable)
 		try_sudo=$(sudomount_enable)
 		[ $try_user -eq 0 -a $try_sudo -eq 0 ] && {
-			nxlog "$FUNCNAME ($$): Any methods of (u)mounting are not available. Stop umounting."
+			nxlog "$lp Any methods of (u)mounting are not available. Stop umounting."
 			return 1;
 		}
 	}
@@ -1380,29 +1399,29 @@ node_umount_smb() {
 		[ -r "$scr_dir/mpoint" ] && \
 			mpoints=$(< $scr_dir/mpoint) \
 		|| {
-			nxlog "$FUNCNAME ($$): No shares controlled by session found. Stop remounting."
+			nxlog "$lp No shares controlled by session found. Stop remounting."
 			return;
 		}
 		for ssname in $scr_dir/@s@*; do
 			sname=$(cutfn "$ssname" "/" -1); sname=${sname/@s@/}
 			desc_fn="$nx_dir/shares_priv/@s@$sname"
 			[ ! -r "$desc_fn" ] && {
-				nxlog "$FUNCNAME ($$): description file \"$desc_fn\" for share \"$sname\" NOT ACCESSIBLE, stop remounting it"
+				nxlog "$lp description file \"$desc_fn\" for share \"$sname\" NOT ACCESSIBLE, stop remounting it"
 				continue;
 			}
 			descstr=$(< $desc_fn); mpoint=$(cutfn "$descstr" "&" 1)
 			stringinstring "$mpoint" "$mpoints" || {
-				nxlog "$FUNCNAME ($$): share \"$sname\" at \"$mpoint\" is not controlled by session. Stop remounting."
+				nxlog "$lp share \"$sname\" at \"$mpoint\" is not controlled by session. Stop remounting."
 				continue;
 			}
 			try_umount_smb "$mpoint"; rc=$? # umount here
 			[ $rc -ne 0 ] && {
-				nxlog "$FUNCNAME ($$): mountpoint \"$mpoint\" failed to unmount."
+				nxlog "$lp mountpoint \"$mpoint\" failed to unmount."
 				continue;
 			}
 			new_dir=$(get_sessdir4res "@s@$sname")
 			[ -z "$new_dir" ] && {
-				nxlog "$FUNCNAME ($$): no running sessions found for share \"$sname\", stop remounting"
+				nxlog "$lp no running sessions found for share \"$sname\", stop remounting"
 				rmdir "$mpoint" >/dev/null 2>/dev/null; continue;
 			}
 			new_port=$(< $new_dir/scripts/mport)
@@ -1413,58 +1432,60 @@ node_umount_smb() {
 			try_mount_smb "$fsname" "$mpoint" "$username" $new_port "$IDS_OPTS" "$password"
 			rc=$?
 			[ $rc -eq 0 ] && {
-				nxlog "$FUNCNAME ($$): share \"$fsname\" remount to \"$mpoint\""
+				nxlog "$lp share \"$fsname\" remount to \"$mpoint\""
 				echo "$mpoint" >> "$new_dir/scripts/mpoint"
 			} || {
-				nxlog "$FUNCNAME ($$): share \"$fsname\" failed to remount: $error"
+				nxlog "$lp share \"$fsname\" failed to remount: $error"
 				rmdir "$mpoint" >/dev/null 2>/dev/null
 			}
 		done
-		nxlog "$FUNCNAME ($$): end"
+		nxlog "$lp end"
 		return
 	fi
 
 	if [ -e "$nx_dir/C-$sess_id/scripts/mpoint" ]; then
-		nxlog "$FUNCNAME ($$): File scripts/mpoint present. Continue umounting..."
+		nxlog "$lp File scripts/mpoint present. Continue umounting..."
 	else
-		nxlog "$FUNCNAME ($$): File scripts/mpoint not present. Abort umounting..."
+		nxlog "$lp File scripts/mpoint not present. Abort umounting..."
 		return 1
 	fi
 	while read mpoint; do
 		try_umount_smb "$mpoint"; rc=$? # umount here
 		[ $rc -ne 0 ] && {
-			nxlog "$FUNCNAME ($$): mountpoint \"$mpoint\" failed to unmount."
+			nxlog "$lp mountpoint \"$mpoint\" failed to unmount."
 			continue;
 		}
-		nxlog "$FUNCNAME ($$): Remove mountpoint \"$mpoint\""
+		nxlog "$lp Remove mountpoint \"$mpoint\""
 		rmdir "$mpoint" >/dev/null 2>/dev/null #JJK:Remove mount point if empty
 	done < "$nx_dir/C-$sess_id/scripts/mpoint"
-	nxlog "$FUNCNAME ($$): end"
+	nxlog "$lp end"
 }
 
 node_stop_services() {
-	nxlog "$FUNCNAME ($$): starting"
-	nxlog "$FUNCNAME ($$): call node_umount_smb"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting"
+	nxlog "$lp call node_umount_smb"
 	node_umount_smb
-	nxlog "$FUNCNAME ($$): call node_cupsd_stop"
+	nxlog "$lp call node_cupsd_stop"
 	node_cupsd_stop
-	nxlog "$FUNCNAME ($$): call reconnect_pa"
+	nxlog "$lp call reconnect_pa"
 	reconnect_pa
-	nxlog "$FUNCNAME ($$): end"
+	nxlog "$lp end"
 }
 
 node_emergency_exit() {
-	nxlog "$FUNCNAME ($$): starting"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting"
 	# umount shares & stop printers
-	nxlog "$FUNCNAME ($$): call node_stop_services"
+	nxlog "$lp call node_stop_services"
 	node_stop_services
 
 	# kill the session
-	nxlog "$FUNCNAME ($$): call 'node_terminate_session \"$sess_id\" \"failed\"'"
+	nxlog "$lp call 'node_terminate_session \"$sess_id\" \"failed\"'"
 	node_terminate_session "$sess_id" "failed"
 
 	echo "NX> 1004 Error: Emergency exit due to kill signal."
-	nxlog "$FUNCNAME ($$): end"
+	nxlog "$lp end"
 }
 
 # node_start_monitor <start|restore> <Running|Suspended>
@@ -1472,7 +1493,8 @@ node_emergency_exit() {
 #                         as it has to keep track of different
 #                         connection states and react differently.
 node_start_monitor() {
-	nxlog "$FUNCNAME ($$): starting"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting"
 	local node_tail_pid="" node_suspend_status="$2";
 	local smbmount_port media_port node_watchdog_pid tosend
 
@@ -1503,11 +1525,11 @@ node_start_monitor() {
 			echo "NX> 1005 Session status: suspended"
 			# umount shares & stop printers
 			if [ "$node_suspend_status" = "Running" ]; then
-				nxlog "$FUNCNAME ($$): call 'node_suspend_session \"$sess_id\"'"
+				nxlog "$lp call 'node_suspend_session \"$sess_id\"'"
 				node_suspend_session "$sess_id"
 				node_suspend_status=""
 			else
-				nxlog "$FUNCNAME ($$): call node_stop_services"
+				nxlog "$lp call node_stop_services"
 				node_stop_services
 			fi
 		elif stringinstring "Info: Watchdog running with pid" "$line"; then
@@ -1547,12 +1569,12 @@ NX> 707 SSL tunneling: $encryption\n"
 	trap "" EXIT
 
 	[ "$1" != "restore" -a "$rootless" != "1" ] && {
-		nxlog "$FUNCNAME ($$): call node_stop_services at ending"
+		nxlog "$lp call node_stop_services at ending"
 		node_stop_services;
 	}
 	# close all open file descriptors
 	exec 0<&-; exec 1>&-; exec 2>&-;
-	nxlog "$FUNCNAME ($$): end"
+	nxlog "$lp end"
 	exit 0
 }
 
@@ -1562,8 +1584,9 @@ NX> 707 SSL tunneling: $encryption\n"
 # -----------------------------------------------------------------------------
 #
 startsession() {
+	local lp="$FUNCNAME ($$/$BASHPID):";
 	local txt gvars old_umask realtype
-	nxlog "$FUNCNAME ($$): starting with args \"$@\""
+	nxlog "$lp starting with args \"$@\""
 #	gvars="agent_domain, agent_password, agent_server, agent_user,\
 # application, aux, backingstore, cache, client, clientproto,\
 # cookie, cups, display, encryption, extra1, extra2, extra3,\
@@ -1674,7 +1697,7 @@ startsession() {
 		# we need to use the IP of the "calling" server now
 		# FIXME: cut and sed rm
 		#userip=$(echo $SSH_CLIENT $SSH2_CLIENT | cut -d" " -f1 | sed 's/::ffff://g')
-		#nxlog "$FUNCNAME ($$): userip='$userip'"
+		#nxlog "$lp userip='$userip'"
 		userip=""
 		# If host is the same, use 127.0.0.1, else fallback to default
 		[ -z "$userip" -a "$host" = "127.0.0.1" ] && userip="127.0.0.1"
@@ -1712,14 +1735,14 @@ startsession() {
 	if [ "$1" = "application" ]; then
 		# This needs to be set, else nxagent is terminated
 		rootless="1"; virtualdesktop="0"
-		nxlog "$FUNCNAME ($$): call 'node_start_applications'"
+		nxlog "$lp call 'node_start_applications'"
 		node_start_applications &
 		echo "NX> 596 Application $application started successfully."
 		return
 	fi
 
 	old_umask=$(umask); umask 0077
-	nxlog "$FUNCNAME ($$): generate \"$NXSESSION_DIRECTORY/options\""
+	nxlog "$lp generate \"$NXSESSION_DIRECTORY/options\""
 	txt="nx/nx,${keyboard:+keyboard=$keyboard,}${kbtype:+kbtype=$kbtype,}\
 ${kbload:+kbload=$kbload,}${keymap:+keymap=$keymap,}\
 ${geometry:+geometry=$geometry,}${client:+client=$client,}\
@@ -1737,7 +1760,7 @@ ${fullscreen:+,fullscreen=1}${menu:+,menu=$menu}:$display"
 	umask $old_umask
 
 	# write xauth script file
-	nxlog "$FUNCNAME ($$): write xauth script file"
+	nxlog "$lp write xauth script file"
 	txt="add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
 add :$display MIT-MAGIC-COOKIE-1 $cookie
 exit"
@@ -1751,37 +1774,37 @@ exit"
 
 	# If we have a shadow cookie, we add it to xauth session authority file as well
 	if [ -n "$shadowcookie" ]; then
-		nxlog "$FUNCNAME ($$): If we have a shadow cookie, we add it to xauth session authority file as well"
+		nxlog "$lp If we have a shadow cookie, we add it to xauth session authority file as well"
 		$COMMAND_XAUTH -f "$SHADOW_XAUTHORITY" add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 "$shadowcookie"
 	elif [ -n "$shadowdisplay" ]; then
 		# we need to merge in the normal .Xauthority file
-		nxlog "$FUNCNAME ($$): we need to merge in the normal .Xauthority file"
+		nxlog "$lp we need to merge in the normal .Xauthority file"
 		$COMMAND_XAUTH -f "$SHADOW_XAUTHORITY" merge "$HOME/.Xauthority"
 	fi
 
 	if [ "$1" = "restore" ]; then
-		nxlog "$FUNCNAME ($$): restore session"
+		nxlog "$lp restore session"
 		echo > "$NXSESSION_DIRECTORY/session"
 		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$USER_FAKE_HOME"'/.nx/C-'"$sess_id"'/session' | node_start_monitor "$1" "$status" &
 		MONITOR_PID=$!; export MONITOR_PID
 		mkdir -p "$NXSESSION_DIRECTORY/pids/"
 		echo "$MONITOR_PID" > "$NXSESSION_DIRECTORY/pids/monitor"
-		nxlog "$FUNCNAME ($$): call 'node_suspend_session \"$sess_id\"'"
+		nxlog "$lp call 'node_suspend_session \"$sess_id\"'"
 		node_suspend_session "$sess_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$NXSESSION_DIRECTORY/session"; node_fail_restore_session "$sess_id"; }
 	else
-		nxlog "$FUNCNAME ($$): call 'node_start_agent'"
+		nxlog "$lp call 'node_start_agent'"
 		node_start_agent &
-		nxlog "$FUNCNAME ($$): call 'node_start_applications'"
+		nxlog "$lp call 'node_start_applications'"
 		node_start_applications &
 	fi
 
 	if [ -x "$NODE_AUTOSTART" ]; then
-		nxlog "$FUNCNAME ($$): NODE_AUTOSTART: waiting for nxagent"
+		nxlog "$lp NODE_AUTOSTART: waiting for nxagent"
 		local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
 		while [ ! -f /tmp/.X$display-lock ]; do
 			sleep 0.01s; ((cntr--)); ((cntr<=0)) && break
 		done
-		nxlog "$FUNCNAME ($$): NODE_AUTOSTART: Stop waiting $((cntr0-cntr))0 ms"
+		nxlog "$lp NODE_AUTOSTART: Stop waiting $((cntr0-cntr))0 ms"
 		# go into background immediately
 		NXSESSIONID="$sess_id" DISPLAY=:$display "$NODE_AUTOSTART" "$1" >/dev/null 2>&1 &
 		disown $! # dont't wait for this child!
@@ -1798,7 +1821,7 @@ exit"
 		rm -f "$NXSESSION_DIRECTORY/pids/tail"
 	fi
 	wait # for all children
-	nxlog "$FUNCNAME ($$): end"
+	nxlog "$lp end"
 }
 
 #
@@ -1825,7 +1848,8 @@ cmd_node_suspend() {
 }
 
 cmd_node_smbmount() {
-	local try_user try_sudo IDS_OPTS EGROUP SFN rc outstr smbport desc_dir
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	local try_user try_sudo ids_ops egroup sfn rc outstr smbport desc_dir
 	# Due to a too quick session start, port does not have time to initialize
 	sleep 0.2s
 	sessionid=$(getparam_sessionid)
@@ -1833,7 +1857,7 @@ cmd_node_smbmount() {
 	display=$(cutfn "$sdir" "-" -2)
 	sess_id="$SERVER_NAME-$display-$sessionid" # dimbor: for called functions
 	sess_dir="$nx_dir/C-$sess_id"
-	nxlog "$FUNCNAME ($$): starting with sessionid = $sessionid"
+	nxlog "$lp starting with sessionid = $sessionid"
 	port=$(getparam port)
 	username=$(getparam username 1)
 	password=$(getparam password 1)
@@ -1846,19 +1870,19 @@ cmd_node_smbmount() {
 	dir=$(norm_param $dir)
 	[ -n "$(rematchfn "(MyShares)" "$dir")" ] && dir="$HOME/$dir" #"
 	# dimbor: checking mountpoint
-	EGROUP=$(id -gn "$USER"); rc=$?
-	outstr="$(create_mountpoint "$dir" "$USER" "$EGROUP")"
-	[ -n "$outstr" ] && nxlog "$FUNCNAME ($$): create_mountpoint says: \"$outstr\""
-	[ $rc -ne 0 ] && { nxlog "$FUNCNAME ($$): Stop mounting."; return 1; }
+	egroup=$(id -gn "$USER"); rc=$?
+	outstr="$(create_mountpoint "$dir" "$USER" "$egroup")"
+	[ -n "$outstr" ] && nxlog "$lp create_mountpoint says: \"$outstr\""
+	[ $rc -ne 0 ] && { nxlog "$lp Stop mounting."; return 1; }
 	smbport=""; [ -r "$sess_dir/scripts/smbport" ] && \
 		smbport=$(< $sess_dir/scripts/smbport)
-	IDS_OPTS="uid=$USER,gid=$EGROUP,"; try_user=1; try_sudo=0;
+	ids_ops="uid=$USER,gid=$egroup,"; try_user=1; try_sudo=0;
 	# this function run dedicated. We must define smbproto and COMMAND_SMBMOUNT here, not in startsession.
 	if [ "$smbport" = "445" ]; then
 		COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS; COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
 		try_user=$(usermount_enable); try_sudo=$(sudomount_enable)
 		[ $try_user -eq 0 -a $try_sudo -eq 0 ] && {
-			nxlog "$FUNCNAME ($$): Any methods of (u)mounting are not available. Stop mounting."
+			nxlog "$lp Any methods of (u)mounting are not available. Stop mounting."
 			return 1;
 		}
 	elif [ "x$smbport" = "x" ]; then COMMAND_SMBMOUNT=/bin/true
@@ -1868,13 +1892,13 @@ cmd_node_smbmount() {
 	#do not mount twice
 	local mnts=$(rematchfn "(.+)[[:space:]].+$dir" "$(mount)") #"
 	if [ -n "$mnts" ]; then
-			nxlog "$FUNCNAME ($$): share $mnts already mounted on $dir"
+			nxlog "$lp share $mnts already mounted on $dir"
 		if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]; then
 			if [ -z "$(get_sessdir4res "@s@$share")" ]; then
-				nxlog "$FUNCNAME ($$): Try to force umount dead mountpoint \"$dir\""
+				nxlog "$lp Try to force umount dead mountpoint \"$dir\""
 				try_umount_smb "$dir"; rc=$?
 				[ $rc -ne 0 ] && {
-					nxlog "$FUNCNAME ($$): Umounting FAILED! Stop mounting."
+					nxlog "$lp Umounting FAILED! Stop mounting."
 					return 1;
 				}
 			else
@@ -1894,29 +1918,29 @@ cmd_node_smbmount() {
 	# sometimes the samba port we get from nxserver is not the right one,
 	# so let's get it from nxagent
 	[ -r "$sess_dir/scripts/mport" ] && port=$(< $sess_dir/scripts/mport)
-	try_mount_smb "//$computername/$share" "$dir" "$username" $port "$IDS_OPTS" "$password"
+	try_mount_smb "//$computername/$share" "$dir" "$username" $port "$ids_ops" "$password"
 	rc=$?
 	if [ $rc -eq 0 ]; then
 		if [ "$ENABLE_SHARE_MULTIMOUNT" = "1" ]; then
-			nxlog "$FUNCNAME ($$): share \"//$computername/$share\" mount on \"$dir\""
-			SFN="@s@$share"
-			touch "$sess_dir/scripts/$SFN"
+			nxlog "$lp share \"//$computername/$share\" mount on \"$dir\""
+			sfn="@s@$share"
+			touch "$sess_dir/scripts/$sfn"
 			desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
 			[ -d "$desc_dir" ] || {
 				mkdir "$desc_dir" && chmod 700 "$desc_dir";
 			}
-			[ ! -e "$desc_dir/$SFN" ] && touch "$desc_dir/$SFN" && \
-				chmod 600 "$desc_dir/$SFN" # create "top-secret" description file
-			echo "//$computername/$share&$dir&$username&$password&$IDS_OPTS" > "$desc_dir/$SFN"
+			[ ! -e "$desc_dir/$sfn" ] && touch "$desc_dir/$sfn" && \
+				chmod 600 "$desc_dir/$sfn" # create "top-secret" description file
+			echo "//$computername/$share&$dir&$username&$password&$ids_ops" > "$desc_dir/$sfn"
 		else # not multimount case
-			nxlog "$FUNCNAME ($$): share \"//$computername/$share\" mount on \"$dir\""
+			nxlog "$lp share \"//$computername/$share\" mount on \"$dir\""
 			$PATH_BIN/nxdialog -dialog ok -caption "NXServer Message" \
 				-message "Info: Share: '//$computername/$share' mounted on: '$dir'" \
 				-display :$display &
 		fi
 		echo "$dir" >> "$nx_dir/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
 	else
-		nxlog "$FUNCNAME ($$): Share //$computername/$share mount FAILED."
+		nxlog "$lp Share //$computername/$share mount FAILED."
 		rmdir "$dir" >/dev/null 2>/dev/null #JJK: Remove mount point if empty
 		[ "$ENABLE_SHARE_MULTIMOUNT" = "1" ] || $PATH_BIN/nxdialog -dialog ok \
 			-caption "NXServer Message" \
@@ -1926,7 +1950,8 @@ cmd_node_smbmount() {
 }
 
 cmd_node_addprinter() {
-	nxlog "$FUNCNAME ($$): starting"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	nxlog "$lp starting"
 	# Due to a too quick session start, port does not have time to initialize
 	sleep 0.2s
 	sessionid=$(getparam_sessionid)
@@ -1965,12 +1990,12 @@ cmd_node_addprinter() {
 			device_uri="smb://$username:$password@127.0.0.1:$port/$share"
 		fi
 		name="$share"; ENABLE_CUPS_SEAMLESS="0"
-		nxlog "$FUNCNAME ($$): set name = $name; smbport=$smbport; device_uri=$device_uri"
+		nxlog "$lp set name = $name; smbport=$smbport; device_uri=$device_uri"
 	else
 		printer=$(norm_param $printer)
 		device_uri="ipp://$username:$password@127.0.0.1:$port/printers/$printer"
 		name="$printer"
-		nxlog "$FUNCNAME ($$): set name = $name; device_uri=$device_uri"
+		nxlog "$lp set name = $name; device_uri=$device_uri"
 	fi
 
 	#JJK: I like to also allow 'guest' so you can do things like print
@@ -1982,7 +2007,7 @@ cmd_node_addprinter() {
 	export PATH_BIN
 	user_ppd_dir="$nx_dir/config/ppd"
 	mkdir -p "$user_ppd_dir"
-	nxlog "$FUNCNAME ($$): run with ENABLE_CUPS_SERVER_MODE=$ENABLE_CUPS_SERVER_MODE"
+	nxlog "$lp run with ENABLE_CUPS_SERVER_MODE=$ENABLE_CUPS_SERVER_MODE"
 	# dimbor: We use system cupsd
 	if [ "$ENABLE_CUPS_SERVER_MODE" = "1" ]; then
 		# dimbor: Name of windows share or ipp-printer may be set to name
@@ -2010,24 +2035,24 @@ cmd_node_addprinter() {
 		pname="$USER""_""$name""$nn" # user's printer name
 		[ -n "$pre" ] && { id="HP-LaserJet_4M-Postscript"; drv="0"; }
 		model="$NX_ETC_DIR/ppd/$id.ppd"
-		nxlog "$FUNCNAME ($$): set pname = \"$pname\", try to install \"$model\" - N=$nn, drv=$drv, pname=$pname."
+		nxlog "$lp set pname = \"$pname\", try to install \"$model\" - N=$nn, drv=$drv, pname=$pname."
 		[ "$type" = "smb" ] || [ -r "$model" ] || {
 			# try to download "left-nx" ppd (original scheme), needs to use
 			# wrapper for nxprint on client side
 			# TODO: Rewrite
 			[ "$(check_remote_printer "ipp" "fake_param" $port)" = "0" ] && {
-				nxlog "$FUNCNAME ($$): Remote CUPS not found!"
+				nxlog "$lp Remote CUPS not found!"
 				return 1
 			}
 			errstr=$(curl --proxy "" --digest -o "$model" \
 				"http://$username:$password@127.0.0.1:$port/ppd/${name}_nxdl.ppd" 2>&1)
 			cmdstr="curl --proxy \"\" --digest -o $model http://$username:******@127.0.0.1:$port/ppd/${name}_nxdl.ppd"
 			[ -r "$model" -a -n "$(head -n1 "$model" 2>/dev/null | grep "*PPD-Adobe")" ] && {
-				nxlog "$FUNCNAME ($$): $model download SUCCESSFUL."
+				nxlog "$lp $model download SUCCESSFUL."
 			} || {
-				nxlog "$FUNCNAME ($$): $model is NOT a PPD-file! Contents: \"$(cat $model 2>/dev/null)\""
-				nxlog "$FUNCNAME ($$): cmd: $cmdstr"
-				nxlog "$FUNCNAME ($$): $errstr"
+				nxlog "$lp $model is NOT a PPD-file! Contents: \"$(cat $model 2>/dev/null)\""
+				nxlog "$lp cmd: $cmdstr"
+				nxlog "$lp $errstr"
 				rm -f "$model"
 			}
 		}
@@ -2049,12 +2074,12 @@ cmd_node_addprinter() {
 					'{nd=substr($1,index($1,":")+1); if (nd ~ '$drv') {printf("%s\n",$0)}}')
 				drv_uri=$(echo "$uris" | head -n1)
 				[ -n "$drv_uri" ] && {
-					nxlog "$FUNCNAME ($$): Try to get \"$model\" from URI \"$drv_uri\""
+					nxlog "$lp Try to get \"$model\" from URI \"$drv_uri\""
 					prog="$cups_driver_dir/$(echo "$drv_uri" |  awk -F':' '{ printf("%s",$1)}')" #'
 					cmdstr="$prog cat $drv_uri"
 					$cmdstr > $model
 				} || {
-					nxlog "$FUNCNAME ($$): Driver for \"$name\" not found in CUPS. STOP installing."
+					nxlog "$lp Driver for \"$name\" not found in CUPS. STOP installing."
 					return 1
 				}
 			}
@@ -2065,7 +2090,7 @@ cmd_node_addprinter() {
 		[ -d "$desc_dir" ] || { mkdir "$desc_dir" && chmod 700 "$desc_dir"; }
 		[ "$type" = "smb" ] && {
 			for (( i=30; $i; --i )); do
-				nxlog "$FUNCNAME ($$): wait for smb-port $((30-i))"
+				nxlog "$lp wait for smb-port $((30-i))"
 				[ -f "$sess_dir/scripts/mport" ] && break
 				sleep 1
 			done
@@ -2083,16 +2108,16 @@ cmd_node_addprinter() {
 			[ "$drop" = "0" ] && [ "$type" = "ipp" -o "$iport" = "$port" ] && \
 				{ drop=1; dbs="for reinstall"; }
 			if [ "$drop" = "1" ]; then
-				nxlog "$FUNCNAME ($$): delete printer \"$pname\" (port:$iport) - $dbs"
+				nxlog "$lp delete printer \"$pname\" (port:$iport) - $dbs"
 				/usr/bin/sudo /usr/sbin/lpadmin -x "$pname"
 			else
-				nxlog "$FUNCNAME ($$): printer \"$pname\" already exist at port:$iport - stop adding, mark only"
+				nxlog "$lp printer \"$pname\" already exist at port:$iport - stop adding, mark only"
 				echo $password > "$sess_dir/scripts/$pfn"; chmod 600 "$sess_dir/scripts/$pfn"
 				return 0
 			fi
 		fi
 		[ "$(check_remote_printer $type $name $port $username $password)" = "0" ] && {
-			nxlog "$FUNCNAME ($$): \"$name\" (mport:$port) NOT ACCESSIBLE stop adding."
+			nxlog "$lp \"$name\" (mport:$port) NOT ACCESSIBLE stop adding."
 			return 1;
 		}
 		echo $password > "$sess_dir/scripts/$pfn"; chmod 600 "$sess_dir/scripts/$pfn" # set share present flag
@@ -2102,22 +2127,22 @@ cmd_node_addprinter() {
 			echo "$model&$device_uri&$public&$defaultPrinter" > "$desc_dir/$pfn" # confidential access data
 			cmdstr="/usr/bin/sudo /usr/sbin/lpadmin -p $pname -P $model -v $device_uri -E"
 		else
-			nxlog "$FUNCNAME ($$): $model driver not found! Printer $name not installed."
+			nxlog "$lp $model driver not found! Printer $name not installed."
 			return 1
 		fi
-		nxlog "$FUNCNAME ($$): invoke $cmdstr"
+		nxlog "$lp invoke $cmdstr"
 		error="$($cmdstr 2>&1)"
 		if [ $? -eq 0 ] ; then
-			nxlog "$FUNCNAME ($$): printer \"$pname\" installed"
+			nxlog "$lp printer \"$pname\" installed"
 			[ -n "$public" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $pname $public;
-				[ $? -ne 0 ] && nxlog "$FUNCNAME ($$): FAILED to set options \"$public\" for printer \"$pname\""
+				[ $? -ne 0 ] && nxlog "$lp FAILED to set options \"$public\" for printer \"$pname\""
 			}
 			[ "$defaultPrinter" = "1" ] && {
 				/usr/bin/sudo /usr/sbin/lpadmin -d "$pname";
-				[ $? -ne 0 ] && nxlog "$FUNCNAME ($$): FAILED to set default printer \"$pname\""
+				[ $? -ne 0 ] && nxlog "$lp FAILED to set default printer \"$pname\""
 			}
 		else
-			nxlog "$FUNCNAME ($$): FAILED to install printer \"$pname\": $error"
+			nxlog "$lp FAILED to install printer \"$pname\": $error"
 		fi
 	else # original behaviour
 		mkdir -p "$nx_dir/config/ppd/"
