@@ -626,28 +626,6 @@ node_start_applications() {
 			fi
 			node_app="/usr/bin/padsp $node_app"
 		fi
-	elif [ "$mediahelper" = "esd" ]; then
-		# Set Espeaker variable
-		let ESPEAKER=$display+7000
-		export ESPEAKER="127.0.0.1:$ESPEAKER"
-		# Do not spawn new ESD daemons
-		export ESD_NO_SPAWN="yes"
-		# Check for config file directive
-		if [ "$ENABLE_ESD_PRELOAD" = "1" -a \
-				-x "$ESD_BIN_PRELOAD" ]; then
-			nxlog "$lp Preload \"$ESD_BIN_PRELOAD\""
-			node_app="$ESD_BIN_PRELOAD $node_app"
-			nxlog "$lp node_app is \"$node_app\""
-			echo "Info: NXNODE - Using $ESD_BIN_PRELOAD wrapper script." >> "$NXSESSION_DIRECTORY/session"
-		fi
-	elif [ "$mediahelper" = "artsd" ]; then
-		# Overwrite users mcoprc
-		echo -n "GlobalComm=Arts::X11GlobalComm" > $HOME/.mcoprc
-		if [ "$ENABLE_ARTSD_PRELOAD" = "1" -a \
-				-x "$ARTSD_BIN_PRELOAD" ]; then
-			node_app="$ARTSD_BIN_PRELOAD $node_app"
-			echo "Info: NXNODE - Using $ARTSD_BIN_PRELOAD wrapper script." >> "$NXSESSION_DIRECTORY/session"
-		fi
 	fi
 
 	[ "$ENABLE_CUPS_SERVER_MODE" = "1" ] && {
