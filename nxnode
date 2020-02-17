@@ -5,6 +5,8 @@
 #           (c) 2008-19 by Dmitry Borisov <i@dimbor.ru>
 # License: GNU GPL, version 2
 
+shopt -s extglob
+
 # Read the config file
 # dimbor: it's temporary
 . /usr/bin/nxloadconfig --userconf
@@ -41,7 +43,7 @@ fi
 delim="NX>";[ -n "$2" ] && delim="NX-$2>"
 echo "$delim 1000 NXNODE - Version $NX_VERSION $NX_LICENSE"
 if ! stringinstring "$1" "--check|--setkey|--agent"; then
-	read CMDLINE; CMDLINE="a=b&$CMDLINE"
+	read CMDLINE; #CMDLINE="a=b&$CMDLINE"
 fi
 #
 # -----------------------------------------------------------------------------
@@ -49,18 +51,18 @@ fi
 # -----------------------------------------------------------------------------
 #
 getparam_sessionid() {
-	sessionid=$(getparam sessionid)
-	[ -n "$sessionid" ] || sessionid=$(getparam session_id)
-	if [ -z "$sessionid" ]; then
+	session_id=$(getparam "$CMDLINE" session_id)
+	[ -n "$session_id" ] || session_id=$(getparam "$CMDLINE" sessionid)
+	if [ -z "$session_id" ]; then
 		echo "NX> 500 Error: Fatal - Missing parameter session id." 1>&2
 		exit 1
 	fi
-	echo $sessionid
+	echo $session_id
 }
 
 echo_secure() {
 	if [ "$NX_LOG_SECURE" = "0" ]; then echo "$@"
-	else echo "${@//&password=*&/&password=****&}"
+	else echo "${@/password=+([^&])&/password=****&}"
 	fi
 }
 
@@ -81,10 +83,9 @@ fi
 
 if [ -n "$CMDLINE" ]; then
 	if [ "$USER" != "nx" ]; then
-		ssid4log=$(getparam uniqueid)
-		[ -z "$ssid4log" ] && ssid4log=$(getparam session_id)
-		[ -z "$ssid4log" ] && ssid4log=$(getparam sess_id)
-		[ -z "$ssid4log" ] && ssid4log=$(getparam sessionid)
+		ssid4log=$(getparam "$CMDLINE" session_id)
+		[ -z "$ssid4log" ] && ssid4log=$(getparam "$CMDLINE" sess_id)
+		[ -z "$ssid4log" ] && ssid4log=$(getparam "$CMDLINE" sessionid)
 		ssid4log=${ssid4log##*-}
 		[ -n "$ssid4log" ] && \
 			nxuser_logfile="$nx_dir/nxnode-$ssid4log.log"
@@ -1309,12 +1310,12 @@ node_start_monitor() {
 			# Kill the watchdog
 			kill $node_watchdog_pid 2>/dev/null
 		elif stringinstring "Info: Waiting for connection from" "$line"; then
-			tosend="NX> 700 Session id: $sess_id\n
+			tosend="NX> 700 Session id: $sess_id
 NX> 705 Session display: $display\nNX> 703 Session type: $type
 NX> 701 Proxy cookie: $proxy_cookie\nNX> 702 Proxy IP: $proxyip
 NX> 706 Agent cookie: $cookie\nNX> 704 Session cache: $type
 NX> 707 SSL tunneling: $encryption\n"
-		# File-sharing port options
+			# File-sharing port options
 			if [ "$samba" = "1" -a -n "$smbport" ]; then
 				tosend+="NX> 709 File-sharing port: $smbport\n"
 			fi
@@ -1366,11 +1367,11 @@ startsession() {
 # media, mediahelper, nodelay, rdpcache, rdpcolors, render,\
 # resize, rootless, samba, screeninfo, session, shadowcookie,
 # shadowdisplay, shadowhost, shadowusername, status, sync,\
-# type, uniqueid, user, userip, virtualdesktop"
+# type, session_id, user, userip, virtualdesktop"
 
-#	set_vars_from_params "$gvars" recode
+#	set_vars_from_params "$CMDLINE" "$gvars" "" recode
 
-	set_vars_from_cmdstr "$CMDLINE" "recode"
+	set_vars_from_ampstr "$CMDLINE" "" "recode"
 	# 1.5.0 options: rdpcolors,rdpcache,http
 	# nxclient > 1.5.0-106 variables: resize,keybd
 	# FreeNX specific variables: clientproto,status,host
@@ -1381,7 +1382,7 @@ startsession() {
 	# on server and client are required
 
 	windows_app=$application
-	sess_id="$SERVER_NAME-$display-$uniqueid"
+	sess_id="$SERVER_NAME-$display-$session_id"
 	NXSESSION_DIRECTORY="$nx_dir/C-$sess_id"
 	# ok, lets make the session dir first:
 	old_umask=$(umask);
@@ -1600,20 +1601,20 @@ exit"
 # -----------------------------------------------------------------------------
 #
 cmd_node_terminate() {
-	sessionid=$(getparam_sessionid)
-	echo "$delim 716 Terminating session $sessionid on user request."
-	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
+	session_id=$(getparam_sessionid)
+	echo "$delim 716 Terminating session $session_id on user request."
+	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$session_id)
 	display=$(cutfn "$sdir" "-" -2)
-	sess_id="$SERVER_NAME-$display-$sessionid"
+	sess_id="$SERVER_NAME-$display-$session_id"
 	node_terminate_session "$sess_id"
 }
 
 cmd_node_suspend() {
-	sessionid=$(getparam_sessionid)
-	echo "$delim 716 Suspending session $sessionid on user request."
-	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
+	session_id=$(getparam_sessionid)
+	echo "$delim 716 Suspending session $session_id on user request."
+	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$session_id)
 	display=$(cutfn "$sdir" "-" -2)
-	sess_id="$SERVER_NAME-$display-$sessionid"
+	sess_id="$SERVER_NAME-$display-$session_id"
 	node_suspend_session "$sess_id"
 }
 
@@ -1622,18 +1623,18 @@ cmd_node_smbmount() {
 	local try_user try_sudo ids_ops egroup sfn rc outstr smbport desc_dir
 	# Due to a too quick session start, port does not have time to initialize
 	sleep 0.2s
-	sessionid=$(getparam_sessionid)
-	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
+	session_id=$(getparam_sessionid)
+	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$session_id)
 	display=$(cutfn "$sdir" "-" -2)
-	sess_id="$SERVER_NAME-$display-$sessionid" # dimbor: for called functions
+	sess_id="$SERVER_NAME-$display-$session_id" # dimbor: for called functions
 	sess_dir="$nx_dir/C-$sess_id"
-	nxlog "$lp starting with sessionid = $sessionid"
-	port=$(getparam port)
-	username=$(getparam username 1)
-	password=$(getparam password 1)
-	share=$(getparam share 1)
+	nxlog "$lp starting with sessionid = $session_id"
+	port=$(getparam "$CMDLINE" port)
+	username=$(getparam "$CMDLINE" username 1)
+	password=$(getparam "$CMDLINE" password 1)
+	share=$(getparam "$CMDLINE" share 1)
 	computername=127.0.0.1 # http://bugs.etersoft.ru/show_bug.cgi?id=8841
-	dir=$(getparam dir 1); dir=${dir/'$(SHARES)'/MyShares}
+	dir=$(getparam "$CMDLINE" dir 1); dir=${dir/'$(SHARES)'/MyShares}
 	username=$(norm_param $username)
 	password=$(norm_param $password)
 	share=$(norm_param $share)
@@ -1694,7 +1695,7 @@ cmd_node_smbmount() {
 		[ ! -e "$desc_dir/$sfn" ] && touch "$desc_dir/$sfn" && \
 			chmod 600 "$desc_dir/$sfn" # create "top-secret" description file
 		echo "//$computername/$share&$dir&$username&$password&$ids_ops" > "$desc_dir/$sfn"
-		echo "$dir" >> "$nx_dir/C-$SERVER_NAME-$display-$sessionid/scripts/mpoint"
+		echo "$dir" >> "$nx_dir/C-$SERVER_NAME-$display-$session_id/scripts/mpoint"
 	else
 		nxlog "$lp Share //$computername/$share mount FAILED."
 		rmdir "$dir" >/dev/null 2>/dev/null #JJK: Remove mount point if empty
@@ -1710,22 +1711,22 @@ cmd_node_addprinter() {
 	nxlog "$lp starting with args \"$@\""
 	# Due to a too quick session start, port does not have time to initialize
 	sleep 0.2s
-	sessionid=$(getparam_sessionid)
-	type=$(getparam type)
-	port=$(getparam port)
-	username=$(getparam username 1)
-	password=$(getparam password 1)
-	share=$(getparam share 1)
-	printer=$(getparam printer 1)
-	computername=$(getparam computername 1)
-	public=$(getparam public)
-	model=$(getparam model 1)
-	defaultPrinter=$(getparam defaultPrinter)
+	session_id=$(getparam_sessionid)
+	type=$(getparam "$CMDLINE" type)
+	port=$(getparam "$CMDLINE" port)
+	username=$(getparam "$CMDLINE" username 1)
+	password=$(getparam "$CMDLINE" password 1)
+	share=$(getparam "$CMDLINE" share 1)
+	printer=$(getparam "$CMDLINE" printer 1)
+	computername=$(getparam "$CMDLINE" computername 1)
+	public=$(getparam "$CMDLINE" public)
+	model=$(getparam "$CMDLINE" model 1)
+	defaultPrinter=$(getparam "$CMDLINE" defaultPrinter)
 
-	[ -z "$defaultPrinter" ] && defaultPrinter=$(getparam defaultprinter) # for opennx
-	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$sessionid)
+	[ -z "$defaultPrinter" ] && defaultPrinter=$(getparam "$CMDLINE" defaultprinter) # for opennx
+	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$session_id)
 	display=$(cutfn "$sdir" "-" -2)
-	sess_id="$SERVER_NAME-$display-$sessionid"
+	sess_id="$SERVER_NAME-$display-$session_id"
 	# normalize
 	username=$(norm_param $username)
 	password=$(norm_param $password)

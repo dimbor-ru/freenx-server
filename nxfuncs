@@ -13,11 +13,11 @@ num_pattern='[+-]?[0-9]+([.][0-9]+)?'
 stringinstring() { case "$2" in *$1*) return 0;; esac; return 1; }
 
 getparam() {
-#args: <param_name> [recode_hex_%NN]
-# Reread boot command line; echo last parameter's argument or return false.
-	local pattern=".*&$1=([^&]*)" str="&$CMDLINE" r;
+#args: <instring> <param_name> [recode_hex_%NN]
+# Reread given line; echo last parameter's argument or return false.
+	local pattern=".*&$2=([^&]*)" str="&$1" r;
 	[[ "$str" =~ $pattern ]]; r=${BASH_REMATCH[1]}
-	[ -n "$2" ] && echo -e "${r//\%/\\x}" || echo "$r"
+	[ -n "$3" ] && echo -e "${r//\%/\\x}" || echo "$r"
 	[ "$BASH_REMATCH" != "" ]
 }
 
@@ -62,23 +62,24 @@ rematchfn(){
 }
 
 set_vars_from_params() {
-#args: <varnames> [%hex_recode=""]
+#args: <instring> <varnames> [var_prefix=""] [%hex_recode=""]
 # varnames_list_delimited_by_spaces_or_commas
 	local vnames vn vv;
-	vnames="${1//,/ }"
+	vnames="${2//,/ }"
 	for vn in $vnames; do
-		vv=$(getparam $vn $2); [ -z "$vv" ] && continue; declare -g $vn="$vv"
+		vv=$(getparam "$1" $vn $4); #[ -z "$vv" ] && continue;
+		declare -g $4$vn="$vv"
 	done
 }
 
-set_vars_from_cmdstr() {
-#param: <cmdstr> [%hex_recode=""]
-	local  kv vn vv;
+set_vars_from_ampstr() {
+#param: <ampstr> [var_prefix=""] [%hex_recode=""]
+	local kv vn vv;
 	local IFS='&'; local -a a=($1) a2;
 	for kv in ${a[@]}; do
 		IFS='=' a2=($kv); vn=${a2[0]}; [ -z "$vn" ] && continue;
-		vv=${a2[1]}; [ -n "$2" ] && vv="${vv//\%/\\x}"
-		declare -g $vn="$vv"
+		vv=${a2[1]}; [ -n "$3" ] && vv="${vv//\%/\\x}"
+		declare -g $2$vn="$vv"
 	done
 }
 
