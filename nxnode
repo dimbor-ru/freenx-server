@@ -12,54 +12,11 @@ shopt -s extglob
 . /usr/bin/nxloadconfig --userconf
 
 . $SHARED_CONFS/nxfuncs
-
-# config variables in use:
-# SAMBA_MOUNT_SHARE_PROTOCOL COMMAND_SMBMOUNT COMMAND_SMBUMOUNT
-# COMMAND_NETCAT
-# NX_VERSION NX_LICENSE NX_LOG_SECURE NX_LOG_LEVEL USER_FAKE_HOME
-
-# use env vars: USER
-
-declare -g delim CMDLINE nx_dir;
-
-
-#JJK: Added	following 'if' stanza as a kluge since the following variables
-#JJK: need to be set in cmd_node_smbmount node_umount_smb
-#JJK: but they are currently set only in startsession which is called
-#JJK: separately from nxserver via ssh so environment variables
-#JJK: aren't preserved.
-if stringinstring "$SAMBA_MOUNT_SHARE_PROTOCOL" "cifs|both" && \
-	[ -n "$COMMAND_SMBMOUNT_CIFS" -a -n "$COMMAND_SMBUMOUNT_CIFS" ]; then
-	COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS
-	COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
-	SAMBA_MOUNT_SHARE_PROTOCOL="cifs"
-fi
-
-#
-# -----------------------------------------------------------------------------
-# Startup of nxnode
-# -----------------------------------------------------------------------------
-#
-delim="NX>";[ -n "$2" ] && delim="NX-$2>"
-echo "$delim 1000 NXNODE - Version $NX_VERSION $NX_LICENSE"
-if ! stringinstring "$1" "--check|--setkey|--agent"; then
-	read CMDLINE; #CMDLINE="a=b&$CMDLINE"
-fi
 #
 # -----------------------------------------------------------------------------
 # Various helper functions
 # -----------------------------------------------------------------------------
 #
-getparam_sessionid() {
-	session_id=$(getparam "$CMDLINE" session_id)
-	[ -n "$session_id" ] || session_id=$(getparam "$CMDLINE" sessionid)
-	if [ -z "$session_id" ]; then
-		echo "NX> 500 Error: Fatal - Missing parameter session id." 1>&2
-		exit 1
-	fi
-	echo $session_id
-}
-
 echo_secure() {
 	if [ "$NX_LOG_SECURE" = "0" ]; then echo "$@"
 	else echo "${@/password=+([^&])&/password=****&}"
@@ -70,30 +27,6 @@ nxlog() {
 	[ "$NX_LOG_LEVEL" -lt 6 ] && return 0
 	echo_secure "$(date "+%T.%3N"): $@" >> "$nxuser_logfile"
 }
-
-
-if [ "$USER" = "nx" ]; then
-	nx_dir="" # ???
-	nxuser_logfile="/var/log/nx/nxnode.log"
-else
-	nx_dir="$USER_FAKE_HOME/.nx"
-	nxuser_logfile="$nx_dir/nxnode.log"
-	mkdir -p "$nx_dir"
-fi
-
-if [ -n "$CMDLINE" ]; then
-	if [ "$USER" != "nx" ]; then
-		ssid4log=$(getparam "$CMDLINE" session_id)
-		[ -z "$ssid4log" ] && ssid4log=$(getparam "$CMDLINE" sess_id)
-		[ -z "$ssid4log" ] && ssid4log=$(getparam "$CMDLINE" sessionid)
-		ssid4log=${ssid4log##*-}
-		[ -n "$ssid4log" ] && \
-			nxuser_logfile="$nx_dir/nxnode-$ssid4log.log"
-	fi
-	nxlog "$0 ($$): run nxnode with PARAMS:\"$@\"; CMDLINE='$CMDLINE'"
-else
-	nxlog "$0 ($$): run nxnode with \"$@\""
-fi
 
 #
 # -----------------------------------------------------------------------------
@@ -932,7 +865,8 @@ check_remote_printer() {
 	}
 	nxredir_lib="$PATH_LIB/freenx-server/libnxredir.so.0"
 	[ -n "$5" ] && upass="$4%$5" || upass="$4 -N"
-	[ "$SAMBA_MOUNT_SHARE_PROTOCOL" = "cifs" ] && dport=445 || dport=139
+	stringinstring "$SAMBA_MOUNT_SHARE_PROTOCOL" "cifs|both" && dport=445 || \
+		dport=139
 	cmdstr="/usr/bin/rpcclient -U '$upass' -c 'openprinter $2' \
 -p $dport -I 127.0.0.1 127.0.0.1 2>&1"
 	nxlog "$lp invoke command \"$cmdstr\""
@@ -1352,22 +1286,20 @@ NX> 707 SSL tunneling: $encryption\n"
 #
 startsession() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local txt gvars old_umask realtype #smbport
+	local txt old_umask realtype #smbport
 	nxlog "$lp starting with args \"$@\""
 #	gvars="agent_domain, agent_password, agent_server, agent_user,\
 # application, aux, backingstore, cache, client, clientproto,\
 # cookie, cups, display, encryption, extra1, extra2, extra3,\
 # freenx_export_agents, fullscreen, geometry, host, http,\
-# imagecompressionlevel, imagecompressionmethod, images,\
-# kbload, kbtype, keybd, keyboard, keymap, link, login_method,\
-# media, mediahelper, nodelay, rdpcache, rdpcolors, render,\
-# resize, rootless, samba, screeninfo, session, shadowcookie,
-# shadowdisplay, shadowhost, shadowusername, status, sync,\
-# type, session_id, user, userip, virtualdesktop"
-
+# imagecompressionlevel, imagecompressionmethod, images, kbload,\
+# kbtype, keybd, keyboard, keymap, link, login_method, media,\
+# mediahelper, nodelay, rdpcache, rdpcolors, render, resize,\
+# rootless, samba, screeninfo, session, session_id, shadowcookie,\
+# shadowdisplay, shadowhost, shadowusername, status, sync, type,\
+# user, userip, virtualdesktop"
 #	set_vars_from_params "$CMDLINE" "$gvars" "" recode
 
-	set_vars_from_ampstr "$CMDLINE" "" "recode"
 	# 1.5.0 options: rdpcolors,rdpcache,http
 	# nxclient > 1.5.0-106 variables: resize,keybd
 	# FreeNX specific variables: clientproto,status,host
@@ -1378,8 +1310,6 @@ startsession() {
 	# on server and client are required
 
 	windows_app=$application
-	sess_id="$SERVER_NAME-$display-$session_id"
-	NXSESSION_DIRECTORY="$nx_dir/C-$sess_id"
 	# ok, lets make the session dir first:
 	old_umask=$(umask);
 	[ -d $USER_FAKE_HOME ] || { umask 0022; mkdir -p $USER_FAKE_HOME; }
@@ -1597,52 +1527,36 @@ exit"
 # -----------------------------------------------------------------------------
 #
 cmd_node_terminate() {
-	session_id=$(getparam_sessionid)
 	echo "$delim 716 Terminating session $session_id on user request."
-	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$session_id)
-	display=$(cutfn "$sdir" "-" -2)
-	sess_id="$SERVER_NAME-$display-$session_id"
 	node_terminate_session "$sess_id"
 }
 
 cmd_node_suspend() {
-	session_id=$(getparam_sessionid)
 	echo "$delim 716 Suspending session $session_id on user request."
-	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$session_id)
-	display=$(cutfn "$sdir" "-" -2)
-	sess_id="$SERVER_NAME-$display-$session_id"
 	node_suspend_session "$sess_id"
 }
 
 cmd_node_smbmount() {
+# used vars: port, username, password, share, dir, computername
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	local try_user try_sudo ids_ops egroup sfn rc outstr smbport desc_dir
+	nxlog "$lp starting with sessionid = $session_id"
 	# Due to a too quick session start, port does not have time to initialize
 	sleep 0.2s
-	session_id=$(getparam_sessionid)
-	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$session_id)
-	display=$(cutfn "$sdir" "-" -2)
-	sess_id="$SERVER_NAME-$display-$session_id" # dimbor: for called functions
-	sess_dir="$nx_dir/C-$sess_id"
-	nxlog "$lp starting with sessionid = $session_id"
-	port=$(getparam "$CMDLINE" port)
-	username=$(getparam "$CMDLINE" username 1)
-	password=$(getparam "$CMDLINE" password 1)
-	share=$(getparam "$CMDLINE" share 1)
+
 	computername=127.0.0.1 # http://bugs.etersoft.ru/show_bug.cgi?id=8841
-	dir=$(getparam "$CMDLINE" dir 1); dir=${dir/'$(SHARES)'/MyShares}
-	username=$(norm_param $username)
-	password=$(norm_param $password)
-	share=$(norm_param $share)
-	dir=$(norm_param $dir)
+	dir=${dir/'$(SHARES)'/MyShares}; dir=$(norm_param $dir)
 	[ -n "$(rematchfn "(MyShares)" "$dir")" ] && dir="$HOME/$dir" #"
+	username=$(norm_param $username); password=$(norm_param $password)
+	share=$(norm_param $share)
+
 	# dimbor: checking mountpoint
 	egroup=$(id -gn "$USER"); rc=$?
 	outstr="$(create_mountpoint "$dir" "$USER" "$egroup")"
 	[ -n "$outstr" ] && nxlog "$lp create_mountpoint says: \"$outstr\""
 	[ $rc -ne 0 ] && { nxlog "$lp Stop mounting."; return 1; }
-	smbport=""; [ -r "$sess_dir/scripts/smbport" ] && \
-		smbport=$(< $sess_dir/scripts/smbport)
+	smbport=""; [ -r "$NXSESSION_DIRECTORY/scripts/smbport" ] && \
+		smbport=$(< $NXSESSION_DIRECTORY/scripts/smbport)
 	ids_ops="uid=$USER,gid=$egroup,"; try_user=1; try_sudo=0;
 	# this function run dedicated. We must define smbproto and COMMAND_SMBMOUNT here, not in startsession.
 	if [ "$smbport" = "445" ]; then
@@ -1667,23 +1581,23 @@ cmd_node_smbmount() {
 				nxlog "$lp Umounting FAILED! Stop mounting."; return 1;
 			}
 		else
-			touch "$sess_dir/scripts/@s@$share"; return;
+			touch "$NXSESSION_DIRECTORY/scripts/@s@$share"; return;
 		fi
 	fi
 	# wait up to 30 sec until nxagent has opened the listener port
 	# for samba connections
 	for (( i=300; $i; --i )); do
-		[ -f "$sess_dir/scripts/mport" ] && break
+		[ -f "$NXSESSION_DIRECTORY/scripts/mport" ] && break
 		sleep 0.1s
 	done
 	# sometimes the samba port we get from nxserver is not the right one,
 	# so let's get it from nxagent
-	[ -r "$sess_dir/scripts/mport" ] && port=$(< $sess_dir/scripts/mport)
+	[ -r "$NXSESSION_DIRECTORY/scripts/mport" ] && port=$(< $NXSESSION_DIRECTORY/scripts/mport)
 	try_mount_smb "//$computername/$share" "$dir" "$username" $port "$ids_ops" "$password"
 	rc=$?
 	if [ $rc -eq 0 ]; then
 		nxlog "$lp share \"//$computername/$share\" mount on \"$dir\""
-		sfn="@s@$share"; touch "$sess_dir/scripts/$sfn"
+		sfn="@s@$share"; touch "$NXSESSION_DIRECTORY/scripts/$sfn"
 		desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
 		[ -d "$desc_dir" ] || {
 			mkdir "$desc_dir" && chmod 700 "$desc_dir";
@@ -1703,36 +1617,26 @@ cmd_node_smbmount() {
 }
 
 cmd_node_addprinter() {
+# used vars: type, username, password, port, share, computername, model,
+# defaultprinter/defaultPrinter public
 	local lp="$FUNCNAME ($$/$BASHPID):";
+	local public_str name pname pre drv nocheck device_uri id;
+	local strs cmdstr errstr cups_driver_dir uris prog strs
+	local pfn desc_dir i pstr iport drop dbs error
 	nxlog "$lp starting with args \"$@\""
 	# Due to a too quick session start, port does not have time to initialize
 	sleep 0.2s
-	session_id=$(getparam_sessionid)
-	type=$(getparam "$CMDLINE" type)
-	port=$(getparam "$CMDLINE" port)
-	username=$(getparam "$CMDLINE" username 1)
-	password=$(getparam "$CMDLINE" password 1)
-	share=$(getparam "$CMDLINE" share 1)
-	printer=$(getparam "$CMDLINE" printer 1)
-	computername=$(getparam "$CMDLINE" computername 1)
-	public=$(getparam "$CMDLINE" public)
-	model=$(getparam "$CMDLINE" model 1)
-	defaultPrinter=$(getparam "$CMDLINE" defaultPrinter)
 
-	[ -z "$defaultPrinter" ] && defaultPrinter=$(getparam "$CMDLINE" defaultprinter) # for opennx
-	sdir=$(cd $nx_dir/; echo C-$SERVER_NAME-*-$session_id)
-	display=$(cutfn "$sdir" "-" -2)
-	sess_id="$SERVER_NAME-$display-$session_id"
-	# normalize
-	username=$(norm_param $username)
-	password=$(norm_param $password)
-	share=$(norm_param $share)
-	computername=$(norm_param $computername)
+	[ -z "$defaultrrinter" ] && defaultprinter=$defaultPrinter # for nxclient
+
+ 	# normalize
+	username=$(norm_param $username); password=$(norm_param $password)
+	share=$(norm_param $share); computername=$(norm_param $computername)
 	export CUPS_SERVER=$CUPS_DEFAULT_SOCK
 
 	if [ "$type" = "smb" ]; then
-		[ -r $nx_dir/C-$sess_id/scripts/smbport ] && \
-			smbport=$(< $nx_dir/C-$sess_id/scripts/smbport)
+		[ -r $NXSESSION_DIRECTORY/scripts/smbport ] && \
+			smbport=$(< $NXSESSION_DIRECTORY/scripts/smbport)
 		[ -z "$smbport" ] && smbport=139 # should not happen
 		[ "$smbport" = "445" ] && smbproto="cifs" || smbproto="smb"
 		device_uri="nxsmb://$username:$password@127.0.0.1:$port/$smbproto/$share"
@@ -1749,8 +1653,8 @@ cmd_node_addprinter() {
 	#JJK: testpages from the CUPS web interface. Note this is required
 	#JJK: even for the original user to print test pages
 	#JJK:	public="-u allow:$USER"
-	public="-u allow:$USER,guest,root"
-	[ "$public" == "1" ] && public=""
+	public_str="-u allow:$USER,guest,root"
+	[ "$public" == "1" ] && public_str=""
 	# dimbor: We use system cupsd
 	# Name of windows share or ipp-printer may be set to name
 	# of driver.ppd from $NX_ETC_DIR/ppd/ (without ".ppd").
@@ -1822,13 +1726,12 @@ cmd_node_addprinter() {
 		}
 	fi
 	pfn="@p@$pname" # filename of flag and description files
-	sess_dir="$nx_dir/C-$sess_id"
 	desc_dir="$nx_dir/shares_priv" # directory with connection parameters to use sessions together
 	[ -d "$desc_dir" ] || { mkdir "$desc_dir" && chmod 700 "$desc_dir"; }
 	[ "$type" = "smb" ] && {
 		for (( i=30; $i; --i )); do
 			nxlog "$lp wait for smb-port $((30-i))"
-			[ -f "$sess_dir/scripts/mport" ] && break
+			[ -f "$NXSESSION_DIRECTORY/scripts/mport" ] && break
 			sleep 1
 		done
 	} || share=$printer
@@ -1849,7 +1752,7 @@ cmd_node_addprinter() {
 			/usr/bin/sudo /usr/sbin/lpadmin -x "$pname"
 		else
 			nxlog "$lp printer \"$pname\" already exist at port:$iport - stop adding, mark only"
-			echo $password > "$sess_dir/scripts/$pfn"; chmod 600 "$sess_dir/scripts/$pfn"
+			echo $password > "$NXSESSION_DIRECTORY/scripts/$pfn"; chmod 600 "$NXSESSION_DIRECTORY/scripts/$pfn"
 			return 0
 		fi
 	fi
@@ -1857,11 +1760,11 @@ cmd_node_addprinter() {
 		nxlog "$lp \"$name\" (mport:$port) NOT ACCESSIBLE stop adding."
 		return 1;
 	}
-	echo $password > "$sess_dir/scripts/$pfn"; chmod 600 "$sess_dir/scripts/$pfn" # set share present flag
+	echo $password > "$NXSESSION_DIRECTORY/scripts/$pfn"; chmod 600 "$NXSESSION_DIRECTORY/scripts/$pfn" # set share present flag
 	if [ -r "$model" ] ; then
 		[ ! -e "$desc_dir/$pfn" ] && touch "$desc_dir/$pfn" \
 			&& chmod 600 "$desc_dir/$pfn" # create "top-secret" description file
-		echo "$model&$device_uri&$public&$defaultPrinter" > "$desc_dir/$pfn" # confidential access data
+		echo "$model&$device_uri&$public_str&$defaultprinter" > "$desc_dir/$pfn" # confidential access data
 		cmdstr="/usr/bin/sudo /usr/sbin/lpadmin -p $pname -P $model -v $device_uri -E"
 	else
 		nxlog "$lp $model driver not found! Printer $name not installed."
@@ -1871,16 +1774,51 @@ cmd_node_addprinter() {
 	error="$($cmdstr 2>&1)"
 	if [ $? -eq 0 ] ; then
 		nxlog "$lp printer \"$pname\" installed"
-		[ -n "$public" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $pname $public;
-			[ $? -ne 0 ] && nxlog "$lp FAILED to set options \"$public\" for printer \"$pname\""
+		[ -n "$public_str" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $pname $public_str;
+			[ $? -ne 0 ] && nxlog "$lp FAILED to set options \"$public_str\" for printer \"$pname\""
 		}
-		[ "$defaultPrinter" = "1" ] && {
+		[ "$defaultprinter" = "1" ] && {
 			/usr/bin/sudo /usr/sbin/lpadmin -d "$pname";
 			[ $? -ne 0 ] && nxlog "$lp FAILED to set default printer \"$pname\""
 		}
 	else nxlog "$lp FAILED to install printer \"$pname\": $error"
 	fi
 }
+
+
+declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile;
+
+#
+# -----------------------------------------------------------------------------
+# Startup of nxnode
+# -----------------------------------------------------------------------------
+#
+[ -n "$2" ] && delim="NX-$2>"
+echo "$delim 1000 NXNODE - Version $NX_VERSION $NX_LICENSE"
+
+if [ "$USER" = "nx" ]; then
+	nx_dir="/var/lib/nxserver/home" # ???
+	nxuser_logfile="/var/log/nx/nxnode.log"
+else
+	nx_dir="$USER_FAKE_HOME/.nx"
+	nxuser_logfile="$nx_dir/nxnode.log"
+	mkdir -p "$nx_dir"
+fi
+
+if ! stringinstring "$1" "--check|--setkey|--agent"; then
+	read CMDLINE;
+	set_vars_from_ampstr "$CMDLINE" "" "recode"
+	if [ -z "$session_id" ]; then
+		echo "NX> 500 Error: Fatal - Missing parameter session id." 1>&2
+		exit 1
+	fi
+	declare -g sess_id="$SERVER_NAME-$display-$session_id"
+	declare -g NXSESSION_DIRECTORY="$nx_dir/C-$sess_id"
+	nxuser_logfile="$nx_dir/nxnode-$sess_id.log"
+	nxlog "$0 ($$): run nxnode with PARAMS:\"$@\"; CMDLINE='$CMDLINE'"
+else
+	nxlog "$0 ($$): run nxnode with \"$@\""
+fi
 
 case "$1" in
 	--startsession)

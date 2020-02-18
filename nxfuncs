@@ -78,8 +78,8 @@ set_vars_from_ampstr() {
 	local IFS='&'; local -a a=($1) a2;
 	for kv in ${a[@]}; do
 		IFS='=' a2=($kv); vn=${a2[0]}; [ -z "$vn" ] && continue;
-		vv=${a2[1]}; [ -n "$3" ] && vv="${vv//\%/\\x}"
-		declare -g $2$vn="$vv"
+		vv=${a2[1]}; [ -n "$3" ] && vv=$(echo -e  "${vv//\%/\\x}")
+		declare -g $2$vn=$vv
 	done
 }
 

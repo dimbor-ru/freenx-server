@@ -1348,6 +1348,7 @@ while true; do
 		terminate*)
 			in_params=$(server_get_params $cmd)
 			set_vars_from_ampstr "$in_params"
+			in_params+="&display=$display"
 			if session_find_id_user "$session_id" "$user"; then
 				server_nxnode_start --terminate "$user" "$in_params"
 			fi
@@ -1670,14 +1671,17 @@ cmd_terminate_or_send() {
 			--suspend)
 				if [ "$cmd_status" = "Running" ] && stringinstring "unix-" "$cmd_type"
 				then
-					echo "session_id=$cmd_session_id" | cmd_execute "$cmd_host" "$cmd_user" "$PATH_BIN/nxnode --suspend"
+					echo "session_id=$cmd_session_id&display=$cmd_display" | \
+						cmd_execute "$cmd_host" "$cmd_user" "$PATH_BIN/nxnode --suspend"
 				fi
 			;;
 			--terminate)
-				echo "session_id=$cmd_session_id" | cmd_execute "$cmd_host" "$cmd_user" "$PATH_BIN/nxnode --terminate"
+				echo "session_id=$cmd_session_id&display=$cmd_display" | \
+					cmd_execute "$cmd_host" "$cmd_user" "$PATH_BIN/nxnode --terminate"
 			;;
 			--force-terminate)
-				echo "session_id=$cmd_session_id" | cmd_execute "$cmd_host" "$cmd_user" "$PATH_BIN/nxnode --terminate"
+				echo "session_id=$cmd_session_id&display=$cmd_display" | \
+					cmd_execute "$cmd_host" "$cmd_user" "$PATH_BIN/nxnode --terminate"
 				session_close $cmd_session_id
 			;;
 			--send|--broadcast)
