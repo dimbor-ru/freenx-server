@@ -1230,8 +1230,8 @@ creationTime=$(date +%s)"
 		db_params=$(session_get "$session_id");
 		display=$(getparam "$db_params" display); 
 		host=$(getparam "$db_params" host)
-		params+="&user=$user&userip=$userip&\
-session_id=$session_id&display=$display&status=$status"
+		status=$(getparam "$db_params" status)
+		params+="&user=$user&userip=$userip&display=$display&status=$status"
 		server_host=$host
 		[ -z "$server_host" ] && server_host="127.0.0.1"
 

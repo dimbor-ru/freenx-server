@@ -1295,14 +1295,10 @@ node_start_monitor() {
 			# Session suspend
 			echo "NX> 1005 Session status: suspended"
 			# umount shares & stop printers
-			if [ "$node_suspend_status" = "Running" ]; then
-				nxlog "$lp call 'node_suspend_session \"$sess_id\"'"
-				node_suspend_session "$sess_id"
-				node_suspend_status=""
-			else
-				nxlog "$lp call node_stop_services"
+			[ "$node_suspend_status" != "Suspended" ] && {
+				nxlog "$lp node suspended, call node_stop_services"
 				node_stop_services
-			fi
+			}
 		elif stringinstring "Info: Watchdog running with pid" "$line"; then
 			# Watchdog termination
 			node_watchdog_pid=$(cutfn "$line" "'" 1)
