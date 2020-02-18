@@ -1493,19 +1493,19 @@ exit"
 		node_start_agent &
 		nxlog "$lp call 'node_start_applications'"
 		node_start_applications &
+		if [ -x "$NODE_AUTOSTART" ]; then
+			nxlog "$lp NODE_AUTOSTART: waiting for nxagent"
+			local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
+			while [ ! -f /tmp/.X$display-lock ]; do
+				sleep 0.01s; ((cntr--)); ((cntr<=0)) && break
+			done
+			nxlog "$lp NODE_AUTOSTART: Stop waiting $((cntr0-cntr))0 ms"
+			# go into background immediately
+			NXSESSIONID="$sess_id" DISPLAY=:$display "$NODE_AUTOSTART" "$1" >/dev/null 2>&1 &
+			disown $! # dont't wait for this child!
+		fi
 	fi
 
-	if [ -x "$NODE_AUTOSTART" ]; then
-		nxlog "$lp NODE_AUTOSTART: waiting for nxagent"
-		local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
-		while [ ! -f /tmp/.X$display-lock ]; do
-			sleep 0.01s; ((cntr--)); ((cntr<=0)) && break
-		done
-		nxlog "$lp NODE_AUTOSTART: Stop waiting $((cntr0-cntr))0 ms"
-		# go into background immediately
-		NXSESSIONID="$sess_id" DISPLAY=:$display "$NODE_AUTOSTART" "$1" >/dev/null 2>&1 &
-		disown $! # dont't wait for this child!
-	fi
 
 	# File-sharing port options
 	if [ "$samba" = "1" -a -n "$smbport" ]; then
