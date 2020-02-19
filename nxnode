@@ -1175,7 +1175,7 @@ node_start_monitor() {
 		elif stringinstring "Info: Waiting for connection from" "$line"; then
 			tosend="NX> 700 Session id: $sess_id
 NX> 705 Session display: $display\nNX> 703 Session type: $type
-NX> 701 Proxy cookie: $proxy_cookie\nNX> 702 Proxy IP: $proxyip
+NX> 701 Proxy cookie: $cookie\nNX> 702 Proxy IP: $proxyip
 NX> 706 Agent cookie: $cookie\nNX> 704 Session cache: $type
 NX> 707 SSL tunneling: $encryption\n"
 			# File-sharing port options
@@ -1219,19 +1219,9 @@ NX> 707 SSL tunneling: $encryption\n"
 #
 startsession() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local txt old_umask realtype #smbport
+	local opt_vars opt_str old_umask pack cleanup product;
+	local id fullscreen accept vn;
 	nxlog "$lp starting with args \"$@\""
-#	gvars="agent_domain, agent_password, agent_server, agent_user,\
-# application, aux, backingstore, cache, client, clientproto,\
-# cookie, cups, display, encryption, extra1, extra2, extra3,\
-# freenx_export_agents, fullscreen, geometry, host, http,\
-# imagecompressionlevel, imagecompressionmethod, images, kbload,\
-# kbtype, keybd, keyboard, keymap, link, login_method, media,\
-# mediahelper, nodelay, rdpcache, rdpcolors, render, resize,\
-# rootless, samba, screeninfo, session, session_id, shadowcookie,\
-# shadowdisplay, shadowhost, shadowusername, status, sync, type,\
-# user, userip, virtualdesktop"
-#	set_vars_from_params "$CMDLINE" "$gvars" "" recode
 
 	# 1.5.0 options: rdpcolors,rdpcache,http
 	# nxclient > 1.5.0-106 variables: resize,keybd
@@ -1247,21 +1237,18 @@ startsession() {
 	old_umask=$(umask);
 	[ -d $USER_FAKE_HOME ] || { umask 0022; mkdir -p $USER_FAKE_HOME; }
 	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $old_umask
-	[ "$geometry" = "fullscreen" ] && fullscreen="1"
+
+	[ "$geometry" = "fullscreen" ] && fullscreen="1" || fullscreen="0"
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
 	[ "$ENABLE_ROOTLESS_MODE" = "0" ] && rootless=0
 	[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && \
 		agent_keyboard=$(cutfn "$keyboard" '/' 1) || agent_keyboard=""
 	[ -z "$samba" ] && samba=0
 	[ -z "$media" ] && media=0
-	[ -z "$nodelay" ] && nodelay=1
+	[ -z "$nodelay" ] && nodelay=1 # ???
+	cleanup=10; product=LFE/None/LFEN/None; id=$sess_id;
+	[ -z "$shmem" ] && shmem=0; [ -z "$shpix" ] && shpix=0
 
-	# Rootless fix from 2x nxserver 1.5.0
-	realtype=$type
-	[ "$type" = "unix-application" -o "$type" = "unix-default" ] && \
-		realtype="unix-desktop"
-	[ "$type" = "unix-gnome" ] && realtype="gnome"
-	[ "$type" = "unix-kde" ] && realtype="kde"
 	[ -z "$keybd" ] && keybd=$aux # backwards compatibility for keybd parameter
 
 	[ "$EXPORT_USERIP" = "1" ] && export NXUSERIP="$userip"
@@ -1343,24 +1330,18 @@ startsession() {
 	fi
 	[ -z "$proxyip" ] && proxyip="127.0.0.1"
 
-
-	# cache=8M,images=32M,pack=nopack,link=lan,type=unix-kde,cleanup=0,accept=192.168.1.66,cookie=E38A94A77F975443AF04EC911881B120,id=Knoppix-1000-6A8269CC467264EAEF6349D062689755,samba=1,render=1:1000
-	PACK=""
+	pack=""
 	[ -z "$imagecompressionlevel" ] && imagecompressionlevel="9"
-	[ "$imagecompressionmethod" = "0" ] && PACK="pack=nopack,"
-	[ "$imagecompressionmethod" = "1" ] && PACK="pack=16m-jpeg-$imagecompressionlevel,"
-	[ "$imagecompressionmethod" = "2" ] && PACK="pack=16m-png-9,"
+	[ "$imagecompressionmethod" = "0" ] && pack="nopack"
+	[ "$imagecompressionmethod" = "1" ] && pack="16m-jpeg-$imagecompressionlevel"
+	[ "$imagecompressionmethod" = "2" ] && pack="16m-png-9"
 
-	proxy_cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
-	proxy_cookie=${proxy_cookie%% *}
-	# all newer clients support fake cookie authentication
-	[ "$clientproto" != "1.4.0" ] &&	cookie=$proxy_cookie
+	cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
+	cookie=${cookie%% *}
 
 	# write options file
 	clipboard="$ENABLE_CLIPBOARD"; menu="$ENABLE_PULLDOWN_MENU"
-	CACHE="cache=$cache,"; [ -z "$cache" ] && CACHE=""
-	IMAGES="images=$images,"; [ -z "$images" ] && IMAGES=""
-	ACCEPT="accept=$userip,"; [ "$userip" = "*" ] && ACCEPT=""
+	[ "$userip" = "*" ] && accept="" || accept=$userip
 
 	if [ "$1" = "application" ]; then
 		# This needs to be set, else nxagent is terminated
@@ -1373,20 +1354,15 @@ startsession() {
 
 	old_umask=$(umask); umask 0077
 	nxlog "$lp generate \"$NXSESSION_DIRECTORY/options\""
-	txt="nx/nx,${keyboard:+keyboard=$keyboard,}${kbtype:+kbtype=$kbtype,}\
-${kbload:+kbload=$kbload,}${keymap:+keymap=$keymap,}\
-${geometry:+geometry=$geometry,}${client:+client=$client,}\
-${resize:+resize=$resize,}${CACHE}${IMAGES}${PACK}link=$link,nodelay=$nodelay,\
-type=$realtype,${clipboard:+clipboard=$clipboard,}\
-${composite:+composite=$composite,}cleanup=10,product=LFE/None/LFEN/None,\
-shmem=1,${backingstore:+backingstore=$backingstore,}shpix=1,\
-${ACCEPT}cookie=$proxy_cookie,id=$sess_id,samba=$samba,media=$media\
-${sync:+,sync=$sync}${cups:+,cups=$cups}${keybd:+,keybd=$keybd}\
-${aux:+,aux=$aux}${http:+,http=$http}${extra1:+,extra1=$extra1}\
-${extra2:+,extra2=$extra2}${extra3:+,extra3=$extra3}\
-${rdpcolors:+,rdpcolors=$rdpcolors}${rdpcache:+,rdpcache=$rdpcache}\
-${fullscreen:+,fullscreen=1}${menu:+,menu=$menu}:$display"
-	echo "$txt" > "$NXSESSION_DIRECTORY/options"
+	opt_vars="keyboard kbtype kbload keymap geometry\
+ client resize cache images pack link nodelay type clipboard composite\
+ cleanup product shmem backingstore shpix accept cookie id samba media\
+ sync cups keybd aux http extra1 extra2 extra3 rdpcolors rdpcache\
+ fullscreen menu"
+	opt_str="nx/nx";
+	for vn in $opt_vars; do [ -n "${!vn}" ] && opt_str+=",$vn=${!vn}"; done
+	opt_str+=":$display"
+	echo "$opt_str" > "$NXSESSION_DIRECTORY/options"
 	umask $old_umask
 
 	# write xauth script file
