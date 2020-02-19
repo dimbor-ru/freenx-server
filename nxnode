@@ -286,7 +286,8 @@ node_terminate_session() {
 
 	# Remove magic cookie information
 	nxlog "$lp Remove magic cookie information"
-	$COMMAND_XAUTH -v source "$nx_dir/C-$1/scripts/authority" >/dev/null 2>&1
+	$COMMAND_XAUTH remove "localhost:$display" >/dev/null 2>&1
+	$COMMAND_XAUTH remove ":$display" >/dev/null 2>&1
 
 	# Preserve or remove session information
 	nxlog "$lp Preserve or remove session information"
@@ -1375,8 +1376,6 @@ exit"
 
 	mkdir -m700 "$NXSESSION_DIRECTORY/scripts/" 2>/dev/null || \
 		chmod 700 "$NXSESSION_DIRECTORY/scripts/"
-	txt="remove localhost:$display\nremove :$display\nexit"
-	echo -e "$txt" >"$NXSESSION_DIRECTORY/scripts/authority"
 
 	# If we have a shadow cookie, we add it to xauth session authority file as well
 	if [ -n "$shadowcookie" ]; then
