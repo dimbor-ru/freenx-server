@@ -28,19 +28,12 @@ nxlog() {
 	echo_secure "$(date "+%T.%3N"): $@" >> "$nxuser_logfile"
 }
 
-#
-# -----------------------------------------------------------------------------
-# Node functions module
-# -----------------------------------------------------------------------------
-#
-
-norm_param() {
+cp_conv() {
 # arg: string
-# dimbor: normalize string from hex (thnx 2Civil at unixforum.org) and convert
-# charset if needed
-	#nxlog "$lp starting with args \"$@\""
-	local res=${1/+/ } cp_pair cp_from cp_to;
+# convert string charset
 	local lp="$FUNCNAME ($$/$BASHPID):";
+	#nxlog "$lp starting with args \"$@\""
+	local res=${1//+/ } cp_pair cp_from cp_to;
 	for cp_pair in $WIN_CP_CONVERT_CHAIN ; do
 		cp_from=$(cutfn "$cp_pair" '>' 0); [ -n "$cp_from" ] || cp_from="UTF-8"
 		cp_to=$(cutfn "$cp_pair" '>' 1); [ -n "$cp_to" ] || cp_to="UTF-8"
@@ -50,6 +43,12 @@ norm_param() {
 	#nxlog "$lp return res='$res'"
 	echo "$res"
 }
+
+#
+# -----------------------------------------------------------------------------
+# Node functions module
+# -----------------------------------------------------------------------------
+#
 
 # dimbor: functions to control user's shares and printers in mode "per user"
 # instead of "per session".
@@ -1545,10 +1544,10 @@ cmd_node_smbmount() {
 	sleep 0.2s
 
 	computername=127.0.0.1 # http://bugs.etersoft.ru/show_bug.cgi?id=8841
-	dir=${dir/'$(SHARES)'/MyShares}; dir=$(norm_param $dir)
+	dir=${dir/'$(SHARES)'/MyShares}; dir=$(cp_conv $dir)
 	[ -n "$(rematchfn "(MyShares)" "$dir")" ] && dir="$HOME/$dir" #"
-	username=$(norm_param $username); password=$(norm_param $password)
-	share=$(norm_param $share)
+	username=$(cp_conv $username); password=$(cp_conv $password)
+	share=$(cp_conv $share)
 
 	# dimbor: checking mountpoint
 	egroup=$(id -gn "$USER"); rc=$?
@@ -1630,8 +1629,8 @@ cmd_node_addprinter() {
 	[ -z "$defaultrrinter" ] && defaultprinter=$defaultPrinter # for nxclient
 
  	# normalize
-	username=$(norm_param $username); password=$(norm_param $password)
-	share=$(norm_param $share); computername=$(norm_param $computername)
+	username=$(cp_conv $username); password=$(cp_conv $password)
+	share=$(cp_conv $share); computername=$(cp_conv $computername)
 	export CUPS_SERVER=$CUPS_DEFAULT_SOCK
 
 	if [ "$type" = "smb" ]; then
@@ -1643,7 +1642,7 @@ cmd_node_addprinter() {
 		name="$share";
 		nxlog "$lp set name = $name; smbport=$smbport; device_uri=$device_uri"
 	else
-		printer=$(norm_param $printer)
+		printer=$(cp_conv $printer)
 		device_uri="ipp://$username:$password@127.0.0.1:$port/printers/$printer"
 		name="$printer"
 		nxlog "$lp set name = $name; device_uri=$device_uri"
