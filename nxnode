@@ -999,73 +999,23 @@ create_mountpoint() {
 	return 0
 }
 
-usermount_enable() {
-# check if available starting mode of mount/umount.cifs
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	local ret=1 ostr rc
-	ostr=$(stat -c %a "$COMMAND_SMBMOUNT" 2>&1); rc=$?
-	[ $rc -ne 0 ] && { nxlog "$lp $ostr"; ret="0"; }
-	[ "$ret" != "0" ] && [ "$ostr" != "4711" -a "$ostr" != "4755" ] && { ret="0"
-		nxlog "$lp Permissions of $COMMAND_SMBMOUNT ($ostr) != 4711 or 4755. Mounting in user-mode is disabled."
-	}
-	[ "$ret" != "0" -a $rc -eq 0 ] && {
-		ostr=$($COMMAND_SMBMOUNT 2>&1)
-		stringinstring "setuid root program disabled" "$ostr" && {
-			nxlog "$lp $ostr"; ret="0";
-		}
-	}
-	ostr=$(stat -c %a "$COMMAND_SMBUMOUNT" 2>&1); rc2=$?
-	[ $rc2 -ne 0 ] && { nxlog "$lp $ostr"
-		ret="0"; rc=$rc2; }
-	[ "$ret" != "0" ] && [ "$ostr" != "4711" -a "$ostr" != "4755" ] && { ret="0"
-		nxlog "$lp Permissions of  $COMMAND_SMBUMOUNT ($ostr) != 4711 or 4755. Umounting in user-mode is disabled."
-	}
-	echo $ret; return $rc
-}
-
-sudomount_enable() {
-# checks available starting mode with sudo of mount/umount.cifs
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	local ret=1 ostr rc
-	ostr=$(/usr/bin/sudo -l 2>&1); rc=$?
-	if [ $rc -ne 0 ]; then nxlog "$lp $ostr"; ret=0
-	else
-		[ -z "$(rematchfn "NOPASSWD.+($COMMAND_SMBMOUNT)" "$ostr")" ] && { #"
-			ret=0
-			nxlog "$lp Mounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
-		}
-		[ -z "$(rematchfn "NOPASSWD.+($COMMAND_SMBUMOUNT)" "$ostr")" ] && { #"
-			ret=0
-			nxlog "$lp Umounting with sudo is disabled. To enable, you must to change etc/sudo.d/nxserver or etc/sudoers file."
-		}
-	fi
-	echo $ret; return $rc
-}
-
 try_mount_smb() {
 # params: sharename(1), mountpoint(2), smb-username(3), port(4),
 # ex-options/uid,gid/(5), smb-password(6)
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local rc=1 smb_opts error mntstr
-	nxlog "$lp Starting: try_user='$try_user', try_sudo='$try_sudo'}"
+	local rc=1 smb_opts error mntstr mnt_opts
+	nxlog "$lp Starting with args: '$@'}"
 	[ -n "$SMB_MOUNT_OPTIONS" -a "${SMB_MOUNT_OPTIONS:0:1}" != "," ] && \
-		SMB_MOUNT_OPTIONS=",$SMB_MOUNT_OPTIONS"
+		mnt_opts=",$SMB_MOUNT_OPTIONS"
 	smb_opts="username=$3,"
 	[ -n "$6" ] && smb_opts="$smb_opts""password=$6," || \
 		smb_opts="$smb_opts""password=,"
-	smb_opts="$smb_opts""ip=127.0.0.1,port=$4$SMB_MOUNT_OPTIONS"
-	[ $try_user -ne 0 ] && {
-		mntstr="$COMMAND_SMBMOUNT $1 $2 -o $smb_opts"
-		nxlog "$lp invoke $mntstr 2>&1"
-		error=$($mntstr 2>&1); rc=$?
-		[ $rc -ne 0 ] && nxlog "$lp Mount error: \"$error\""
-	}
-	[ $try_sudo -ne 0 -a $rc -ne 0 ] && {
-		mntstr="/usr/bin/sudo $COMMAND_SMBMOUNT $1 $2 -o $5$smb_opts"
-		nxlog "$lp invoke $mntstr 2>&1"
-		error=$($mntstr 2>&1); rc=$?
-		[ $rc -ne 0 ] && nxlog "$lp Mount error: \"$error\""
-	}
+	smb_opts="$smb_opts""ip=127.0.0.1,port=$4$mnt_opts"
+# !!!
+	mntstr="/usr/bin/sudo $COMMAND_SMBMOUNT $1 $2 -o $5$smb_opts"
+	#nxlog "$lp invoke $mntstr 2>&1"
+	error=$($mntstr 2>&1); rc=$?
+	[ $rc -ne 0 ] && nxlog "$lp Mount error: \"$error\""
 	[ $rc -eq 0 ] && nxlog "$lp Finished successfully."
 	return $rc
 }
@@ -1075,28 +1025,19 @@ try_umount_smb() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	local amnt=3 cn=0 ostr;
 	local logstr1 logstr2 rc=0 i ffl;
-	nxlog "$lp Starting arg \"$1\". try_user='$try_user', try_sudo='$try_sudo', remain $amnt attempts."
+	nxlog "$lp Starting with arg '$@'"
 	for (( i=$amnt; $i; --i )); do
-		if stringinstring "$1" "$(mount)"; then
-			((i<amnt/2)) && { ffl="-f"; logstr1="$lp force (-f)";
+		stringinstring "$1" "$(mount)" || {
+			nxlog "$lp Mountpoint \"$1\" not mounted"; return 0;
+		}
+		((i<amnt/2)) && { ffl="-f"; logstr1="$lp force (-f)";
 			} || { ffl=""; logstr1="$lp"; }
-			rc=1; (( cn++ ))
-			[ $try_user -ne 0 ] && {
-				logstr2="$logstr1"" umount attempt #$cn \"$1\" in user-mode"
-				ostr=$($COMMAND_SMBUMOUNT $ffl "$1" 2>&1); rc=$?
-				[ $rc -eq 0 ] && { nxlog "$logstr2 completed succesfully."
-					break;} || nxlog "$logstr2 FAILED. Error: \"$ostr\""
-			}
-			[ $try_sudo -ne 0 -a $rc -ne 0 ] && {
-				logstr2="$logstr1"" umount attempt #$cn \"$1\" with sudo"
-				ostr=$(/usr/bin/sudo $COMMAND_SMBUMOUNT $ffl "$1" 2>&1); rc=$?
-				[ $rc -eq 0 ] && { nxlog "$logstr2 completed succesfully."
-					break; } || nxlog "$logstr2 FAILED. Error: \"$ostr\""
-			}
-		else
-			nxlog "$lp Mountpoint \"$1\" not mounted"
-			return 0;
-		fi
+		(( cn++ ))
+		logstr2="$logstr1"" umount attempt #$cn \"$1\""
+# !!!
+		ostr=$(/usr/bin/sudo $COMMAND_SMBUMOUNT $ffl "$1" 2>&1); rc=$?
+		[ $rc -eq 0 ] && { nxlog "$logstr2 completed succesfully."
+			break; } || nxlog "$logstr2 FAILED. Error: \"$ostr\""
 		sleep 0.5s
 	done
 	[ $rc -eq 0 ] && nxlog "$lp Finished successfully."
@@ -1111,17 +1052,10 @@ node_umount_smb() {
 	scr_dir="$nx_dir/C-$sess_id/scripts"
 	[ -r "$scr_dir/smbport" ] && \
 		smbport=$(< $scr_dir/smbport)
-	try_user=1; try_sudo=0;
+# !!!
 	[ "$smbport" = "445" ] && {
 		COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS; COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
-		try_user=$(usermount_enable)
-		try_sudo=$(sudomount_enable)
-		[ $try_user -eq 0 -a $try_sudo -eq 0 ] && {
-			nxlog "$lp Any methods of (u)mounting are not available. Stop umounting."
-			return 1;
-		}
 	}
-
 	[ -r "$scr_dir/mport" ] && mport=$(< $scr_dir/mport)
 	[ -r "$scr_dir/mpoint" ] && mpoints=$(< $scr_dir/mpoint) || {
 		nxlog "$lp No shares controlled by session found. Stop remounting."
@@ -1556,15 +1490,11 @@ cmd_node_smbmount() {
 	[ $rc -ne 0 ] && { nxlog "$lp Stop mounting."; return 1; }
 	smbport=""; [ -r "$NXSESSION_DIRECTORY/scripts/smbport" ] && \
 		smbport=$(< $NXSESSION_DIRECTORY/scripts/smbport)
-	ids_ops="uid=$USER,gid=$egroup,"; try_user=1; try_sudo=0;
+	ids_ops="uid=$USER,gid=$egroup,";
 	# this function run dedicated. We must define smbproto and COMMAND_SMBMOUNT here, not in startsession.
+# !!!
 	if [ "$smbport" = "445" ]; then
 		COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT_CIFS; COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT_CIFS
-		try_user=$(usermount_enable); try_sudo=$(sudomount_enable)
-		[ $try_user -eq 0 -a $try_sudo -eq 0 ] && {
-			nxlog "$lp Any methods of (u)mounting are not available. Stop mounting."
-			return 1;
-		}
 	elif [ "x$smbport" = "x" ]; then COMMAND_SMBMOUNT=/bin/true
 	else smbport=139 # smbfs
 	fi
@@ -1608,10 +1538,6 @@ cmd_node_smbmount() {
 	else
 		nxlog "$lp Share //$computername/$share mount FAILED."
 		rmdir "$dir" >/dev/null 2>/dev/null #JJK: Remove mount point if empty
-		[ "$ENABLE_SHARE_MULTIMOUNT" = "1" ] || $PATH_BIN/nxdialog -dialog ok \
-			-caption "NXServer Message" \
-			-message "Info: Share: '//$computername/$share' failed to mount." \
-			-display :$display &
 	fi
 }
 
