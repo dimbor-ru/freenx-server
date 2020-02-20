@@ -1220,7 +1220,7 @@ NX> 707 SSL tunneling: $encryption\n"
 #
 startsession() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local opt_vars opt_str old_umask pack cleanup product;
+	local opt_vars opt_str pack cleanup product;
 	local id fullscreen accept vn;
 	nxlog "$lp starting with args \"$@\""
 
@@ -1235,9 +1235,7 @@ startsession() {
 
 	windows_app=$application
 	# ok, lets make the session dir first:
-	old_umask=$(umask);
-	[ -d $USER_FAKE_HOME ] || { umask 0022; mkdir -p $USER_FAKE_HOME; }
-	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $old_umask
+	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $umask0
 
 	[ "$geometry" = "fullscreen" ] && fullscreen="1" || fullscreen="0"
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
@@ -1351,8 +1349,8 @@ startsession() {
 		return
 	fi
 
-	old_umask=$(umask); umask 0077
 	nxlog "$lp generate \"$NXSESSION_DIRECTORY/options\""
+
 	opt_vars="keyboard kbtype kbload keymap geometry\
  client resize cache images pack link nodelay type clipboard composite\
  cleanup product shmem backingstore shpix accept cookie id samba media\
@@ -1361,8 +1359,7 @@ startsession() {
 	opt_str="nx/nx";
 	for vn in $opt_vars; do [ -n "${!vn}" ] && opt_str+=",$vn=${!vn}"; done
 	opt_str+=":$display"
-	echo "$opt_str" > "$NXSESSION_DIRECTORY/options"
-	umask $old_umask
+	umask 0077;	echo "$opt_str" > "$NXSESSION_DIRECTORY/options"; umask $umask0
 
 	# write xauth script file
 	nxlog "$lp write xauth script file"
@@ -1387,7 +1384,7 @@ exit"
 
 	if [ "$1" = "restore" ]; then
 		nxlog "$lp restore session"
-		echo > "$NXSESSION_DIRECTORY/session"
+		#echo > "$NXSESSION_DIRECTORY/session"
 		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$USER_FAKE_HOME"'/.nx/C-'"$sess_id"'/session' | node_start_monitor "$1" "$status" &
 		MONITOR_PID=$!; export MONITOR_PID
 		mkdir -p "$NXSESSION_DIRECTORY/pids/"
@@ -1684,7 +1681,7 @@ cmd_node_addprinter() {
 }
 
 
-declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile;
+declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask);
 
 #
 # -----------------------------------------------------------------------------
@@ -1699,8 +1696,8 @@ if [ "$USER" = "nx" ]; then
 	nxuser_logfile="/var/log/nx/nxnode.log"
 else
 	nx_dir="$USER_FAKE_HOME/.nx"
+	[ -d $nx_dir ] || { umask 0077; mkdir -p $nx_dir; umask $umask0; }
 	nxuser_logfile="$nx_dir/nxnode.log"
-	mkdir -p "$nx_dir"
 fi
 
 if ! stringinstring "$1" "--check|--setkey|--agent"; then
