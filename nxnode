@@ -1313,10 +1313,8 @@ startsession() {
 	fi
 	if [ "$encryption" = "1" ]; then
 		# we need to use the IP of the "calling" server now
-		# FIXME: cut and sed rm
-		#userip=$(echo $SSH_CLIENT $SSH2_CLIENT | cut -d" " -f1 | sed 's/::ffff://g')
-		#nxlog "$lp userip='$userip'"
-		userip=""
+		userip=$(rematchfn "($ip4_pattern)" "$SSH_CLIENT $SSH2_CLIENT") #"
+		nxlog "$lp userip='$userip'"
 		# If host is the same, use 127.0.0.1, else fallback to default
 		[ -z "$userip" -a "$host" = "127.0.0.1" ] && userip="127.0.0.1"
 		[ -z "$userip" ] && userip="*"
