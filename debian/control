@@ -10,6 +10,7 @@ Package: freenx-server
 Architecture: any
 Multi-Arch: foreign
 Depends:
+ openssh-server,
  libnx-x11-6 (>= 3.5.0),
  libxcomp3 (>= 3.5.0),
  nxagent (>= 3.5.0),
