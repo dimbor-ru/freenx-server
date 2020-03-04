@@ -41,7 +41,7 @@ log() {
 #args: <loglevel> <logstr>
 	[ "$NX_LOG_LEVEL" -ge "$1" ] && shift && {
 		[ -n "$1" ] &&
-			echo -n "[$(date "+%d.%m %T.%3N")] " >> "$NX_LOGFILE"
+			echo -n "[$(date "+%d.%m %T.%3N"):$$/$BASHPID] " >> "$NX_LOGFILE"
 		echo $@ >> "$NX_LOGFILE"
 	}
 }
@@ -170,7 +170,8 @@ init_sess_db() {
 }
 
 exit_proc() {
-	close_dbe; exit $1;
+	log 6 "called exit_proc for $$, status: $1"
+	close_dbe $$; exit $1;
 }
 
 #-------------------------------------------------------------------
@@ -562,10 +563,8 @@ nxnode_login() {
 }
 
 # Start!
-open_dbe
 isdbs=""; [ -f $sess_bd ] && isdbs="1"
-attach_db $sess_bd
-init_sess_db
+open_dbe $$ && attach_db $sess_bd && init_sess_db
 [[ -z "$isdbs" && ( -d "$NX_SESS_DIR/closed" || \
 	-d "$NX_SESS_DIR/failed" ) ]] && drop_old_conf_dirs
 
@@ -792,6 +791,7 @@ server_nxnode_exit_func() {
 server_nxnode_start_wait() {
 # use uplevel: $server_wait_pid $user $session_id
 	local server_channel=1 kill_wait_pid=1 shadowcookie
+	open_dbe $BASHPID
 	if [ "$1" = "--startsession" ]; then
 		server_add_usession
 		# We need to stop sending things when a SIGPIPE arrives
@@ -823,6 +823,7 @@ server_nxnode_start_wait() {
 						*closed*)
 							log 6 session_close $session_id
 							session_close $session_id
+							break;
 						;;
 						*suspended*)
 							[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
@@ -869,10 +870,9 @@ server_nxnode_start_wait() {
 		# Close it in case the session is still running
 		session_running $session_id && session_close $session_id
 		server_remove_usession
-
+		log 6 "server_nxnode_start_wait: finished on diplay $display"
 		# remove lock file
 		[ -e "/tmp/.nX$display-lock" ] && rm -f /tmp/.nX$display-lock
-
 	else # $1 = restore
 		server_nxnode_start "$@" | while read cmd
 		do
@@ -908,6 +908,11 @@ server_nxnode_start_wait() {
 					log 4 "NX> 596 Session startup failed."
 					break;
 				;;
+				"NX> 1001"*)
+					server_channel=0
+					log 6 "server_nxnode_start_wait: restore exiting on diplay $display"
+					close_dbe $BASHPID; exit_proc 0
+				;;
 			esac
 			case $cmd in
 				"NX> "*)
@@ -915,7 +920,9 @@ server_nxnode_start_wait() {
 				;;
 			esac
 		done
+		log 6 "server_nxnode_start_wait: restore finished on diplay $display"
 	fi
+	close_dbe $BASHPID
 }
 
 server_check_session_count() {
@@ -1251,8 +1258,7 @@ creationTime=$(date +%s)"
 	sleep $AGENT_STARTUP_TIMEOUT &
 	server_wait_pid=$!
 	( server_nxnode_start_wait --"$action"session $user "$params" ) &
-	server_pid=$! # do we need this?
-	disown $server_pid
+	server_pid=$!; disown $server_pid
 	wait $server_wait_pid 2>/dev/null
 	if [ $? -eq 0 ]; then
 		# Something went wrong ...
@@ -1298,8 +1304,8 @@ while true; do
 			if [ "$ENCRYPTION" = "1" ]; then
 				((proxy_display=display+4000))
 				$COMMAND_NETCAT $server_host $proxy_display 2>/dev/null; rc=$?
-				# kill our parent sshd process
-				kill $PPID
+				log 6 "Session stage: proxy display finished rc=$rc"
+				kill $PPID # kill our parent sshd process
 				exit_proc $rc
 			else
 				echo_x "NX> 1001 Bye."
@@ -1697,10 +1703,8 @@ cmd_terminate_or_send() {
 if [ "$NX_LOG_LEVEL" -ge "1" -a ! -f "$NX_LOGFILE" ]; then
 	touch "$NX_LOGFILE" >/dev/null 2>&1
 fi
-open_dbe
 isdbs=""; [ -f $sess_bd ] && isdbs="1"
-attach_db $sess_bd
-init_sess_db
+open_dbe $$ && attach_db $sess_bd && init_sess_db
 [[ -z "$isdbs" && ( -d "$NX_SESS_DIR/closed" || \
 	-d "$NX_SESS_DIR/failed" ) ]] && drop_old_conf_dirs
 if [ "$UID" -eq "0" ]; then
@@ -1782,3 +1786,4 @@ case $cmd in
 		cmd_abort "Error: Function $cmd not implemented yet."
 esac
 echo "NX> 999 Bye"
+exit_proc 0

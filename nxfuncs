@@ -85,31 +85,65 @@ set_vars_from_ampstr() {
 
 # ===========================================================================
 # sqlite3 functions
-sq_cmd="/usr/bin/sqlite3";
+declare -g sq_cmd="/usr/bin/sqlite3";
+declare -g DBE_PID="" DBE_PIDS_FILE="";
 
-q_dbe() { echo "$@" >&9; }
+q_dbe() { echo "$@" >/proc/$DBE_PID/fd/0; }
 
 qa_dbe() {
 #args: [count_strings_in_answer] <query_string> ...
 	local c_max=1 c=1 r res=""
 	if [ "$1" -gt "0" 2>/dev/null ]; then c_max="$1"; shift; fi
-	echo "$@" >&9
+	echo "$@" >/proc/$DBE_PID/fd/0
 	while ((c<=c_max)); do
-		read r <&8
+		read r </proc/$DBE_PID/fd/1
 		res+="${res:+$'\n'}$(trim "$r")"
 		((c++))
 	done
 	echo "$res"
 }
 
-open_dbe() {
-	DBE_CALL_PID=$BASHPID
+ctl_dbe() {
+#arg: <pid_of_parent>
 	coproc $sq_cmd -batch
-	DBE_PID=$COPROC_PID
-	exec 8<&${COPROC[0]}; exec 9>&${COPROC[1]};
-	q_dbe ".timeout 500";
-	q_dbe ".separator '&'" # not work with later attached tables after '.mode csv tname'
-	#q_dbe "PRAGMA journal_mode = WAL;" # causes error on keyslst_for_user() now
+	echo "$COPROC_PID" > "/tmp/nxdbe-$1"
+	wait $COPROC_PID
+}
+
+open_dbe() {
+#arg: <pid_of_parent>
+#ret: 0 if dbe started, 1 - dbe connected, 2 - error;
+	#echo "open dbe start $1"
+	local new_dbe="" pids;
+	if [ -z "$DBE_PID" ]; then
+		if [ -r "$DBE_PIDS_FILE" ]; then
+			pids=($(< "$DBE_PIDS_FILE")); DBE_PID=${pids[0]};
+		else new_dbe="1"
+		fi
+	fi
+	if [ -n "$DBE_PID" ]; then
+		if kill -0 $DBE_PID 2>/dev/null; then
+			echo "$1" >> "$DBE_PIDS_FILE"; return 1;
+		else
+			DBE_PID=""; rm -f "$DBE_PIDS_FILE"; new_dbe="1";
+			#echo "rm old pidfile";
+		fi
+	fi
+	if [ -n "$new_dbe" ]; then
+		local dbc_pid="";
+		(ctl_dbe $1) &
+		dbc_pid=$!; disown $dbc_pid;
+		local cntr=200;
+		DBE_PIDS_FILE="/tmp/nxdbe-$1"
+		while [ ! -e "$DBE_PIDS_FILE" ]; do sleep 0.01s; ((cntr--)); ((cntr<=0)) && break; done
+		#echo "create dbe $((200-cntr))0 ms"
+		DBE_PID=$(< "$DBE_PIDS_FILE"); echo "$1" >> "$DBE_PIDS_FILE"
+		q_dbe ".timeout 500";
+		q_dbe ".separator '&'" # not work with later attached tables after '.mode csv tname'
+		#q_dbe "PRAGMA journal_mode = WAL;" # causes error on keyslst_for_user() now
+		return 0
+	fi
+	return 2
 }
 
 attach_db() {
@@ -119,15 +153,28 @@ attach_db() {
 }
 
 close_dbe() {
-	local cntr="100"
-	[ -z "$DBEPID" ] && return
-	[ "$DBEPID" = "$BASHPID" ] && echo .quit >&9
-	while kill -0 $DBE_PID 2>/dev/nul; do
+#arg: <pid_of_parent>
+# if arg empty close ultimately
+	#echo "dbe close start - $1; $DBE_PIDS_FILE; $DBE_PID"
+	[ -z "$DBE_PID" ] && return
+	local pids="" i;
+	if [ -n "$1" ]; then
+		[ -r "$DBE_PIDS_FILE" ] && pids=($(< "$DBE_PIDS_FILE"))
+		for ((i=1; i<${#pids[@]}; i++)) do
+			#echo "'$1' '${pids[$i]}'"
+			if [ "$1" = "${pids[$i]}" ]; then
+				unset pids[i]; echo ${pids[@]} > "$DBE_PIDS_FILE"; break;
+			fi
+		done
+		((${#pids[@]}>1)) && return 1 #|| echo "${#pids[@]}"
+	fi
+	q_dbe ".quit"; local cntr="500"
+	while kill -0 $DBE_PID 2>/dev/null; do
 		sleep 0.1s; ((cntr--)); ((cntr<=0)) && break
 	done
-	exec 8<&-
-	exec 9>&-
-
+	#echo "dbe close stop tm $((500-cntr)) $(pwd)"
+	rm -f "$DBE_PIDS_FILE"; unset DBE_PID
+	return 0
 }
 
 colval_set_or_cond() {
