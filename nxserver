@@ -785,139 +785,106 @@ server_nxnode_exit_func() {
 
 server_nxnode_start_wait() {
 # use uplevel: $server_wait_pid $user $session_id
-	local server_channel=1 kill_wait_pid=1 shadowcookie
+	local server_channel=1 kill_wait_pid=1 shadowcookie fl_start=""
 	open_dbe $BASHPID
-	if [ "$1" = "--startsession" ]; then
+	[ "$1" = "--startsession" ] && fl_start="1";
+	if [ -n "$fl_start" ]; then
 		server_add_usession
 		# We need to stop sending things when a SIGPIPE arrives
 		trap "server_channel=0" SIGPIPE
 		trap server_nxnode_exit_func EXIT
-		server_nxnode_start "$@" | while read cmd;
-		do
-			case "$cmd" in
-				"NX> 706"*)
-					if [ -x "$COMMAND_NXSHADOWACL" ]; then
-						# check if we should save the cookie
-						$COMMAND_NXSHADOWACL "$user"
-						if [ $? -eq 0 ]; then
-							shadowcookie=$(cutfn "$cmd" ":" 1)
-							shadowcookie=${shadowcookie// /}
-							session_change "$session_id" "shadowcookie" "$shadowcookie"
-						fi
+	fi
+	server_nxnode_start "$@" | while read cmd; do
+		case "$cmd" in
+			"NX> 706"*)
+				if [ -x "$COMMAND_NXSHADOWACL" ]; then
+					$COMMAND_NXSHADOWACL "$user" # check if we should save the cookie
+					if [ $? -eq 0 ]; then
+						shadowcookie=$(cutfn "$cmd" ":" 1)
+						shadowcookie=${shadowcookie// /}
+						session_change "$session_id" "shadowcookie" "$shadowcookie"
 					fi
-				;;
-				"NX> 1006"*|"NX> 1005"*|"NX> 1009"*)
-					case "$cmd" in
-						*running*)
-							[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
-							kill_wait_pid=0
+				fi
+			;;
+			"NX> 1006"*|"NX> 1005"*|"NX> 1009"*)
+				case "$cmd" in
+					*running*)
+						[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
+						kill_wait_pid=0
+						if [ -n "$fl_start" ]; then
+							[ "$server_channel" = "1" ] && server_channel=2
 							log 6 session_set_status $session_id "Running"
 							session_set_status $session_id "Running"
-							[ "$server_channel" = "1" ] && server_channel=2
-						;;
-						*closed*)
+						else server_channel=2
+						fi
+					;;
+					*closed*)
+						if [ -n "$fl_start" ]; then
 							log 6 session_close $session_id
-							session_close $session_id
-							break;
-						;;
-						*suspended*)
+							session_close $session_id; break;
+						fi
+					;;
+					*suspended*)
+						if [ -n "$fl_start" ]; then
 							[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
-							kill_wait_pid=0
-							log 6 session_suspend $session_id
+							kill_wait_pid=0; log 6 session_suspend $session_id
 							session_suspend $session_id
-						;;
-						*suspending*)
+						fi
+					;;
+					*suspending*)
+						if [ -n "$fl_start" ]; then
 							log 6 session_set_status $session_id "Suspending"
 							session_set_status $session_id "Suspending"
 							# we need to stop sending to client as it will have already
 							# closed his side of the channel and this will lead to not
 							# closed sessions.
 							server_channel=0
-						;;
-						*terminating*)
+						fi
+					;;
+					*terminating*)
+						if [ -n "$fl_start" ]; then
 							log 6 session_set_status $session_id "Terminating"
 							session_set_status $session_id "Terminating"
 							# we need to stop sending to client as it will have already
 							# closed his side of the channel and this will lead to not
 							# closed sessions.
 							server_channel=0
-						;;
-					esac
-				;;
-				"NX> 1004"*)
-					[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
-					kill_wait_pid=0
-					session_fail $session_id
-					server_nxnode_echo "NX> 596 Session startup failed."
-					log 4 "NX> 596 Session startup failed."
-				;;
-			esac
+						fi
+					;;
+				esac
+			;;
+			"NX> 1004"*)
+				[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid; kill_wait_pid=0
+				# This fail is correct here as somehow the
+				# monitor process might have died and we don't
+				# want the session to be resumed again.
+				session_fail $session_id
+				server_nxnode_echo "NX> 596 Session startup failed."
+				log 4 "NX> 596 Session startup failed."
+				[ -z "$fl_start" ] && break; # on restore only?
+			;;
+			"NX> 1001"*)
+				if [ -z "$fl_start" ]; then
+					server_channel=0
+					log 6 "server_nxnode_start_wait: nxnode finished (1001), exiting on diplay $display"
+					close_dbe $BASHPID; exit_proc 0
+				fi
+			;;
+		esac
+		case $cmd in "NX> "*) server_nxnode_echo $cmd;; esac
+	done
 
-			case $cmd in
-				"NX> "*)
-					server_nxnode_echo $cmd
-				;;
-			esac
-		done
-
+	if [ "$1" = "--startsession" ]; then
 		trap - EXIT
 		trap - SIGPIPE
 		# Close it in case the session is still running
 		session_running $session_id && session_close $session_id
 		server_remove_usession
-		log 6 "server_nxnode_start_wait: finished on diplay $display"
 		# remove lock file
 		[ -e "/tmp/.nX$display-lock" ] && rm -f /tmp/.nX$display-lock
-	else # $1 = restore
-		server_nxnode_start "$@" | while read cmd
-		do
-			case "$cmd" in
-				"NX> 706"*)
-					if [ -x "$COMMAND_NXSHADOWACL" ]; then
-						# check if we should save the cookie
-						$COMMAND_NXSHADOWACL "$user"
-						if [ $? -eq 0 ]; then
-							shadowcookie=$(cutfn "$cmd" ":" 1)
-							shadowcookie=${shadowcookie// /}
-							session_change "$session_id" "shadowcookie" "$shadowcookie"
-						fi
-					fi
-				;;
-				"NX> 1006"*|"NX> 1005"*|"NX> 1009"*)
-					case "$cmd" in
-						*running*)
-							[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
-							kill_wait_pid=0
-							server_channel=2
-						;;
-					esac
-				;;
-				"NX> 1004"*)
-					[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
-					kill_wait_pid=0
-					# This fail is correct here as somehow the
-					# monitor process might have died and we don't
-					# want the session to be resumed again.
-					session_fail $session_id
-					server_nxnode_echo "NX> 596 Session startup failed."
-					log 4 "NX> 596 Session startup failed."
-					break;
-				;;
-				"NX> 1001"*)
-					server_channel=0
-					log 6 "server_nxnode_start_wait: restore exiting on diplay $display"
-					close_dbe $BASHPID; exit_proc 0
-				;;
-			esac
-			case $cmd in
-				"NX> "*)
-					server_nxnode_echo $cmd
-				;;
-			esac
-		done
-		log 6 "server_nxnode_start_wait: restore finished on diplay $display"
 	fi
 	close_dbe $BASHPID
+	log 6 "server_nxnode_start_wait $1: end on diplay $display"
 }
 
 server_check_session_count() {
