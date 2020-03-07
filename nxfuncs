@@ -164,7 +164,8 @@ close_dbe() {
 # if arg empty close ultimately
 	#echo "dbe close start - $1; $DBE_PIDS_FILE; $DBE_PID"
 	[ -z "$DBE_PID" ] && return
-	local pids="" isdbe="" i;
+	[ ! -e "$DBE_PIDS_FILE" ] && return
+	local spids pids="" isdbe="" i cntr;
 	if [ -n "$1" ]; then
 		[ -r "$DBE_PIDS_FILE" ] && {
 			isdbe="1"; cntr=50;
@@ -183,12 +184,7 @@ close_dbe() {
 		[ -n "$isdbe" ] && rm -f "$DBE_PIDS_FILE.lock"
 		((${#pids[@]}>1)) && return 1 #|| echo "${#pids[@]}"
 	fi
-	q_dbe ".quit"; local cntr="500"
-	while kill -0 $DBE_PID 2>/dev/null; do
-		sleep 0.1s; ((cntr--)); ((cntr<=0)) && break
-	done
-	#echo "dbe close stop tm $((500-cntr)) $(pwd)"
-	rm -f "$DBE_PIDS_FILE"; unset DBE_PID
+	q_dbe ".quit"; unset DBE_PID; rm -f "$DBE_PIDS_FILE"
 	return 0
 }
 
