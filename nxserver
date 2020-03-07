@@ -169,11 +169,6 @@ init_sess_db() {
    q_dbe "$qstr"
 }
 
-exit_proc() {
-	log 6 "called exit_proc for $$, status: $1"
-	close_dbe $$; exit $1;
-}
-
 #-------------------------------------------------------------------
 
 session_list() {

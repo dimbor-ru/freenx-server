@@ -192,6 +192,10 @@ close_dbe() {
 	return 0
 }
 
+exit_proc() {
+	close_dbe $$; exit $1;
+}
+
 colval_set_or_cond() {
 #args: <col1,col2...> <val1&val2...> [cond] [values_delim='&']
 #ret: string of columns and values for SET or for WHERE
