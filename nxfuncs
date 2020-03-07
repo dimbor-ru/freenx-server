@@ -114,7 +114,7 @@ open_dbe() {
 #arg: <pid_of_parent>
 #ret: 0 if dbe started, 1 - dbe connected, 2 - error;
 	#echo "open dbe start $1"
-	local new_dbe="" pids;
+	local new_dbe="" pids cntr;
 	if [ -z "$DBE_PID" ]; then
 		if [ -r "$DBE_PIDS_FILE" ]; then
 			pids=($(< "$DBE_PIDS_FILE")); DBE_PID=${pids[0]};
@@ -123,7 +123,14 @@ open_dbe() {
 	fi
 	if [ -n "$DBE_PID" ]; then
 		if kill -0 $DBE_PID 2>/dev/null; then
-			echo "$1" >> "$DBE_PIDS_FILE"; return 1;
+			cntr=50
+			while [ -e "$DBE_PIDS_FILE.lock" ]; do
+				sleep 0.01s; ((cntr--)); ((cntr<=0)) && break;
+			done
+			ln "$DBE_PIDS_FILE" "$DBE_PIDS_FILE.lock"
+			echo "$1" >> "$DBE_PIDS_FILE"
+			rm -f "$DBE_PIDS_FILE.lock"
+			return 1
 		else
 			DBE_PID=""; rm -f "$DBE_PIDS_FILE"; new_dbe="1";
 			#echo "rm old pidfile";
@@ -133,7 +140,7 @@ open_dbe() {
 		local dbc_pid="";
 		(ctl_dbe $1) &
 		dbc_pid=$!; disown $dbc_pid;
-		local cntr=200;
+		cntr=200;
 		DBE_PIDS_FILE="/tmp/nxdbe-$1"
 		while [ ! -e "$DBE_PIDS_FILE" ]; do sleep 0.01s; ((cntr--)); ((cntr<=0)) && break; done
 		#echo "create dbe $((200-cntr))0 ms"
@@ -157,15 +164,23 @@ close_dbe() {
 # if arg empty close ultimately
 	#echo "dbe close start - $1; $DBE_PIDS_FILE; $DBE_PID"
 	[ -z "$DBE_PID" ] && return
-	local pids="" i;
+	local pids="" isdbe="" i;
 	if [ -n "$1" ]; then
-		[ -r "$DBE_PIDS_FILE" ] && pids=($(< "$DBE_PIDS_FILE"))
+		[ -r "$DBE_PIDS_FILE" ] && {
+			isdbe="1"; cntr=50;
+			while [ -e "$DBE_PIDS_FILE.lock" ]; do
+				sleep 0.01s; ((cntr--)); ((cntr<=0)) && break;
+			done
+			ln "$DBE_PIDS_FILE" "$DBE_PIDS_FILE.lock"
+			pids=($(< "$DBE_PIDS_FILE"))
+		}
 		for ((i=1; i<${#pids[@]}; i++)) do
 			#echo "'$1' '${pids[$i]}'"
 			if [ "$1" = "${pids[$i]}" ]; then
 				unset pids[i]; echo ${pids[@]} > "$DBE_PIDS_FILE"; break;
 			fi
 		done
+		[ -n "$isdbe" ] && rm -f "$DBE_PIDS_FILE.lock"
 		((${#pids[@]}>1)) && return 1 #|| echo "${#pids[@]}"
 	fi
 	q_dbe ".quit"; local cntr="500"
