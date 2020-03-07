@@ -447,15 +447,6 @@ node_start_applications() {
 
 	# Prepare application startup
 	export DISPLAY=:$display
-	if [ "$ENABLE_SOURCE_PROFILE" = "1" ]; then
-		nxlog "$lp source profile"
-		. /etc/profile
-	fi
-	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ]; then
-		nxlog "$lp source bash profile"
-		[ -f ~/.bash_profile ] && . ~/.bash_profile
-		[ -f /etc/bashrc ] && . /etc/bashrc
-	fi
 
 	nxlog "$lp display='$display', waiting for it's ready"
 	local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
@@ -671,17 +662,6 @@ node_start_agent() {
 	{
 
 	{
-
-	# Setup environment
-	if [ "$ENABLE_SOURCE_PROFILE" = "1" ]; then
-		nxlog "$lp source profile"
-		. /etc/profile
-	fi
-	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ]; then
-		nxlog "$lp source bash profile"
-		[ -f ~/.bash_profile ] && . ~/.bash_profile
-		[ -f /etc/bashrc ] && . /etc/bashrc
-	fi
 
 	export DISPLAY="nx/nx,options=$NXSESSION_DIRECTORY/options:$display"
 	export XAUTHORITY="$NXSESSION_DIRECTORY/authority"
@@ -1236,6 +1216,17 @@ startsession() {
 	windows_app=$application
 	# ok, lets make the session dir first:
 	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $umask0
+
+	# Setup environment
+	if [ "$ENABLE_SOURCE_PROFILE" = "1" ]; then
+		nxlog "$lp source profile"
+		. /etc/profile
+	fi
+	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ]; then
+		nxlog "$lp source bash profile"
+		[ -f ~/.bash_profile ] && . ~/.bash_profile
+		[ -f /etc/bashrc ] && . /etc/bashrc
+	fi
 
 	[ "$geometry" = "fullscreen" ] && fullscreen="1" || fullscreen="0"
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
