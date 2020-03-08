@@ -646,15 +646,9 @@ else
 				if [ "$ENABLE_SU_AUTHENTICATION" = "1" -a \
 						"$login_success" = "0" ]; then
 					log 6 -n "su "
-					# experimental don't start nxnode --check
-					# why to react if user pass is wrong???
-					login_success="1"; login_method="SU";
-					#nxnode_login "$PASS" -- su "$user" "" \
-					#	"$PATH_BIN/nxnode" --check >/dev/null 2>&1
-					#LANG=C echo "$PASS" | \
-					#	/usr/bin/sudo -u $user -HSik -p "" $PATH_BIN/nxnode --check \
-					#		>/dev/null 2>&1
-					#if [ $? -eq 0 ]; then login_success="1"; login_method="SU"; fi
+					LANG=C echo "$PASS" | \
+						/usr/bin/sudo -u $user -Svk -p "" >/dev/null 2>&1
+					if [ $? -eq 0 ]; then login_success="1"; login_method="SU"; fi
 				fi
 
 				# PASSDB based auth
