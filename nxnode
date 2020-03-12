@@ -238,7 +238,6 @@ node_terminate_agent() {
 }
 
 # node_terminate_session <session id>
-#	Used glob vars: $virtualdesktop, $rootless
 #	Used config vars: $COMMAND_XAUTH, $SESSION_LOG_CLEAN
 node_terminate_session() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
@@ -325,7 +324,7 @@ node_fail_restore_session() {
 	}
 	node_terminate_session "$1" "failed"
 	nxlog "$lp end. Next is 'exit 1'"
-	exit 1
+	exit_proc 1
 }
 
 
@@ -792,7 +791,7 @@ node_start_agent() {
 	nxlog "$lp node_agent_exit_status='$node_agent_exit_status'"
 	node_failed=""
 	if [ $node_agent_exit_status -ne 0 ]; then
-		echo "NX> 1004 Error: NX Agent exited with exit status 1. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$nx_dir/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
+		echo "NX> 1004 Error: NX Agent exited with exit status $node_agent_exit_status. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$nx_dir/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
 		echo "$(< $NXSESSION_DIRECTORY/session)" >&2
 		node_failed="failed"
 		nxlog "$lp node_failed='$node_failed'"
@@ -1190,7 +1189,7 @@ NX> 707 SSL tunneling: $encryption\n"
 	# close all open file descriptors
 	exec 0<&-; exec 1>&-; exec 2>&-;
 	nxlog "$lp end"
-	exit 0
+	exit_proc 0
 }
 
 #
@@ -1671,17 +1670,32 @@ cmd_node_addprinter() {
 	fi
 }
 
+# =================== sqlite3 stuff =====================
 
-declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask);
+declare -g sqcols_usess="session_id, status, agent_ptd, display, type,\
+ session, rootless, virualdesktop, tail_pid, mmport,\
+ cupsport, mport, smbport"
+declare -g sqcols_usess_c=13
+
+init_usess_db() {
+	local usess_cols="session_id TEXT PRIMARY KEY, status TEXT, agent_pid INT,\
+ display TEXT, type TEXT, session TEXT, rootless INT, virtualdesktop INT,\
+ tail_pid INT, mmport INT, cupsport INT, mport INT, smbport INT"
+	local qstr="CREATE TABLE IF NOT EXISTS usessions.usess($usess_cols);"
+   q_dbe "$qstr"
+}
+
 
 #
 # -----------------------------------------------------------------------------
 # Startup of nxnode
 # -----------------------------------------------------------------------------
 #
+declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask);
+
 [ -n "$2" ] && delim="NX-$2>"
 echo "$delim 1000 NXNODE - Version $NX_VERSION $NX_LICENSE"
-
+8
 if [ "$USER" = "nx" ]; then
 	nx_dir="/var/lib/nxserver/home" # ???
 	nxuser_logfile="/var/log/nx/nxnode.log"
@@ -1705,6 +1719,10 @@ if ! stringinstring "$1" "--check|--setkey|--agent"; then
 else
 	nxlog "$0 ($$): run nxnode with \"$@\""
 fi
+
+rm -f "$nx_dir/usessions.sq3" # debug!!!
+open_dbe $$ && attach_db "$nx_dir/usessions.sq3" && {
+	init_usess_db; chmod 0600 "$nx_dir/usessions.sq3" >/dev/null 2>&1; }
 
 case "$1" in
 	--startsession)
@@ -1755,3 +1773,4 @@ case "$1" in
 esac
 
 echo "$delim 1001 Bye."
+exit_proc 0
