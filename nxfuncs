@@ -88,13 +88,13 @@ set_vars_from_ampstr() {
 declare -g sq_cmd="/usr/bin/sqlite3";
 declare -g DBE_PID="" DBE_PIDS_FILE="";
 
-q_dbe() { echo "$@" >/proc/$DBE_PID/fd/0; }
+q_dbe() { echo -e "$@" >/proc/$DBE_PID/fd/0; }
 
 qa_dbe() {
 #args: [count_strings_in_answer] <query_string> ...
 	local c_max=1 c=1 r res=""
 	if [ "$1" -gt "0" 2>/dev/null ]; then c_max="$1"; shift; fi
-	echo "$@" >/proc/$DBE_PID/fd/0
+	echo -e "$@" >/proc/$DBE_PID/fd/0
 	while ((c<=c_max)); do
 		read r </proc/$DBE_PID/fd/1
 		res+="${res:+$'\n'}$(trim "$r")"

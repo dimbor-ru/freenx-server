@@ -183,8 +183,8 @@ session_list() {
 	} || { # original order of fields
 		fls=$sqcols_sess;
 	}
-   q_dbe ".mode line sess"
-	res=$(qa_dbe $sqcols_sess_c "SELECT $fls FROM sess WHERE session_id='$1' LIMIT 1;")
+	res=$(qa_dbe $sqcols_sess_c ".mode line sess\n" \
+		"SELECT $fls FROM sess WHERE session_id='$1' LIMIT 1;")
 	[ -n "$2" ] && { 	echo "$res"; return; }
 	local line k v;
 	while read line; do
@@ -204,12 +204,12 @@ session_find_cmdstrs() {
 	[ -n "$2" -a "$2" != "all" -a "$2" != ".*" ] && \
 		wstr+=" AND $(str_eq_cond "user" "$2")"
 	[ -n "$3" ] && wstr+=" AND $(str_eq_cond "display" "$3")"
-   q_dbe ".mode tabs sess"
-	qc=$(qa_dbe "SELECT count(session_id) FROM sess $wstr LIMIT 1;"); #"
+	qc=$(qa_dbe ".mode tabs sess\n" \
+		"SELECT count(session_id) FROM sess $wstr LIMIT 1;");
 	[ "$qc" -gt "0" 2>/dev/null ] || return
 	qc=$((qc*sqcols_sess_c))
-   q_dbe ".mode line sess"
-	res=$(qa_dbe $qc "SELECT $sqcols_sess FROM sess $wstr ORDER BY startTime DESC;")
+	res=$(qa_dbe $qc ".mode line sess\n" \
+		"SELECT $sqcols_sess FROM sess $wstr ORDER BY startTime DESC;")
 	qtxt2cmdstrs "$res"
 }
 
@@ -232,8 +232,8 @@ session_find_id_user() {
 	wstr="WHERE session_id='$1' AND status IN ('Running', 'Suspended')"
 	[ -n "$2" -a "$2" != "all" -a "$2" != ".*" ] && \
 		wstr+=" AND $(str_eq_cond "user" "$2")"
-   q_dbe ".mode tabs sess"
-	c=$(qa_dbe "SELECT count(session_id) FROM sess $wstr LIMIT 1;") #"
+	c=$(qa_dbe ".mode tabs sess\n" \
+		"SELECT count(session_id) FROM sess $wstr LIMIT 1;")
 	[ "$c" -gt "0" 2>/dev/null ] || return 1
 	return 0
 }
@@ -247,8 +247,8 @@ session_get_user_suspended() {
 #ret: session_id line[s] or empty
 	local wstr r a;
 	wstr="WHERE status='$2'AND user='$1'"
-   q_dbe ".mode tabs sess"
-	r=$(qa_dbe "SELECT count(session_id), session_id FROM sess $wstr ORDER BY startTime DESC LIMIT 1;") #"
+	r=$(qa_dbe ".mode tabs sess\n" \
+		"SELECT count(session_id), session_id FROM sess $wstr ORDER BY startTime DESC LIMIT 1;")
 	a=($r); ((${#a[@]}==2)) && echo "${a[1]}"
 }
 
@@ -257,8 +257,8 @@ session_get_user_suspended() {
 #ret: session_id line[s] or empty
 	local wstr r a;
 	wstr="WHERE status='$2'AND user='$1'"
-   q_dbe ".mode tabs sess"
-	r=$(qa_dbe "SELECT count(session_id), session_id FROM sess $wstr ORDER BY startTime DESC LIMIT 1;") #"
+	r=$(qa_dbe ".mode tabs sess\n" \
+		"SELECT count(session_id), session_id FROM sess $wstr ORDER BY startTime DESC LIMIT 1;")
 	a=($r); ((${#a[@]}==2)) && echo "${a[1]}"
 }
 
@@ -390,8 +390,8 @@ session_list_user() {
 	st="Running|Suspended"; [ -n "$2" ] && st="$2"
 	wstr="WHERE $(str_eq_cond "status" "$st")"
 	[ -n "$1" -a "$1" != "all" ] && wstr+=" AND $(str_eq_cond "user" "$1")"
-	q_dbe ".mode tabs sess"
-	c=$(qa_dbe "SELECT count(session_id) FROM sess $wstr LIMIT 1;") #"
+	c=$(qa_dbe ".mode tabs sess\n" \
+		"SELECT count(session_id) FROM sess $wstr LIMIT 1;")
 	((c==0)) && return;
 	qa_dbe $c "SELECT host,display,user,userip,session_id\
  FROM sess $wstr ORDER BY startTime DESC;" # ! check order !
@@ -408,8 +408,8 @@ session_history() {
 	[ -n "$wstr" -a -n "$2" ] && wstr+=" AND "
 	[ -n "$2" ] && wstr+=" session_id='$2'"
 	[ -n "$wstr" ] && wstr="WHERE $wstr"
-	q_dbe ".mode tabs sess"
-	c=$(qa_dbe "SELECT count(session_id) FROM sess $wstr LIMIT 1;") #"
+	c=$(qa_dbe ".mode tabs sess\n" \
+		"SELECT count(session_id) FROM sess $wstr LIMIT 1;")
 	((c==0)) && return;
 	qa_dbe $c "SELECT display,user,userip,session_id,\
  datetime(startTime,'unixepoch','localtime'),status\
