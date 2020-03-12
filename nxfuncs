@@ -219,6 +219,19 @@ colval_set_or_cond() {
 	echo "$ret"
 }
 
+q_row_ins() {
+#args: <table_name> <col1,col2...> <val1&val2...> [values_delim='&']
+	local colvals=$(colval_set_or_cond "$2" "$3" "INS" "$4")
+	local keys=${colvals%%&*} vals=${colvals#*&}
+	q_dbe "INSERT INTO $1($keys) VALUES($vals);"
+}
+
+q_rows_upd() {
+#args: <table_name> <where_str> <col1,col2...> <val1&val2...> [values_delim='&']
+	local setls=$(colval_set_or_cond "$3" "$4" "" "$5")
+	q_dbe "UPDATE $1 SET $setls WHERE $2;"
+}
+
 str_eq_cond() {
 #args: cond vals_str [vals_delim='|']
 #ret: "cond IN ('A','B','C'...)" or "cond='A'"

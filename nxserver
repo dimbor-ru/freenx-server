@@ -429,27 +429,14 @@ session_cleanup() {
 session_list_all() { session_list_user "all"; }
 
 session_add() {
-#params: <session_id> <options>
-	local t k v keys="" vals="";
-	shift #sessid present separately for compat only
-	t="$@"; t=${t//&/$'\n'}; t=${t//=/ }
-	while read k v; do
-		keys+="${keys:+,}$k"; vals+="${vals:+,}'$v'"
-	done <<< "$t"
-	q_dbe "INSERT INTO sess($keys) VALUES($vals);"
+#params: <col1,col2...> <val1&val2...>
+	q_row_ins "sess" "$1" "$2"
 }
 
 session_change() {
-# <session_id> <parameter> <new_value> [<parameter> <new_value>]...
-	local setls="" ssid="$1"; shift
-	while [ -n "$1" -a  -n "$2" ]; do
-		setls+="${setls:+,}$1='$2'"; shift; shift
-	done
-	q_dbe "UPDATE sess SET $setls WHERE session_id='$ssid';"
+# <session_id> <col1,col2...> <val1&val2...>
+	q_rows_upd "sess" "session_id='$1'" "$2" "$3"
 }
-
-# session_set_status <session_id> <new status>
-session_set_status() { session_change "$1" "status" "$2"; }
 
 # session_running <session_id> (? now dublicated session_find_id_user ?)
 # return: true if running, false if not
@@ -460,7 +447,7 @@ session_close() {
 	if [ "$SESSION_HISTORY" = "0" ] ; then
 		q_dbe "DELETE FROM sess WHERE session_id='$1';"
 	else
-		session_change "$1" "status" "Finished" "endTime" "$(date +%s)"
+		session_change "$1" "status,endTime" "Finished&$(date +%s)"
 	fi
 }
 
@@ -469,13 +456,8 @@ session_fail() {
 	if [ "$SESSION_HISTORY" = "0" ] ; then
 		q_dbe "DELETE FROM sess WHERE session_id='$1';"
 	else
-		session_change "$1" "status" "Failed" "endTime" "$(date +%s)"
+		session_change "$1" "status,endTime" "Failed&$(date +%s)"
 	fi
-}
-
-session_suspend() {
-#param: <session_id>
-	session_change "$1" "status" "Suspended" "userip" "-"
 }
 
 #
@@ -811,28 +793,28 @@ server_nxnode_start_wait() {
 						kill_wait_pid=0
 						if [ -n "$fl_start" ]; then
 							[ "$server_channel" = "1" ] && server_channel=2
-							log 6 session_set_status $session_id "Running"
-							session_set_status $session_id "Running"
+							log 6 "set status $session_id: Running"
+							session_change $session_id "status" "Running"
 						else server_channel=2
 						fi
 					;;
 					*closed*)
 						if [ -n "$fl_start" ]; then
-							log 6 session_close $session_id
+							log 6 "session_close $session_id"
 							session_close $session_id; break;
 						fi
 					;;
 					*suspended*)
 						if [ -n "$fl_start" ]; then
 							[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
-							kill_wait_pid=0; log 6 session_suspend $session_id
-							session_suspend $session_id
+							kill_wait_pid=0; log 6 "session suspend $session_id"
+							session_change $session_id "status,userip" "Suspended&-"
 						fi
 					;;
 					*suspending*)
 						if [ -n "$fl_start" ]; then
-							log 6 session_set_status $session_id "Suspending"
-							session_set_status $session_id "Suspending"
+							log 6 "set status $session_id: Suspending"
+							session_change $session_id "status" "Suspending"
 							# we need to stop sending to client as it will have already
 							# closed his side of the channel and this will lead to not
 							# closed sessions.
@@ -841,8 +823,8 @@ server_nxnode_start_wait() {
 					;;
 					*terminating*)
 						if [ -n "$fl_start" ]; then
-							log 6 session_set_status $session_id "Terminating"
-							session_set_status $session_id "Terminating"
+							log 6 "set status $session_id: Terminating"
+							session_change $session_id "status" "Terminating"
 							# we need to stop sending to client as it will have already
 							# closed his side of the channel and this will lead to not
 							# closed sessions.
@@ -1187,11 +1169,11 @@ display=$display&host=$server_host"
 		log_secure "6" "$params"
 
 		# now update the session listing
-		session_add $session_id "session_id=$session_id&user=$user&\
-session=$session&display=$display&status=Running&userip=$userip&\
-rootless=$rootless&type=$type&screeninfo=$screeninfo&geometry=$geometry&\
-host=$server_host&shadowcookie=none&startTime=$(date +%s)&\
-creationTime=$(date +%s)"
+		local time_now=$(date +%s)
+		session_add "session_id,user,session,display,status,userip,rootless,\
+type,screeninfo,geometry,host,shadowcookie,startTime,creationTime"\
+			"$session_id&$user&$session&$display&Running&$userip&$rootless&\
+$type&$screeninfo&$geometry&$server_host&none&$time_now&$time_now"
 	else
 		session_change "$session_id" "userip" "$userip"
 		db_params=$(session_get "$session_id");
