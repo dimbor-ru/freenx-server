@@ -664,7 +664,7 @@ node_start_agent() {
 
 	export DISPLAY="nx/nx,options=$NXSESSION_DIRECTORY/options:$display"
 	export XAUTHORITY="$NXSESSION_DIRECTORY/authority"
-	export HOME="$USER_FAKE_HOME"
+	export HOME
 	export NX_CLIENT="$PATH_BIN/nxdialog"
 
 	# Setup optional parameters for nxagent
@@ -1375,7 +1375,7 @@ exit"
 	if [ "$1" = "restore" ]; then
 		nxlog "$lp restore session"
 		#echo > "$NXSESSION_DIRECTORY/session"
-		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$USER_FAKE_HOME"'/.nx/C-'"$sess_id"'/session' | node_start_monitor "$1" "$status" &
+		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$NXSESSION_DIRECTORY"'/session' | node_start_monitor "$1" "$status" &
 		MONITOR_PID=$!; export MONITOR_PID
 		mkdir -p "$NXSESSION_DIRECTORY/pids/"
 		echo "$MONITOR_PID" > "$NXSESSION_DIRECTORY/pids/monitor"
@@ -1700,7 +1700,7 @@ if [ "$USER" = "nx" ]; then
 	nx_dir="/var/lib/nxserver/home" # ???
 	nxuser_logfile="/var/log/nx/nxnode.log"
 else
-	nx_dir="$USER_FAKE_HOME/.nx"
+	nx_dir="$HOME/.nx"
 	[ -d $nx_dir ] || { umask 0077; mkdir -p $nx_dir; umask $umask0; }
 	nxuser_logfile="$nx_dir/nxnode.log"
 fi

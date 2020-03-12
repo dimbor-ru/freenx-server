@@ -44,7 +44,7 @@ getparam() {
 nxlog() {
 # There is almost copy+paste code from nxnode... Ups! - Not almost.
 	[ $NX_LOG_LEVEL -ne 7 ] && return 0
-	UFH="$USER_FAKE_HOME/.nx"; mkdir -p "$UFH" # TODO FIX. How?
+	UFH="$HOME/.nx"; mkdir -p "$UFH" # TODO FIX. How?
 	sessionid=$(getparam uniqueid)
 	[ -n "$sessionid" ] || sessionid=$(getparam session_id) # need in the future for shares control?
 	LOG_FN="$UFH/$SELF-$sessionid.log"
@@ -152,7 +152,7 @@ done
 	APP="$WARN_APP$WARN_MSG"
 	nxlog "$SELF ($$): No rules found for. Setup session APP to default \"$APP\""
 }
-SFNAME="$USER_FAKE_HOME/.nx/suicidal-$$"
+SFNAME="$HOME/.nx/suicidal-$$"
 cat <<EOF > $SFNAME
 #!/bin/bash
 $APP

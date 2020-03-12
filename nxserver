@@ -532,8 +532,8 @@ if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]; then
 	# We might need to reactivate this now
 	ENABLE_USERMODE_AUTHENTICATION="1"
 	# export the necessary variables
-	export NX_SESS_DIR="$USER_FAKE_HOME/.nx/db/"
-	export NX_LOGFILE="$USER_FAKE_HOME/.nx/temp/nxserver.log"
+	export NX_SESS_DIR="$HOME/.nx/db/"
+	export NX_LOGFILE="$HOME/.nx/temp/nxserver.log"
 	mkdir -p $(dirname $NX_LOGFILE)
 	open_dbe
 	isdbs=""; [ -f $sess_bd ] && isdbs="1"

@@ -176,7 +176,6 @@ ENABLE_SOURCE_BASH_PROFILE="1"
 ENABLE_SOURCE_PROFILE="1"
 
 # Path directives
-USER_FAKE_HOME="" #Calculated
 SET_LD_LIBRARY_PATH="0"
 
 DEFAULT_X_WM=""
@@ -364,7 +363,6 @@ esac
 #########################################################################
 
 [ -z "$SESSION_USER_LIMIT" ] && SESSION_USER_LIMIT=$SESSION_LIMIT
-[ -z "$USER_FAKE_HOME" ] && USER_FAKE_HOME=$HOME
 
 [ -z "$AGENT_LIBRARY_PATH" ] && AGENT_LIBRARY_PATH=$PATH_LIB
 [ -z "$PROXY_LIBRARY_PATH" ] && PROXY_LIBRARY_PATH=$PATH_LIB
@@ -568,8 +566,6 @@ if [ "$CHECK" = "yes" ]; then
 	}
 
 	# Path directives
-	[ ! -d "$USER_FAKE_HOME" ] && \
-		ERROR="yes" && echo "Error: Invalid value \"USER_FAKE_HOME=$USER_FAKE_HOME\""
 	[ -z $(echo "$SET_LD_LIBRARY_PATH" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"SET_LD_LIBRARY_PATH=$SET_LD_LIBRARY_PATH\""
 
