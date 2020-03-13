@@ -232,6 +232,16 @@ q_rows_upd() {
 	q_dbe "UPDATE $1 SET $setls WHERE $2;"
 }
 
+q_vals_str_get() {
+#args: <table_name> <where_str> <col1,col2...> [values_delim='&']
+	local d="&"; [ -n "$4" ] && d="$4";
+	local mode=".mode csv $1\n.separator '$d'\n"
+	local rs=$(qa_dbe "$mode" "SELECT count(*),$3 FROM $1 WHERE $2 LIMIT 1;") #"
+	[ "${rs%%$d*}" -gt "0" 2>/dev/null ] || { echo; return 1; }
+	local ret=${rs#*$d}; ret=${ret//\"/}
+	echo "$ret"
+}
+
 str_eq_cond() {
 #args: cond vals_str [vals_delim='|']
 #ret: "cond IN ('A','B','C'...)" or "cond='A'"
