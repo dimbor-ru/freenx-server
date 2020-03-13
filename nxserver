@@ -749,14 +749,17 @@ server_remove_usession() {
 }
 
 server_nxnode_echo() {
-	log 6 "server_nxnode_echo: $@"
-	if [ "$server_channel" = "1" ]; then echo "$@"
-	elif [ "$server_channel" = "2" ]; then echo "$@" >&2
+	if [ "$server_channel" = "1" ]; then
+		echo "$@"
+		log 6 "$FUNCNAME >&$server_channel: $@"
+	elif [ "$server_channel" = "2" ]; then
+		echo "$@" >&2
+		log 6 "$FUNCNAME >&$server_channel: $@"
 	fi
 }
 
 server_nxnode_exit_func() {
-	log 1 "Info: Emergency-Shutting down due to kill signal ..."
+	log 1 "$FUNCNAME: Info: Emergency-Shutting down due to kill signal ..."
 	session_fail $session_id
 	server_remove_usession
 	# remove lock file
@@ -765,6 +768,7 @@ server_nxnode_exit_func() {
 
 server_nxnode_start_wait() {
 # use uplevel: $server_wait_pid $user $session_id
+	local lp="$FUNCNAME:";
 	local server_channel=1 kill_wait_pid=1 shadowcookie fl_start=""
 	open_dbe $BASHPID
 	[ "$1" = "--startsession" ] && fl_start="1";
@@ -793,27 +797,27 @@ server_nxnode_start_wait() {
 						kill_wait_pid=0
 						if [ -n "$fl_start" ]; then
 							[ "$server_channel" = "1" ] && server_channel=2
-							log 6 "set status $session_id: Running"
+							log 6 "$lp set status $session_id: Running"
 							session_change $session_id "status" "Running"
 						else server_channel=2
 						fi
 					;;
 					*closed*)
 						if [ -n "$fl_start" ]; then
-							log 6 "session_close $session_id"
+							log 6 "$lp session_close $session_id"
 							session_close $session_id; break;
 						fi
 					;;
 					*suspended*)
 						if [ -n "$fl_start" ]; then
 							[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
-							kill_wait_pid=0; log 6 "session suspend $session_id"
+							kill_wait_pid=0; log 6 "$lp session suspend $session_id"
 							session_change $session_id "status,userip" "Suspended&-"
 						fi
 					;;
 					*suspending*)
 						if [ -n "$fl_start" ]; then
-							log 6 "set status $session_id: Suspending"
+							log 6 "$lp set status $session_id: Suspending"
 							session_change $session_id "status" "Suspending"
 							# we need to stop sending to client as it will have already
 							# closed his side of the channel and this will lead to not
@@ -823,7 +827,7 @@ server_nxnode_start_wait() {
 					;;
 					*terminating*)
 						if [ -n "$fl_start" ]; then
-							log 6 "set status $session_id: Terminating"
+							log 6 "$lp set status $session_id: Terminating"
 							session_change $session_id "status" "Terminating"
 							# we need to stop sending to client as it will have already
 							# closed his side of the channel and this will lead to not
@@ -846,7 +850,7 @@ server_nxnode_start_wait() {
 			"NX> 1001"*)
 				if [ -z "$fl_start" ]; then
 					server_channel=0
-					log 6 "server_nxnode_start_wait: nxnode finished (1001), exiting on diplay $display"
+					log 6 "$lp nxnode finished (1001) on display $display"
 					close_dbe $BASHPID; exit_proc 0
 				fi
 			;;
@@ -864,7 +868,7 @@ server_nxnode_start_wait() {
 		[ -e "/tmp/.nX$display-lock" ] && rm -f /tmp/.nX$display-lock
 	fi
 	close_dbe $BASHPID
-	log 6 "server_nxnode_start_wait $1: end on diplay $display"
+	log 6 "$lp $1 end on display $display"
 }
 
 server_check_session_count() {
