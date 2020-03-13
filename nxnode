@@ -1695,7 +1695,7 @@ declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask);
 
 [ -n "$2" ] && delim="NX-$2>"
 echo "$delim 1000 NXNODE - Version $NX_VERSION $NX_LICENSE"
-8
+
 if [ "$USER" = "nx" ]; then
 	nx_dir="/var/lib/nxserver/home" # ???
 	nxuser_logfile="/var/log/nx/nxnode.log"
