@@ -1114,69 +1114,90 @@ node_start_monitor() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting"
 	local node_tail_pid="" node_suspend_status="$2";
-	local smbmount_port media_port node_watchdog_pid tosend
+	local smbmount_port media_port node_watchdog_pid tosend pars_sent=""
 
 	while read line; do
-		# Catch tail pid
-		if stringinstring "Info: tail -f running with pid" "$line"; then
-			node_tail_pid=$(cutfn "$line" "'" 1)
-			echo "$node_tail_pid" >"$nx_dir/C-$sess_id/pids/tail"
-		elif stringinstring "Info: Listening * SMB connections on port" "$line"; then
-			# Catch NXAGENT SMB Port (sometimes the port differs from what we got from nxserver)
-			smbmount_port=$(cutfn "$line" "'" 1); smbmount_port=${smbmount_port##*:}
-			echo "$smbmount_port" >"$nx_dir/C-$sess_id/scripts/mport"
-		elif stringinstring "Info: Listening * multimedia connections on port" "$line"; then
-			# Catch NXAGENT Multimedia Port
-			media_port=$(cutfn "$line" "'" 1); media_port=${media_port##*:}
-			echo "$media_port" >"$nx_dir/C-$sess_id/scripts/mmport"
-		elif stringinstring "Session: Starting session at" "$line"; then
-		# Session messages
-			echo "NX> 1009 Session status: starting"
-		elif stringinstring "Session: Suspending session at" "$line"; then
-			echo "NX> 1009 Session status: suspending"
-		elif stringinstring "Session: Terminating session at" "$line"; then
-			echo "NX> 1009 Session status: terminating"
-		elif stringinstring "Session: Resuming session at" "$line"; then
-			echo "NX> 1009 Session status: resuming"
-		elif stringinstring "Session: Session suspended at" "$line"; then
-			# Session suspend
-			echo "NX> 1005 Session status: suspended"
-			# umount shares & stop printers
-			[ "$node_suspend_status" != "Suspended" ] && {
-				nxlog "$lp node suspended, call node_stop_services"
-				node_stop_services
-			}
-		elif stringinstring "Info: Watchdog running with pid" "$line"; then
-			# Watchdog termination
-			node_watchdog_pid=$(cutfn "$line" "'" 1)
-		elif stringinstring "Info: Waiting the watchdog process to complete." "$line"; then
-			# Kill the watchdog
-			kill $node_watchdog_pid 2>/dev/null
-		elif stringinstring "Info: Waiting for connection from" "$line"; then
-			tosend="NX> 700 Session id: $sess_id
+		case "$line" in
+			"Info: Waiting for connection from"*)
+				[ -n "$pars_sent" ] && continue; # send params only once
+				tosend="NX> 700 Session id: $sess_id
 NX> 705 Session display: $display\nNX> 703 Session type: $type
 NX> 701 Proxy cookie: $cookie\nNX> 702 Proxy IP: $proxyip
 NX> 706 Agent cookie: $cookie\nNX> 704 Session cache: $type
 NX> 707 SSL tunneling: $encryption\n"
-			# File-sharing port options
-			if [ "$samba" = "1" -a -n "$smbport" ]; then
-				tosend+="NX> 709 File-sharing port: $smbport\n"
-			fi
-			echo -e "$tosend""NX> 710 Session status: running\nNX> 1002 Commit\nNX> 1006 Session status: running"
-		elif stringinstring "Session: Session resumed at" "$line"; then
-			# Reconnection success!
-			echo "NX> 718 Session restore succeded"
-			if [ "$1" = "restore" ]; then
-				kill $node_tail_pid
-				break
-			fi
-		elif stringinstring "Session: Display failure detected at" "$line"; then
-			# Reconnection failure
-			if [ "$1" = "restore" ]; then
-				echo "NX> 596 Error: Session $1 failed. Reason was: $line"
-				kill $node_tail_pid
-				break
-			fi
+				# File-sharing port options
+				if [ "$samba" = "1" -a -n "$smbport" ]; then
+					tosend+="NX> 709 File-sharing port: $smbport\n"
+				fi
+				echo -e "$tosend""NX> 710 Session status: running
+NX> 1002 Commit\nNX> 1006 Session status: running"
+				pars_sent="1"; continue;
+			;;
+			"Info: Listening"*"SMB connections on port"*)
+				# Catch NXAGENT SMB Port (sometimes the port differs from what we got from nxserver)
+				smbmount_port=$(cutfn "$line" "'" 1); smbmount_port=${smbmount_port##*:}
+				echo "$smbmount_port" >"$nx_dir/C-$sess_id/scripts/mport"
+				continue;
+			;;
+			"Info: Listening"*"multimedia connections on port"*)
+				# Catch NXAGENT Multimedia Port
+				media_port=$(cutfn "$line" "'" 1); media_port=${media_port##*:}
+				echo "$media_port" >"$nx_dir/C-$sess_id/scripts/mmport"
+				continue;
+			;;
+			"Info: Watchdog running with pid"*)
+				# Watchdog termination
+				node_watchdog_pid=$(cutfn "$line" "'" 1)
+				continue;
+			;;
+			"Info: Waiting the watchdog process to complete"*)
+				# Kill the watchdog
+				kill $node_watchdog_pid 2>/dev/null
+				continue;
+			;;
+		esac
+
+		if [ "$1" != "restore" ]; then # "start" instance
+			case "$line" in
+				"Session: Starting session at"*)
+					echo "NX> 1009 Session status: starting"
+				;;
+				"Session: Suspending session at"*)
+					echo "NX> 1009 Session status: suspending"
+				;;
+				"Session: Terminating session at"*)
+					echo "NX> 1009 Session status: terminating"
+				;;
+				"Session: Session suspended at"*) # Session suspend
+					echo "NX> 1005 Session status: suspended"
+					[ "$node_suspend_status" != "Suspended" ] && {
+						nxlog "$lp node suspended, call node_stop_services"
+						node_stop_services
+					}
+				;;
+			esac
+		else # "restore" instance
+			#nxlog "$lp nxagent output: $line"
+			case "$line" in
+				"Info: tail -f running with pid"*)
+					# Catch tail pid
+					node_tail_pid=$(cutfn "$line" "'" 1)
+					echo "$node_tail_pid" >"$nx_dir/C-$sess_id/pids/tail"
+				;;
+				"Session: Resuming session at"*)
+					echo "NX> 1009 Session status: resuming"
+				;;
+				"Session: Session resumed at"*)
+					# Reconnection success!
+					echo "NX> 718 Session restore succeded"
+					kill $node_tail_pid; break
+				;;
+				"Session: Display failure detected at"*)
+					# Reconnection failure
+					echo "NX> 596 Error: Session $1 failed. Reason was: $line"
+					kill $node_tail_pid; break
+				;;
+			esac
 		fi
 	done
 
