@@ -1118,7 +1118,7 @@ node_start_monitor() {
 
 	while read line; do
 		case "$line" in
-			"Info: Waiting for connection from"*)
+			*"Info: Waiting for connection from"*)
 				[ -n "$pars_sent" ] && continue; # send params only once
 				tosend="NX> 700 Session id: $sess_id
 NX> 705 Session display: $display\nNX> 703 Session type: $type
@@ -1133,24 +1133,24 @@ NX> 707 SSL tunneling: $encryption\n"
 NX> 1002 Commit\nNX> 1006 Session status: running"
 				pars_sent="1"; continue;
 			;;
-			"Info: Listening"*"SMB connections on port"*)
+			*"Info: Listening"*"SMB connections on port"*)
 				# Catch NXAGENT SMB Port (sometimes the port differs from what we got from nxserver)
 				smbmount_port=$(cutfn "$line" "'" 1); smbmount_port=${smbmount_port##*:}
 				echo "$smbmount_port" >"$nx_dir/C-$sess_id/scripts/mport"
 				continue;
 			;;
-			"Info: Listening"*"multimedia connections on port"*)
+			*"Info: Listening"*"multimedia connections on port"*)
 				# Catch NXAGENT Multimedia Port
 				media_port=$(cutfn "$line" "'" 1); media_port=${media_port##*:}
 				echo "$media_port" >"$nx_dir/C-$sess_id/scripts/mmport"
 				continue;
 			;;
-			"Info: Watchdog running with pid"*)
+			*"Info: Watchdog running with pid"*)
 				# Watchdog termination
 				node_watchdog_pid=$(cutfn "$line" "'" 1)
 				continue;
 			;;
-			"Info: Waiting the watchdog process to complete"*)
+			*"Info: Waiting the watchdog process to complete"*)
 				# Kill the watchdog
 				kill $node_watchdog_pid 2>/dev/null
 				continue;
@@ -1159,16 +1159,17 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 
 		if [ "$1" != "restore" ]; then # "start" instance
 			case "$line" in
-				"Session: Starting session at"*)
+				*"Session: Starting session at"*)
 					echo "NX> 1009 Session status: starting"
 				;;
-				"Session: Suspending session at"*)
+				*"Session: Suspending session at"*)
 					echo "NX> 1009 Session status: suspending"
 				;;
-				"Session: Terminating session at"*)
+				*"Session: Terminating session at"*)
 					echo "NX> 1009 Session status: terminating"
 				;;
-				"Session: Session suspended at"*) # Session suspend
+				*"Session: Session suspended at"*)
+				# Session suspend
 					echo "NX> 1005 Session status: suspended"
 					[ "$node_suspend_status" != "Suspended" ] && {
 						nxlog "$lp node suspended, call node_stop_services"
@@ -1179,20 +1180,20 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 		else # "restore" instance
 			#nxlog "$lp nxagent output: $line"
 			case "$line" in
-				"Info: tail -f running with pid"*)
+				*"Info: tail -f running with pid"*)
 					# Catch tail pid
 					node_tail_pid=$(cutfn "$line" "'" 1)
 					echo "$node_tail_pid" >"$nx_dir/C-$sess_id/pids/tail"
 				;;
-				"Session: Resuming session at"*)
+				*"Session: Resuming session at"*)
 					echo "NX> 1009 Session status: resuming"
 				;;
-				"Session: Session resumed at"*)
+				*"Session: Session resumed at"*)
 					# Reconnection success!
 					echo "NX> 718 Session restore succeded"
 					kill $node_tail_pid; break
 				;;
-				"Session: Display failure detected at"*)
+				*"Session: Display failure detected at"*)
 					# Reconnection failure
 					echo "NX> 596 Error: Session $1 failed. Reason was: $line"
 					kill $node_tail_pid; break
