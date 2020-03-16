@@ -1239,15 +1239,8 @@ startsession() {
 	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $umask0
 
 	# Setup environment
-	if [ "$ENABLE_SOURCE_PROFILE" = "1" ]; then
-		nxlog "$lp source profile"
-		. /etc/profile
-	fi
-	if [ "$ENABLE_SOURCE_BASH_PROFILE" = "1" ]; then
-		nxlog "$lp source bash profile"
-		[ -f ~/.bash_profile ] && . ~/.bash_profile
-		[ -f /etc/bashrc ] && . /etc/bashrc
-	fi
+	[ -n "$SOURCE_SYS_PROFILE" ] && . "$SOURCE_SYS_PROFILE"
+	[ -n "$SOURCE_USER_PROFILE" ] && . "$SOURCE_USER_PROFILE"
 
 	[ "$geometry" = "fullscreen" ] && fullscreen="1" || fullscreen="0"
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
@@ -1324,7 +1317,6 @@ startsession() {
 	if [ "$encryption" = "1" ]; then
 		# we need to use the IP of the "calling" server now
 		userip=$(rematchfn "($ip4_pattern)" "$SSH_CLIENT $SSH2_CLIENT") #"
-		nxlog "$lp userip='$userip'"
 		# If host is the same, use 127.0.0.1, else fallback to default
 		[ -z "$userip" -a "$host" = "127.0.0.1" ] && userip="127.0.0.1"
 		[ -z "$userip" ] && userip="*"
