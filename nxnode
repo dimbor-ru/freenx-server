@@ -1220,67 +1220,52 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 # -----------------------------------------------------------------------------
 #
 startsession() {
+# 1.5.0 options: rdpcolors,rdpcache,http
+# nxclient > 1.5.0-106 variables: resize,keybd
+# FreeNX specific variables: clientproto,status,host
+# NX 3.0 shadow mode related variables: shadowusername,shadowcookie,
+# shadowdisplay,shadowhost
+# Authentication method needed by guest mode: login_method
+# dimbor: additional extra-channels extra[1-3], patched nxcomp both
+# on server and client are required
+
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local opt_vars opt_str pack cleanup product;
+	local opt_vars opt_str pack cleanup product clipboard menu;
 	local id fullscreen accept vn;
 	nxlog "$lp starting with args \"$@\""
 
-	# 1.5.0 options: rdpcolors,rdpcache,http
-	# nxclient > 1.5.0-106 variables: resize,keybd
-	# FreeNX specific variables: clientproto,status,host
-	# NX 3.0 shadow mode related variables: shadowusername,shadowcookie,
-	# shadowdisplay,shadowhost
-	# Authentication method needed by guest mode: login_method
-	# dimbor: additional extra-channels extra[1-3], patched nxcomp both
-	# on server and client are required
-
-	windows_app=$application
-	# ok, lets make the session dir first:
-	umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $umask0
-
+	if [ "$1" = "start" ]; then # ok, lets make the session dir first:
+		umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $umask0
+	fi
 	# Setup environment
 	[ -n "$SOURCE_SYS_PROFILE" ] && . "$SOURCE_SYS_PROFILE"
 	[ -n "$SOURCE_USER_PROFILE" ] && . "$SOURCE_USER_PROFILE"
 
-	[ "$geometry" = "fullscreen" ] && fullscreen="1" || fullscreen="0"
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
 	[ "$ENABLE_ROOTLESS_MODE" = "0" ] && rootless=0
+	[ -z "$samba" ] && samba=0; [ -z "$media" ] && media=0
+	[ -z "$shmem" ] && shmem=0; [ -z "$shpix" ] && shpix=0
+	[ "$geometry" = "fullscreen" ] && fullscreen="1" || fullscreen="0"
 	[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && \
 		agent_keyboard=$(cutfn "$keyboard" '/' 1) || agent_keyboard=""
-	[ -z "$samba" ] && samba=0
-	[ -z "$media" ] && media=0
 	[ -z "$nodelay" ] && nodelay=1 # ???
 	cleanup=10; product=LFE/None/LFEN/None; id=$sess_id;
-	[ -z "$shmem" ] && shmem=0; [ -z "$shpix" ] && shpix=0
-
+	clipboard="$ENABLE_CLIPBOARD"; menu="$ENABLE_PULLDOWN_MENU"
+	windows_app=$application
 	[ -z "$keybd" ] && keybd=$aux # backwards compatibility for keybd parameter
 
 	[ "$EXPORT_USERIP" = "1" ] && export NXUSERIP="$userip"
 	[ "$EXPORT_SESSIONID" = "1" ] && export NXSESSIONID="$sess_id"
 	export SHADOW_XAUTHORITY="$NXSESSION_DIRECTORY/authority"
-
 	# export the agent_* options for the helper scripts
 	if [ "$freenx_export_agents" = "1" ]; then
-		export agent_user
-		export agent_password
-		export agent_server
-		export agent_domain
-		export windows_app
-		export agent_keyboard
-		export NXSESSION_DIRECTORY
-		export AGENT_EXTRA_OPTIONS_RFB
-		export AGENT_EXTRA_OPTIONS_RDP
-		export COMMAND_RDESKTOP
-		export COMMAND_VNCVIEWER
-		export COMMAND_VNCPASSWD
-		export COMMAND_X11VNC
-		export PATH_BIN
-		export shadowdisplay
-		export shadowhost
-		export shadowuser
-		export shadowcookie
-		export ENABLE_SESSION_SHADOWING_AUTHORIZATION
-		export ENABLE_INTERACTIVE_SESSION_SHADOWING
+		local export_vars="agent_user agent_password export agent_server\
+ agent_domain windows_app agent_keyboard NXSESSION_DIRECTORY\
+ AGENT_EXTRA_OPTIONS_RFB AGENT_EXTRA_OPTIONS_RDP COMMAND_RDESKTOP\
+ COMMAND_VNCVIEWER COMMAND_VNCPASSWD COMMAND_X11VNC PATH_BIN shadowdisplay\
+ shadowhost shadowuser shadowcookie ENABLE_SESSION_SHADOWING_AUTHORIZATION\
+ ENABLE_INTERACTIVE_SESSION_SHADOWING"
+		for vn in $export_vars; do export "$vn"; done
 		# We do not want to suspend such a session
 		# as RDP/RFB are both suspendable as well
 		ENABLE_PERSISTENT_SESSION=""
@@ -1295,9 +1280,7 @@ startsession() {
 		smbproto="$SAMBA_MOUNT_SHARE_PROTOCOL"
 		if [ "$smbproto" = "both" ]; then
 			smbproto="smbfs"
-			[ "$client" = "linux" ] && smbproto="cifs"
-			[ "$client" = "winnt" ] && smbproto="cifs"
-			[ "$client" = "macosx" ] && smbproto="cifs"
+			stringinstring "$client" "linux|winnt|macosx" && smbproto="cifs"
 			# FIXME: This is a rather wild guess
 			[ "$client" = "win9x" ] && smbproto="smbfs"
 		fi
@@ -1313,36 +1296,34 @@ startsession() {
 		else # smbfs
 			smbport=139
 		fi
+		# File-sharing port options
+		echo "$smbport" >"$NXSESSION_DIRECTORY/scripts/smbport"
 	fi
 	if [ "$encryption" = "1" ]; then
 		# we need to use the IP of the "calling" server now
-		userip=$(rematchfn "($ip4_pattern)" "$SSH_CLIENT $SSH2_CLIENT") #"
+		accept=$(rematchfn "($ip4_pattern)" "$SSH_CLIENT $SSH2_CLIENT") #"
 		# If host is the same, use 127.0.0.1, else fallback to default
-		[ -z "$userip" -a "$host" = "127.0.0.1" ] && userip="127.0.0.1"
-		[ -z "$userip" ] && userip="*"
-	else encryption=0
+		[ -z "$accept" -a "$host" = "127.0.0.1" ] && accept="127.0.0.1"
+	else encryption=0; accept=$userip
 	fi
+
 	# We need our own external IP
-	proxyip="$EXTERNAL_PROXY_IP"
-	if [ -z "$proxyip" -a -n "$host" ]; then
-		[ "$host" = "127.0.0.1" ] && host=$SERVER_NAME
-		# FIXME: on modern systems ping resolves lo addr also
-		proxyip=$(rematchfn "PING .+\(($ip4_pattern)\)" "$(ping -c1 "$host")") #"
-	fi
-	[ -z "$proxyip" ] && proxyip="127.0.0.1"
+	proxyip="$EXTERNAL_PROXY_IP"; [ -z "$proxyip" ] && proxyip="127.0.0.1"
 
 	pack=""
-	[ -z "$imagecompressionlevel" ] && imagecompressionlevel="9"
-	[ "$imagecompressionmethod" = "0" ] && pack="nopack"
-	[ "$imagecompressionmethod" = "1" ] && pack="16m-jpeg-$imagecompressionlevel"
-	[ "$imagecompressionmethod" = "2" ] && pack="16m-png-9"
+	if [ -z "$imagecompressionlevel" ]; then imagecompressionlevel="9"
+	elif [ "$imagecompressionmethod" = "0" ]; then pack="nopack"
+	elif [ "$imagecompressionmethod" = "1" ]; then pack="16m-jpeg-$imagecompressionlevel"
+	elif [ "$imagecompressionmethod" = "2" ]; then pack="16m-png-9"
+	fi
 
-	cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
-	cookie=${cookie%% *}
-
-	# write options file
-	clipboard="$ENABLE_CLIPBOARD"; menu="$ENABLE_PULLDOWN_MENU"
-	[ "$userip" = "*" ] && accept="" || accept=$userip
+	if [ "$1" = "start" ]; then
+		cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
+		cookie=${cookie%% *}
+	else
+		local opts=$(< "$NXSESSION_DIRECTORY/options"); opts=${opts//,/&}
+		cookie=$(getparam "$opts" "cookie")
+	fi
 
 	if [ "$1" = "application" ]; then
 		# This needs to be set, else nxagent is terminated
@@ -1354,7 +1335,6 @@ startsession() {
 	fi
 
 	nxlog "$lp generate \"$NXSESSION_DIRECTORY/options\""
-
 	opt_vars="keyboard kbtype kbload keymap geometry\
  client resize cache images pack link nodelay type clipboard composite\
  cleanup product shmem backingstore shpix accept cookie id samba media\
@@ -1363,18 +1343,19 @@ startsession() {
 	opt_str="nx/nx";
 	for vn in $opt_vars; do [ -n "${!vn}" ] && opt_str+=",$vn=${!vn}"; done
 	opt_str+=":$display"
+	# write options file
 	umask 0077;	echo "$opt_str" > "$NXSESSION_DIRECTORY/options"; umask $umask0
 
-	# write xauth script file
-	nxlog "$lp write xauth script file"
-	txt="add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
+	if [ "$1" = "start" ]; then # write xauth script file
+		nxlog "$lp write xauth script file"
+		txt="add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
 add :$display MIT-MAGIC-COOKIE-1 $cookie
 exit"
-	echo "$txt" | $COMMAND_XAUTH >/dev/null 2>&1
-	echo "$txt" | $COMMAND_XAUTH -f "$NXSESSION_DIRECTORY/authority" >/dev/null 2>&1
+		echo "$txt" | $COMMAND_XAUTH >/dev/null 2>&1
+		echo "$txt" | $COMMAND_XAUTH -f "$NXSESSION_DIRECTORY/authority" >/dev/null 2>&1
 
-	mkdir -m700 "$NXSESSION_DIRECTORY/scripts/" 2>/dev/null || \
-		chmod 700 "$NXSESSION_DIRECTORY/scripts/"
+		mkdir -m700 "$NXSESSION_DIRECTORY/scripts/" 2>/dev/null
+	fi
 
 	# If we have a shadow cookie, we add it to xauth session authority file as well
 	if [ -n "$shadowcookie" ]; then
@@ -1395,7 +1376,7 @@ exit"
 		echo "$MONITOR_PID" > "$NXSESSION_DIRECTORY/pids/monitor"
 		nxlog "$lp call 'node_suspend_session \"$sess_id\"'"
 		node_suspend_session "$sess_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$NXSESSION_DIRECTORY/session"; node_fail_restore_session "$sess_id"; }
-	else
+	else # start
 		nxlog "$lp call 'node_start_agent'"
 		node_start_agent &
 		nxlog "$lp call 'node_start_applications'"
@@ -1411,12 +1392,6 @@ exit"
 			NXSESSIONID="$sess_id" DISPLAY=:$display "$NODE_AUTOSTART" "$1" >/dev/null 2>&1 &
 			disown $! # dont't wait for this child!
 		fi
-	fi
-
-
-	# File-sharing port options
-	if [ "$samba" = "1" -a -n "$smbport" ]; then
-		echo "$smbport" >"$NXSESSION_DIRECTORY/scripts/smbport"
 	fi
 
 	if [ -n "$MONITOR_PID" ]; then
@@ -1740,7 +1715,7 @@ open_dbe $$ && attach_db "$nx_dir/usessions.sq3" && {
 
 case "$1" in
 	--startsession)
-		startsession
+		startsession "start"
 	;;
 	--resumesession)
 		startsession "restore"
