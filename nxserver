@@ -1293,6 +1293,10 @@ while true; do
 			# used: user, session_id
 			in_params=$(server_get_params $cmd)
 			set_vars_from_ampstr "$in_params"
+			[ -z "$display" ] && \
+				display=$(q_vals_str_get "sess" \
+								"session_id='$session_id'" "display")
+			in_params+="&display=$display"
 			if session_find_id_user "$session_id" "$user"; then
 				server_nxnode_start --suspend "$user" "$in_params"
 			fi
@@ -1300,6 +1304,9 @@ while true; do
 		terminate*)
 			in_params=$(server_get_params $cmd)
 			set_vars_from_ampstr "$in_params"
+			[ -z "$display" ] && \
+				display=$(q_vals_str_get "sess" \
+								"session_id='$session_id'" "display")
 			in_params+="&display=$display"
 			if session_find_id_user "$session_id" "$user"; then
 				server_nxnode_start --terminate "$user" "$in_params"
@@ -1308,6 +1315,10 @@ while true; do
 		restoresession*)
 			in_params=$(server_get_params $cmd)
 			set_vars_from_ampstr "$in_params"
+			[ -z "$display" ] &&
+				display=$(q_vals_str_get "sess" \
+								"session_id='$session_id'" "display")
+			in_params+="&display=$display"
 			server_startrestore_session "resume" "$in_params"
 		;;
 		attachsession*)
