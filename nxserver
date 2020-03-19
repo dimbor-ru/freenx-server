@@ -795,11 +795,10 @@ server_nxnode_start_wait() {
 					*running*)
 						[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid
 						kill_wait_pid=0
-						if [ -n "$fl_start" ]; then
-							[ "$server_channel" = "1" ] && server_channel=2
+						if [ "$server_channel" = "1" ]; then
+							server_channel=2
 							log 6 "$lp set status $session_id: Running"
 							session_change $session_id "status" "Running"
-						else server_channel=2
 						fi
 					;;
 					*closed*)
@@ -1181,12 +1180,11 @@ $type&$screeninfo&$geometry&$server_host&none&$time_now&$time_now"
 	else
 		session_change "$session_id" "userip" "$userip"
 		db_params=$(session_get "$session_id");
-		display=$(getparam "$db_params" display); 
-		host=$(getparam "$db_params" host)
-		status=$(getparam "$db_params" status)
-		params+="&user=$user&userip=$userip&display=$display&status=$status"
-		server_host=$host
+		display=$(getparam "$db_params" display);
+		host=$(getparam "$db_params" host); server_host=$host
 		[ -z "$server_host" ] && server_host="127.0.0.1"
+		status=$(getparam "$db_params" status)
+		params+="&host=$server_host&user=$user&userip=$userip&display=$display&status=$status"
 
 		if [ "$ENABLE_ADVANCED_SESSION_CONTROL" = "1" ]; then
 			case "$session" in
