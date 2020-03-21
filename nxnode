@@ -44,6 +44,35 @@ cp_conv() {
 	echo "$res"
 }
 
+# =================== sqlite3 stuff =====================
+
+declare -g sqcols_usess="session_id, status, display, type, agent_pid,\
+ cookie, tail_pid, mmport, cupsport, mport, smbport, pa_pid, pa_params"
+declare -g sqcols_usess_c=13
+
+init_usess_db() {
+	local usess_cols="session_id TEXT PRIMARY KEY, status TEXT, display TEXT,\
+ type TEXT, agent_pid INT, cookie TEXT, tail_pid INT, mmport INT,\
+ cupsport INT, mport INT, smbport INT, pa_pid INT, pa_params TEXT"
+	local qstr="CREATE TABLE IF NOT EXISTS usessions.usess($usess_cols);"
+   q_dbe "$qstr"
+}
+
+usess_add() {
+#params: <col1,col2...> <val1&val2...>
+	q_row_ins "usess" "$1" "$2"
+}
+
+usess_set() {
+# <session_id> <col1,col2...> <val1&val2...>
+	q_rows_upd "usess" "session_id='$1'" "$2" "$3"
+}
+
+usess_get() {
+# <session_id> <col1,col2...> [values_delim='&']
+	q_vals_str_get "usess" "session_id='$1'" "$2" "$3"
+}
+
 #
 # -----------------------------------------------------------------------------
 # Node functions module
@@ -77,15 +106,15 @@ get_sessdir4res() {
 # then returns name of session dir (except dir of own sesson)
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting with args \"$@\"; sess_id='$sess_id'"
-	local digarg agent_pids sessdir node_agent_pid curport;
+	local digarg agent_pids sessdir agent_pid curport;
 	[ "$1" -gt 0 2>/dev/null ] && digarg=1 || digarg=0
 	agent_pids=$(ps -wo pid= -C "nxagent")
 	for sessdir in $nx_dir/C-* ; do
 		[ -z "$2" -a "$sessdir" == "$nx_dir/C-$sess_id" ] && continue
-		node_agent_pid=""
-		[ -r "$sessdir/pids/agent" ] && node_agent_pid=$(< $sessdir/pids/agent)
-		[ -z "$node_agent_pid" ] && continue
-		stringinstring "$node_agent_pid" "$agent_pids" || continue
+		agent_pid=""
+		[ -r "$sessdir/pids/agent" ] && agent_pid=$(< $sessdir/pids/agent)
+		[ -z "$agent_pid" ] && continue
+		stringinstring "$agent_pid" "$agent_pids" || continue
 		#nxlog "$lp browse sessdir \"$sessdir\" for filename = \"$sessdir/scripts/$1\", digarg=$digarg"
 		if [ "$digarg" = "1" ]; then
 			curport=$(get_mport2sessdir "$sessdir")
@@ -190,7 +219,7 @@ check_local_pa_tunnel() {
 
 reconnect_pa() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local mmport="" papars="" node_agent_pid rate channels papid="" agent_pids;
+	local mmport="" papars="" agent_pid rate channels papid="" agent_pids;
 	local sessdir;
 	[ -r "$nx_dir/C-$sess_id/scripts/pa_pid" ] && \
 		papid=$(< $nx_dir/C-$sess_id/scripts/pa_pid)
@@ -198,10 +227,10 @@ reconnect_pa() {
 	agent_pids=$(ps -wo pid= -C "nxagent")
 	for sessdir in $nx_dir/C-*; do # start port search
 		[ "$sessdir" == "$nx_dir/C-$sess_id" ] && continue
-		node_agent_pid=""; [ -r "$sessdir/pids/agent" ] && \
-			node_agent_pid=$(< $sessdir/pids/agent)
-		[ -z "$node_agent_pid" ] && continue
-		stringinstring $node_agent_pid "$agent_pids" || continue
+		agent_pid=""; [ -r "$sessdir/pids/agent" ] && \
+			agent_pid=$(< $sessdir/pids/agent)
+		[ -z "$agent_pid" ] && continue
+		stringinstring $agent_pid "$agent_pids" || continue
 		mmport=""; [ -r "$sessdir/scripts/mmport" ] && \
 			mmport=$(< $sessdir/scripts/mmport)
 		[ -n "$mmport" ] && break
@@ -218,138 +247,124 @@ reconnect_pa() {
 	fi
 }
 
-# node_terminate_agent <session id>
+# node_terminate_agent <session_id>
+# !!! still not used
 node_terminate_agent() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting"
-	local node_agent_pid;
-	[ -r "$nx_dir/C-$1/pids/agent" ] && \
-		node_agent_pid=$(< $nx_dir/C-$1/pids/agent)
-	[ -n "$node_agent_pid" ] && {
-		nxlog "$lp killing node_agent_pid='$node_agent_pid'"
-		kill $node_agent_pid 2>/dev/null;
-		sleep 0.3s
+	nxlog "$lp starting with session_id='$1'"
+	local agent_pid=$(usess_get "$1" "agent_pid")
+	((agent_pid>0)) 2>/dev/null || {
+		nxlog "$lp agent_pid not set. end."
 	}
-	kill -0 $node_agent_pid && {
-		nxlog "$lp killing node_agent_pid. Try #2"
-		kill -9 $node_agent_pid 2>/dev/null
+	nxlog "$lp killing agent_pid ($agent_pid)"
+	kill $agent_pid 2>/dev/null;
+	sleep 0.4s
+	kill -0 $agent_pid && {
+		nxlog "$lp killing agent_pid. Try #2"
+		kill -9 $agent_pid 2>/dev/null
 	}
 	nxlog "$lp end"
 }
 
-# node_terminate_session <session id>
-#	Used config vars: $COMMAND_XAUTH, $SESSION_LOG_CLEAN
+# node_terminate_session <session_id> [status]
+# Used gvars: nx_dir
+# Used config vars: COMMAND_XAUTH, SESSION_LOG_CLEAN SERVER_NAME
 node_terminate_session() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local node_agent_pid node_tail_pid="" display sessdir
-	nxlog "$lp Start terminating session \"$1\" with status \"$2\""
-	sessdir="$nx_dir/C-$1"
-	[ -e "$sessdir/terminating" ] && {\
-		nxlog "$lp Terminating still in progress. Bye."
-		return;
+	nxlog "$lp Start terminating session_id='$1' with status '$2'"
+	local qs=$(usess_get "$1" \
+		"status,display,agent_pid,tail_pid,mmport,cupsport,mport")
+	[ -z "$qs" ] && {
+		nxlog "$lp session_id='$1' not found in usess db. Bye."; return;
 	}
-	[ -d "$sessdir" ] || {\
-		nxlog "$lp Session directory not found."
-		return;
+	local status=$(cutfn "$qs" '&' 0)
+	stringinstring "$status" "Terminating|Finished|Failed" && {
+		nxlog "$lp Session status is already '$status'. Bye."; return;
 	}
-	touch "$sessdir/terminating"
-
-	# Kill nxagent
-	[ -r "$sessdir/pids/agent" ] && \
-		node_agent_pid=$(< $sessdir/pids/agent)
-
-	# JJK: Kill running services
-	# FF: Seems this is needed also here ...
-	# dimbor: ... but have to be a little more tender ;)
-	nxlog "$lp call node_stop_services"
-	node_stop_services
-	if [ -n "$node_agent_pid" ]; then
-		nxlog "$lp start killing of nxagent"
-		kill $node_agent_pid 2>/dev/null
-		wait $node_agent_pid 2>/dev/null
-		kill -0 $node_agent_pid ||
-			nxlog "$lp nxagent ($node_agent_pid) is dead now"
-	fi
-
+	usess_set "$1" "status" "Terminating"
+	display=$(cutfn "$qs" '&' 1); local sess_id="$SERVER_NAME-$display-$1"
+	local agent_pid=$(cutfn "$qs" '&' 2) tail_pid=$(cutfn "$qs" '&' 3)
+	local t_status="$2"; [ -z "$2" ] && t_status="Finished"
+	[ -d "$nx_dir/C-$sess_id" ] || {
+		nxlog "$lp Session dir '$nx_dir/C-$sess_id' not found. Bye."; return;
+	}
+	local p1=$(cutfn "$qs" '&' 4) p2=$(cutfn "$qs" '&' 5) p3=$(cutfn "$qs" '&' 6)
+	((p1+p2+p3!=0)) && node_stop_services
+	((agent_pid>0)) && {
+		nxlog "$lp start killing of nxagent ($agent_pid)"
+		kill $agent_pid 2>/dev/null
+		wait $agent_pid 2>/dev/null
+		kill -0 $agent_pid || {
+			nxlog "$lp nxagent ($agent_pid) is dead now"; agent_pid="0"
+			usess_set "$session_id" "agent_pid" "0"
+		}
+	}
 	# Kill tail process
-	[ -r "$sessdir/pids/tail" ] && {
-		node_tail_pid=$(< $sessdir/pids/tail)
-		nxlog "$lp kill tail process"
-		kill $node_tail_pid 2>/dev/null;
+	((tail_pid>0)) && {
+		nxlog "$lp kill tail process ($tail_pid)"
+		kill $tail_pid 2>/dev/null
+		wait $tail_pid 2>/dev/null
+		kill -0 $tail_pid || {
+			nxlog "$lp tail ($tail_pid) is dead now"; tail_pid="0"
+			usess_set "$session_id" "tail_pid" "0"
+		}
 	}
-
 	# Remove display information
 	nxlog "$lp Remove display information"
-	display=$(cutfn "$1" "-" -2)
 	rm -f /tmp/.X$display-lock; rm -f /tmp/.X11-unix/X$display
-
 	# Remove magic cookie information
 	nxlog "$lp Remove magic cookie information"
 	$COMMAND_XAUTH remove "localhost:$display" >/dev/null 2>&1
 	$COMMAND_XAUTH remove ":$display" >/dev/null 2>&1
-
 	# Preserve or remove session information
 	nxlog "$lp Preserve or remove session information"
 	if [ "$SESSION_LOG_CLEAN" = "1" ]; then
 		nxlog "$lp Clean session information."
-		rm -rf "$nx_dir/C-$1/"
-		rm -f  "$nx_dir/nxnode-$1.log"
+		rm -rf "$nx_dir/C-$sess_id/"
+		rm -f  "$nx_dir/nxnode-$sess_id.log"
 		rm -f  "$nx_dir/nxnode.log"
+	elif [ "$2" = "Failed" ]; then
+		nxlog "$lp Session failed. Rename session directory \
+from '$nx_dir/C-$sess_id/' to '$nx_dir/F-C-$sess_id'"
+		mv "$nx_dir/C-$sess_id/" "$nx_dir/F-C-$sess_id"
+	else
+		nxlog "$lp Session terminated. Rename session directory \
+from '$nx_dir/C-$sess_id/' to '$nx_dir/T-C-$sess_id'"
+		mv "$nx_dir/C-$sess_id/" "$nx_dir/T-C-$sess_id"
 	fi
-	if [ "$SESSION_LOG_CLEAN" = "0" -a "$2" = "failed" ] ; then
-		nxlog "$lp Session failed. Rename session directory from \"$nx_dir/C-$1/\" to \"$nx_dir/F-C-$1\""
-		mv "$nx_dir/C-$1/" "$nx_dir/F-C-$1"
-		rm -f "$nx_dir/F-C-$1/terminating"
-	elif [ "$SESSION_LOG_CLEAN" = "0" -a "$2" != "failed" ] ; then
-		nxlog "$lp Session terminated. Rename session directory from \"$nx_dir/C-$1/\" to \"$nx_dir/T-C-$1\""
-		mv "$nx_dir/C-$1/" "$nx_dir/T-C-$1"
-		rm -f "$nx_dir/T-C-$1/terminating"
-	fi
+	usess_set "$1" "status" "$t_status"
 	nxlog "$lp end"
 }
 
 
-# node_fail_restore_session <session id>
-# TODO: Kill still running tail -f process.
+# node_fail_restore_session <session_id>
 node_fail_restore_session() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local node_tail_pid;
 	nxlog "$lp starting"
 	echo "NX> 1004 Error: Could not resume session. nxagent process could not be found."
-	[ -r "$nx_dir/C-$sess_id/pids/tail" ] && {
-		node_tail_pid=$(< $nx_dir/C-$sess_id/pids/tail)
-		nxlog "$lp kill tail process"
-		kill $node_tail_pid 2>/dev/null;
-		echo "NX 1004> kill $node_tail_pid"
-	}
-	node_terminate_session "$1" "failed"
+	node_terminate_session "$1" "Failed"
 	nxlog "$lp end. Next is 'exit 1'"
 	exit_proc 1
 }
 
 
-# node_suspend_session <session id>
+# node_suspend_session <session_id>
 node_suspend_session() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting"
-	local node_agent_pid;
-	[ -r "$nx_dir/C-$1/pids/agent" ] && \
-		node_agent_pid=$(< $nx_dir/C-$1/pids/agent)
-	if [ -n "$node_agent_pid" ]; then
-		nxlog "$lp node_agent_pid='$node_agent_pid' Killing..."
-		kill -0 $node_agent_pid || {
-			nxlog "$lp end (0)"
-			return 1;
+	local agent_pid=$(usess_get "$1" "agent_pid")
+	if ((agent_pid>0)) 2>/dev/null; then 
+		nxlog "$lp Killing (HUP) agent_pid ($agent_pid)..."
+		kill -0 $agent_pid || {
+			nxlog "$lp nxagent is already dead. end (0)"; return 1;
 		}
-		kill -HUP $node_agent_pid && {
-			nxlog "$lp end (HUP)"
-			return 0;
+		kill -HUP $agent_pid && {
+			nxlog "$lp end (HUP)"; return 0;
 		}
-	else nxlog "$lp node_agent_pid is empty; end"
+	else nxlog "$lp agent_pid is not set; end"
 	fi
 	return 1
 }
-
 
 # node_find_application <type>
 #	Used config vars: $COMMAND_START_KDE, $COMMAND_START_GNOME,
@@ -411,8 +426,7 @@ get_pa_sound_mode() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	local cl_pa_mods
 	[ -z "$2" ] && {
-		nxlog "$lp Client's IP-address is not defined."
-		echo ""; return 1;
+		nxlog "$lp Client's IP-address is not defined."; echo ""; return 1;
 	}
 	stringinstring "open" "$($COMMAND_NETCAT -nvz -w 1 $2 $1 2>&1)" || {
 		nxlog "$lp Client's pulseaudio at $2:$1 is not reachable."
@@ -438,7 +452,7 @@ get_pa_sound_mode() {
 node_start_applications() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting"
-	local node_app mmode rate channels mmport pa_remote pa_pid params;
+	local node_app mmode rate channels mmport pa_remote pa_pid params i;
 	local native_sound_mode second_app="" sapp_pids0="" napp;
 	local spid node_app_pid sapp_pids="" sapp_pids1 node_wm_pid;
 	# close input and output file descriptors
@@ -460,7 +474,6 @@ node_start_applications() {
 		"$NUMLOCKX" "$NUMLOCKX_STATUS"
 	fi
 
-	mkdir -p "$NXSESSION_DIRECTORY/pids/apps/"
 	# Which application do we start?
 	node_app=$(node_find_application "$type")
 	# For rdesktop/VNC, there is no application to start
@@ -471,25 +484,29 @@ node_start_applications() {
 		return
 	fi
 
-	# Check if we want to use a mediahelper
 	mmode="$(cutfn "$mediahelper" "-" 0)"
-	rate="$(cutfn "$mediahelper" "-" 1)"
-	channels="$(cutfn "$mediahelper" "-" 2)"
-	[ -r "$NXSESSION_DIRECTORY/scripts/mmport" ] && \
-		mmport="$(< $NXSESSION_DIRECTORY/scripts/mmport)"
-	if [ "$mmode" == "pa" -a -n "$mmport" ]; then
-		pa_remote="127.0.0.1:$mmport"
-		pa_pid="$(check_local_pa_tunnel $pa_remote $rate $channels)"
-		if [ -n "$pa_pid" ]; then
-			nxlog "$lp Local pulseaudio is started ($pa_pid). Sound mode set to tunneled."
-			echo $pa_pid > "$NXSESSION_DIRECTORY/scripts/pa_pid"
-			params=$rate
-			[ -n "$channels" ] && params+=":$channels"
-			[ -n "$params" ] && echo "$params" > "$NXSESSION_DIRECTORY/scripts/params.pa"
-		else
-			nxlog "$lp Local pulseaudio NOT STARTED. Set PULSE_SERVER=127.0.0.1:$mmport"
-			export PULSE_SERVER="127.0.0.1:$mmport"
+# this still not tested
+	if [ "$mmode" == "pa" ]; then
+		rate="$(cutfn "$mediahelper" "-" 1)"
+		channels="$(cutfn "$mediahelper" "-" 2)"; cntr=20;
+		for ((i=0; i<cntr; i++)) {
+			mmport=$(usess_get "$session_id" "mmport")
+			((mmport>0)) && break; sleep 0.2s
+		}
+		if ((mmport>0)); then
+			pa_remote="127.0.0.1:$mmport"
+			pa_pid="$(check_local_pa_tunnel $pa_remote $rate $channels)"
+			if [ -n "$pa_pid" ]; then
+				nxlog "$lp Local pulseaudio is started ($pa_pid). Sound mode set to tunneled."
+				usess_set "$session_id" "pa_pid" "$pa_pid"
+				params=$rate; [ -n "$channels" ] && params+=":$channels"
+				[ -n "$params" ] && usess_set "$session_id" "pa_params" "$params"
+			else
+				nxlog "$lp Local pulseaudio NOT STARTED. Set PULSE_SERVER=127.0.0.1:$mmport"
+				export PULSE_SERVER="127.0.0.1:$mmport"
+			fi
 		fi
+# still not tested end
 	elif [ "$ENABLE_DIRECT_NATIVE_PA_CHECK" = "1" ] ; then
 		native_sound_mode="$(get_pa_sound_mode 4713 $NXUSERIP)"
 		if [ -n "$native_sound_mode" ]; then
@@ -507,14 +524,17 @@ node_start_applications() {
 		nxlog "$lp export CUPS_SERVER=$CUPS_DEFAULT_SOCK"
 		export CUPS_SERVER=$CUPS_DEFAULT_SOCK
 	}
-	if [ "$ENABLE_SAMBA_PRELOAD" = "1" -a -x "$PATH_BIN/nxredir" ]; then
-		let NXSAMBA_PORT=$display+3000
-		export NXSAMBA_PORT
-		nxlog "$lp Preload SAMBA using nxredir. NXSAMBA_PORT is \"$NXSAMBA_PORT\""
-		node_app="$PATH_BIN/nxredir $node_app"
-		echo "Info: NXNODE - Using nxredir wrapper script to forward SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
+	if [ "$ENABLE_SAMBA_PRELOAD" = "1" ]; then
+		# wait for mport here?
+		NXSAMBA_PORT=$(usess_get "$session_id" "mport")
+		((NXSAMBA_PORT>0)) && {
+			export NXSAMBA_PORT
+			nxlog "$lp Preload SAMBA using nxredir. NXSAMBA_PORT is '$NXSAMBA_PORT'"
+			node_app="$PATH_BIN/nxredir $node_app"
+			echo "Info: NXNODE - Using nxredir wrapper script to forward \
+SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
+		}
 	fi
-
 
 	# Do we need to PRELOAD any libraries?
 	[ "$virtualdesktop" = "0" -a "$rootless" != "1" ] && export LD_PRELOAD="$APPLICATION_LIBRARY_PRELOAD:$LD_PRELOAD"
@@ -562,11 +582,7 @@ node_start_applications() {
 	DISPLAY=:$display /etc/nxserver/Xsession $node_app >> \
 		"$NXSESSION_DIRECTORY/session" 2>&1 &
 	node_app_pid=$!
-	nxlog "$lp Start successful. node_app_pid='$node_app_pid'"
-
-	mkdir -p "$NXSESSION_DIRECTORY/pids/"
-	echo "$node_app_pid" >"$NXSESSION_DIRECTORY/pids/apps/$node_app_pid"
-	nxlog "$lp Waiting for node_app_pid"
+	nxlog "$lp Start successful. Waiting for node_app_pid='$node_app_pid'"
 	wait $node_app_pid
 	nxlog "$lp node_app_pid finished"
 
@@ -580,9 +596,7 @@ node_start_applications() {
 		[ "$KILL_DEFAULT_X_WM" = "1" ] || { nxlog "$lp wait for $node_wm_pid is dead"
 			wait $node_wm_pid; }
 	}
-	nxlog "$lp Clean pids/apps/$node_app_pid"
-	rm -f "$NXSESSION_DIRECTORY/pids/apps/$node_app_pid"
-	sleep "$NODE_APP_WAIT_TIMEOUT"
+	#sleep "$NODE_APP_WAIT_TIMEOUT"
 
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && {
 		if [ -n "$second_app" ] ; then
@@ -596,8 +610,8 @@ node_start_applications() {
 				sleep 1s
 			done
 			nxlog "$lp PID(S) \"$sapp_pids\" finished"
-			node_terminate_session "$sess_id"
-		else  node_terminate_session "$sess_id"
+			node_terminate_session "$session_id"
+		else  node_terminate_session "$session_id"
 		fi
 	}
 
@@ -605,8 +619,7 @@ node_start_applications() {
 	# The agent times out after a while by itself anyway.
 	if [ "$virtualdesktop" = "1" -o "$rootless" != "1" ] ; then
 		nxlog "$lp Call node_terminate_agent for non-rootless or virtualdesktop session type"
-		nxlog "$lp Call 'node_terminate_agent \"$sess_id\"'"
-		node_terminate_session "$sess_id"
+		node_terminate_session "$session_id"
 	fi
 	nxlog "$lp end"
 }
@@ -654,7 +667,7 @@ node_start_agent() {
 	# preparations
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	local k g b r fp vncfullscreen u p d agent_port viewonly
-	local node_agent_exit_status node_failed
+	local agent_exit_status node_failed
 	nxlog "$lp starting"
 	exec 3>&2; exec 4>&1;
 
@@ -782,18 +795,16 @@ node_start_agent() {
 	fi
 
 	# Wait for the agent
-	node_agent_pid=$!
-	mkdir -p "$NXSESSION_DIRECTORY/pids/"
-	echo "$node_agent_pid" >"$NXSESSION_DIRECTORY/pids/agent"
-	nxlog "$lp Wait for node_agent_pid='$node_agent_pid'"
-	wait $node_agent_pid
-	node_agent_exit_status=$?
-	nxlog "$lp node_agent_exit_status='$node_agent_exit_status'"
+	agent_pid=$!
+	usess_set "$session_id" "agent_pid" "$agent_pid"
+	nxlog "$lp Wait for agent_pid='$agent_pid'"
+	wait $agent_pid; agent_exit_status=$?
+	nxlog "$lp agent_exit_status='$agent_exit_status'"
 	node_failed=""
-	if [ $node_agent_exit_status -ne 0 ]; then
-		echo "NX> 1004 Error: NX Agent exited with exit status $node_agent_exit_status. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$nx_dir/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
+	if [ $agent_exit_status -ne 0 ]; then
+		echo "NX> 1004 Error: NX Agent exited with exit status $agent_exit_status. To troubleshoot set SESSION_LOG_CLEAN=0 in node.conf and investigate \"$nx_dir/F-C-$sess_id/session\". You might also want to try: ssh -X myserver; $PATH_BIN/nxnode --agent to test the basic functionality. Session log follows:"
 		echo "$(< $NXSESSION_DIRECTORY/session)" >&2
-		node_failed="failed"
+		node_failed="Failed"
 		nxlog "$lp node_failed='$node_failed'"
 	fi
 	nxlog "$lp close session"
@@ -801,10 +812,9 @@ node_start_agent() {
 
 	# Cleanup session information
 	nxlog "$lp cleanup session information '$sess_id'"
-	nxlog "$lp remove agent pidfile -- '$NXSESSION_DIRECTORY/pids/agent'"
-	rm -f "$NXSESSION_DIRECTORY/pids/agent"
-	nxlog "$lp call 'node_terminate_session \"$sess_id\" \"$node_failed\"'"
-	node_terminate_session "$sess_id" "$node_failed"
+	usess_set "$session_id" "agent_pid" "0"
+	nxlog "$lp call 'node_terminate_session \"$session_id\" \"$node_failed\"'"
+	node_terminate_session "$session_id" "$node_failed"
 
 	# remove possible leftovers of nxagent
 	nxlog "$FUNCNAME ($$):remove /tmp/.X$display-lock"
@@ -1099,22 +1109,22 @@ node_emergency_exit() {
 	node_stop_services
 
 	# kill the session
-	nxlog "$lp call 'node_terminate_session \"$sess_id\" \"failed\"'"
-	node_terminate_session "$sess_id" "failed"
+	nxlog "$lp call 'node_terminate_session \"$session_id\" \"Failed\"'"
+	node_terminate_session "$session_id" "Failed"
 
 	echo "NX> 1004 Error: Emergency exit due to kill signal."
 	nxlog "$lp end"
 }
 
-# node_start_monitor <start|restore> <Running|Suspended>
+# node_start_monitor <start|restore>
 # Monitoring the nxagent: Its also kind of a "state-machine"
 #                         as it has to keep track of different
 #                         connection states and react differently.
 node_start_monitor() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting"
-	local node_tail_pid="" node_suspend_status="$2";
-	local smbmount_port media_port node_watchdog_pid tosend pars_sent=""
+	nxlog "$lp starting with arg: $@"
+	local tail_pid=""watchdog_pid tosend pars_sent=""
+	local mport="0" mmport="0" cupsport="0"
 
 	while read line; do
 		case "$line" in
@@ -1126,33 +1136,32 @@ NX> 701 Proxy cookie: $cookie\nNX> 702 Proxy IP: $proxyip
 NX> 706 Agent cookie: $cookie\nNX> 704 Session cache: $type
 NX> 707 SSL tunneling: $encryption\n"
 				# File-sharing port options
-				if [ "$samba" = "1" -a -n "$smbport" ]; then
+				((smbport>0)) &&
 					tosend+="NX> 709 File-sharing port: $smbport\n"
-				fi
 				echo -e "$tosend""NX> 710 Session status: running
 NX> 1002 Commit\nNX> 1006 Session status: running"
 				pars_sent="1"; continue;
 			;;
 			*"Info: Listening"*"SMB connections on port"*)
 				# Catch NXAGENT SMB Port (sometimes the port differs from what we got from nxserver)
-				smbmount_port=$(cutfn "$line" "'" 1); smbmount_port=${smbmount_port##*:}
-				echo "$smbmount_port" >"$nx_dir/C-$sess_id/scripts/mport"
+				mport=$(cutfn "$line" "'" 1); mport=${mport##*:}
+				usess_set "$session_id" "mport" "$mport"
 				continue;
 			;;
 			*"Info: Listening"*"multimedia connections on port"*)
 				# Catch NXAGENT Multimedia Port
-				media_port=$(cutfn "$line" "'" 1); media_port=${media_port##*:}
-				echo "$media_port" >"$nx_dir/C-$sess_id/scripts/mmport"
+				mmport=$(cutfn "$line" "'" 1); mmport=${mmport##*:}
+				usess_set "$session_id" "mmport" "$mmport"
 				continue;
 			;;
 			*"Info: Watchdog running with pid"*)
 				# Watchdog termination
-				node_watchdog_pid=$(cutfn "$line" "'" 1)
+				watchdog_pid=$(cutfn "$line" "'" 1)
 				continue;
 			;;
 			*"Info: Waiting the watchdog process to complete"*)
 				# Kill the watchdog
-				kill $node_watchdog_pid 2>/dev/null
+				kill $watchdog_pid 2>/dev/null
 				continue;
 			;;
 		esac
@@ -1161,18 +1170,25 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 			case "$line" in
 				*"Session: Starting session at"*)
 					echo "NX> 1009 Session status: starting"
+					usess_set "$session_id" "status" "Starting"
+				;;
+				*"Session: Session started at"*)
+					usess_set "$session_id" "status" "Running"
 				;;
 				*"Session: Suspending session at"*)
 					echo "NX> 1009 Session status: suspending"
+					usess_set "$session_id" "status" "Suspending"
 				;;
 				*"Session: Terminating session at"*)
 					echo "NX> 1009 Session status: terminating"
 				;;
 				*"Session: Session suspended at"*)
-				# Session suspend
+					# Session suspend
 					echo "NX> 1005 Session status: suspended"
-					[ "$node_suspend_status" != "Suspended" ] && {
-						nxlog "$lp node suspended, call node_stop_services"
+					nxlog "$lp $line"
+					usess_set "$session_id" "status" "Suspended"
+					((mmport+mport+cupsport>0)) && {
+						nxlog "$lp call node_stop_services"
 						node_stop_services
 					}
 				;;
@@ -1182,21 +1198,24 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 			case "$line" in
 				*"Info: tail -f running with pid"*)
 					# Catch tail pid
-					node_tail_pid=$(cutfn "$line" "'" 1)
-					echo "$node_tail_pid" >"$nx_dir/C-$sess_id/pids/tail"
+					tail_pid=$(cutfn "$line" "'" 1)
+					usess_set "$session_id" "tail_pid" "$tail_pid"
+					#echo "$node_tail_pid" >"$nx_dir/C-$sess_id/pids/tail"
 				;;
 				*"Session: Resuming session at"*)
 					echo "NX> 1009 Session status: resuming"
+					usess_set "$session_id" "status" "Resuming"
 				;;
 				*"Session: Session resumed at"*)
 					# Reconnection success!
 					echo "NX> 718 Session restore succeded"
-					kill $node_tail_pid; break
+					usess_set "$session_id" "status" "Running"
+					kill $tail_pid; break
 				;;
 				*"Session: Display failure detected at"*)
 					# Reconnection failure
 					echo "NX> 596 Error: Session $1 failed. Reason was: $line"
-					kill $node_tail_pid; break
+					kill $tail_pid; break
 				;;
 			esac
 		fi
@@ -1234,9 +1253,7 @@ startsession() {
 	local id fullscreen accept vn;
 	nxlog "$lp starting with args \"$@\""
 
-	if [ "$1" = "start" ]; then # ok, lets make the session dir first:
-		umask 0077; mkdir -p "$NXSESSION_DIRECTORY"; umask $umask0
-	fi
+	[ "$1" = "start" ] && mkdir -p -m700 "$NXSESSION_DIRECTORY"
 	# Setup environment
 	[ -n "$SOURCE_SYS_PROFILE" ] && . "$SOURCE_SYS_PROFILE"
 	[ -n "$SOURCE_USER_PROFILE" ] && . "$SOURCE_USER_PROFILE"
@@ -1272,7 +1289,7 @@ startsession() {
 	fi
 
 	# NX 2.1.0 file-sharing port options
-	smbport=""
+	smbport="0"
 	if [ "$samba" = "1" ]; then
 		# We know from protocol traces that client=linux,winnt,macosx are valid values.
 		# I hope with smbclientproto=smb on default and smbclientproto=cifs on all valid
@@ -1296,8 +1313,6 @@ startsession() {
 		else # smbfs
 			smbport=139
 		fi
-		# File-sharing port options
-		echo "$smbport" >"$NXSESSION_DIRECTORY/scripts/smbport"
 	fi
 	if [ "$encryption" = "1" ]; then
 		# we need to use the IP of the "calling" server now
@@ -1318,11 +1333,14 @@ startsession() {
 	fi
 
 	if [ "$1" = "start" ]; then
-		cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
-		cookie=${cookie%% *}
-	else
-		local opts=$(< "$NXSESSION_DIRECTORY/options"); opts=${opts//,/&}
-		cookie=$(getparam "$opts" "cookie")
+		cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM); cookie=${cookie%% *}
+		# add row to usses with defaults: session_id, status, display, type,
+		# agent_pid, cookie, tail_pid, mmport, cupsport, mport, smbport,
+		# pa_pid, pa_params
+		usess_add "$sqcols_usess" "$session_id&Starting&$display&$type&\
+0&$cookie&0&0&0&0&$smbport&0&"
+	elif [ "$1" = "restore" ]; then
+		cookie=$(usess_get "$session_id" "cookie")
 	fi
 
 	if [ "$1" = "application" ]; then
@@ -1353,8 +1371,6 @@ add :$display MIT-MAGIC-COOKIE-1 $cookie
 exit"
 		echo "$txt" | $COMMAND_XAUTH >/dev/null 2>&1
 		echo "$txt" | $COMMAND_XAUTH -f "$NXSESSION_DIRECTORY/authority" >/dev/null 2>&1
-
-		mkdir -m700 "$NXSESSION_DIRECTORY/scripts/" 2>/dev/null
 	fi
 
 	# If we have a shadow cookie, we add it to xauth session authority file as well
@@ -1369,13 +1385,11 @@ exit"
 
 	if [ "$1" = "restore" ]; then
 		nxlog "$lp restore session"
-		#echo > "$NXSESSION_DIRECTORY/session"
-		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$NXSESSION_DIRECTORY"'/session' | node_start_monitor "$1" "$status" &
+		#echo > "$NXSESSION_DIRECTORY/session" #this cause to damage file
+		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$NXSESSION_DIRECTORY"'/session' | node_start_monitor "restore" &
 		MONITOR_PID=$!; export MONITOR_PID
-		mkdir -p "$NXSESSION_DIRECTORY/pids/"
-		echo "$MONITOR_PID" > "$NXSESSION_DIRECTORY/pids/monitor"
-		nxlog "$lp call 'node_suspend_session \"$sess_id\"'"
-		node_suspend_session "$sess_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$NXSESSION_DIRECTORY/session"; node_fail_restore_session "$sess_id"; }
+		nxlog "$lp call 'node_suspend_session \"$session_id\"'"
+		node_suspend_session "$session_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$NXSESSION_DIRECTORY/session"; node_fail_restore_session "$session_id"; }
 	else # start
 		nxlog "$lp call 'node_start_agent'"
 		node_start_agent &
@@ -1396,8 +1410,7 @@ exit"
 
 	if [ -n "$MONITOR_PID" ]; then
 		wait "$MONITOR_PID"
-		rm -f "$NXSESSION_DIRECTORY/pids/monitor"
-		rm -f "$NXSESSION_DIRECTORY/pids/tail"
+		usess_set "$session_id" "tail_pid" "0"
 	fi
 	wait # for all children
 	nxlog "$lp end"
@@ -1410,12 +1423,12 @@ exit"
 #
 cmd_node_terminate() {
 	echo "$delim 716 Terminating session $session_id on user request."
-	node_terminate_session "$sess_id"
+	node_terminate_session "$session_id"
 }
 
 cmd_node_suspend() {
 	echo "$delim 716 Suspending session $session_id on user request."
-	node_suspend_session "$sess_id"
+	node_suspend_session "$session_id"
 }
 
 cmd_node_smbmount() {
@@ -1659,28 +1672,13 @@ cmd_node_addprinter() {
 	fi
 }
 
-# =================== sqlite3 stuff =====================
-
-declare -g sqcols_usess="session_id, status, agent_ptd, display, type,\
- session, rootless, virualdesktop, tail_pid, mmport,\
- cupsport, mport, smbport"
-declare -g sqcols_usess_c=13
-
-init_usess_db() {
-	local usess_cols="session_id TEXT PRIMARY KEY, status TEXT, agent_pid INT,\
- display TEXT, type TEXT, session TEXT, rootless INT, virtualdesktop INT,\
- tail_pid INT, mmport INT, cupsport INT, mport INT, smbport INT"
-	local qstr="CREATE TABLE IF NOT EXISTS usessions.usess($usess_cols);"
-   q_dbe "$qstr"
-}
-
-
 #
 # -----------------------------------------------------------------------------
 # Startup of nxnode
 # -----------------------------------------------------------------------------
 #
 declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask);
+open_dbe $$
 
 [ -n "$2" ] && delim="NX-$2>"
 echo "$delim 1000 NXNODE - Version $NX_VERSION $NX_LICENSE"
@@ -1694,6 +1692,9 @@ else
 	nxuser_logfile="$nx_dir/nxnode.log"
 fi
 
+attach_db "$nx_dir/usessions.sq3" && {
+	init_usess_db; chmod 0600 "$nx_dir/usessions.sq3" >/dev/null 2>&1; }
+
 if ! stringinstring "$1" "--check|--setkey|--agent"; then
 	read CMDLINE;
 	set_vars_from_ampstr "$CMDLINE" "" "recode"
@@ -1703,15 +1704,11 @@ if ! stringinstring "$1" "--check|--setkey|--agent"; then
 	fi
 	declare -g sess_id="$SERVER_NAME-$display-$session_id"
 	declare -g NXSESSION_DIRECTORY="$nx_dir/C-$sess_id"
-	nxuser_logfile="$nx_dir/nxnode-$sess_id.log"
+	nxuser_logfile="$nx_dir/nxnode-$session_id.log"
 	nxlog "$0 ($$): run nxnode with PARAMS:\"$@\"; CMDLINE='$CMDLINE'"
 else
 	nxlog "$0 ($$): run nxnode with \"$@\""
 fi
-
-rm -f "$nx_dir/usessions.sq3" # debug!!!
-open_dbe $$ && attach_db "$nx_dir/usessions.sq3" && {
-	init_usess_db; chmod 0600 "$nx_dir/usessions.sq3" >/dev/null 2>&1; }
 
 case "$1" in
 	--startsession)
