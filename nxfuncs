@@ -202,13 +202,13 @@ colval_set_or_cond() {
 	for idx in ${!keys[*]}; do
 		key=${keys[$idx]}; val=${vals[$idx]}
 		if [ -z "$3" ]; then # set env
-			[ -z "$val" -o "$val" = "NULL" -o "$val" = "null" ] && continue
+			[ "$val" = "NULL" -o "$val" = "null" ] && continue
 			ret+="${ret:+,}$key='$val'"
 		elif [ "$3" = "INS" ]; then # ins env
-			[ -z "$val" -o "$val" = "NULL" -o "$val" = "null" ] && continue
+			[ "$val" = "NULL" -o "$val" = "null" ] && continue
 			ret+="${ret:+,}$key"; r2+="${r2:+,}'$val'"
 		else # cond env
-			if [ -z "$val" -o "$val" = "NULL" -o "$val" = "null" ]; then
+			if [ "$val" = "NULL" -o "$val" = "null" ]; then
 				ret+="${ret:+ $4 }$key IS NULL"
 			else ret+="${ret:+ $4 }$key='$val'"
 			fi
