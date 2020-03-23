@@ -73,6 +73,15 @@ usess_get() {
 	q_vals_str_get "usess" "session_id='$1'" "$2" "$3"
 }
 
+usess_close() {
+# <session_id> <status>
+	if [ "$SESSION_LOG_CLEAN" = "1" ]; then
+		q_dbe "DELETE FROM usess WHERE session_id='$1';"
+	else
+		q_rows_upd "usess" "session_id='$1'" "status" "$2"
+	fi
+}
+
 #
 # -----------------------------------------------------------------------------
 # Node functions module
@@ -321,7 +330,7 @@ node_terminate_session() {
 	if [ "$SESSION_LOG_CLEAN" = "1" ]; then
 		nxlog "$lp Clean session information."
 		rm -rf "$nx_dir/C-$sess_id/"
-		rm -f  "$nx_dir/nxnode-$sess_id.log"
+		rm -f  "$nx_dir/nxnode-$1.log"
 		rm -f  "$nx_dir/nxnode.log"
 	elif [ "$2" = "Failed" ]; then
 		nxlog "$lp Session failed. Rename session directory \
@@ -332,7 +341,7 @@ from '$nx_dir/C-$sess_id/' to '$nx_dir/F-C-$sess_id'"
 from '$nx_dir/C-$sess_id/' to '$nx_dir/T-C-$sess_id'"
 		mv "$nx_dir/C-$sess_id/" "$nx_dir/T-C-$sess_id"
 	fi
-	usess_set "$1" "status" "$t_status"
+	usess_close "$1" "$t_status"
 	nxlog "$lp end"
 }
 
