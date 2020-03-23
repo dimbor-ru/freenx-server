@@ -47,13 +47,14 @@ cp_conv() {
 # =================== sqlite3 stuff =====================
 
 declare -g sqcols_usess="session_id, status, display, type, agent_pid,\
- cookie, tail_pid, mmport, cupsport, mport, smbport, pa_pid, pa_params"
-declare -g sqcols_usess_c=13
+ cookie, tail_pid, userip, acc_ip, mmport, cupsport, mport, smbport,\
+ pa_pid, pa_params"
+declare -g sqcols_usess_c=15
 
 init_usess_db() {
 	local usess_cols="session_id TEXT PRIMARY KEY, status TEXT, display TEXT,\
- type TEXT, agent_pid INT, cookie TEXT, tail_pid INT, mmport INT,\
- cupsport INT, mport INT, smbport INT, pa_pid INT, pa_params TEXT"
+ type TEXT, agent_pid INT, cookie TEXT, tail_pid INT, userip TEXT, acc_ip TEXT,\
+ mmport INT, cupsport INT, mport INT, smbport INT, pa_pid INT, pa_params TEXT"
 	local qstr="CREATE TABLE IF NOT EXISTS usessions.usess($usess_cols);"
    q_dbe "$qstr"
 }
@@ -1195,11 +1196,11 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 					# Session suspend
 					echo "NX> 1005 Session status: suspended"
 					nxlog "$lp $line"
-					usess_set "$session_id" "status" "Suspended"
 					((mmport+mport+cupsport>0)) && {
 						nxlog "$lp call node_stop_services"
 						node_stop_services
 					}
+					usess_set "$session_id" "status,userip,acc_ip" "Suspended&&"
 				;;
 			esac
 		else # "restore" instance
@@ -1218,7 +1219,8 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 				*"Session: Session resumed at"*)
 					# Reconnection success!
 					echo "NX> 718 Session restore succeded"
-					usess_set "$session_id" "status" "Running"
+					usess_set "$session_id" "status,userip,acc_ip"\
+						 "Running&$userip&$accept"
 					kill $tail_pid; break
 				;;
 				*"Session: Display failure detected at"*)
@@ -1344,10 +1346,10 @@ startsession() {
 	if [ "$1" = "start" ]; then
 		cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM); cookie=${cookie%% *}
 		# add row to usses with defaults: session_id, status, display, type,
-		# agent_pid, cookie, tail_pid, mmport, cupsport, mport, smbport,
-		# pa_pid, pa_params
+		# agent_pid, cookie, tail_pid, userip, acc_ip, mmport, cupsport,
+		# mport, smbport, pa_pid, pa_params
 		usess_add "$sqcols_usess" "$session_id&Starting&$display&$type&\
-0&$cookie&0&0&0&0&$smbport&0&"
+0&$cookie&0&$userip&$accept&0&0&0&$smbport&0&"
 	elif [ "$1" = "restore" ]; then
 		cookie=$(usess_get "$session_id" "cookie")
 	fi
