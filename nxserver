@@ -491,7 +491,7 @@ session_fail() {
 declare -g cmd in_params proto login_success login_method
 declare -g server_mode preferred_host session_count session_count_user
 declare -g user2 ENCRYPTION proxy_display server_host
-declare -g oifs rc isdbs NODE_HOSTNAME user
+declare -g oifs rc isdbs NODE_HOSTNAME user fl_send="1"
 
 # env variables?
 # NX_USERMODE USER
@@ -800,6 +800,7 @@ server_nxnode_start_wait() {
 							log 6 "$lp set status $session_id: Running"
 							session_change $session_id "status" "Running"
 						fi
+						kill -SIGUSR2 $$
 					;;
 					*closed*)
 						if [ -n "$fl_start" ]; then
@@ -1216,7 +1217,9 @@ $type&$screeninfo&$geometry&$server_host&none&$time_now&$time_now"
 }
 
 # Session stage
+trap "fl_send=1" SIGUSR2
 while true; do
+	[ "$fl_send" = "0" ] && { sleep 0.01s; continue; }
 	echo_x -n "NX> 105 "
 	unset cmd
 	read cmd 2>/dev/null
@@ -1256,7 +1259,7 @@ while true; do
 			fi
 		;;
 		startsession*)
-			in_params=$(server_get_params $cmd)
+			fl_send="0"; in_params=$(server_get_params $cmd)
 			set_vars_from_ampstr "$in_params" # set global vars without prefixes
 			server_startrestore_session "start" "$in_params"
 		;;
@@ -1311,7 +1314,7 @@ while true; do
 			fi
 		;;
 		restoresession*)
-			in_params=$(server_get_params $cmd)
+			fl_send="0"; in_params=$(server_get_params $cmd)
 			set_vars_from_ampstr "$in_params"
 			[ -z "$display" ] &&
 				display=$(q_vals_str_get "sess" \
@@ -1371,6 +1374,7 @@ while true; do
 		;;
 	esac
 done
+trap - SIGUSR2
 
 fi # server_mode == "1"
 
