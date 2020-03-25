@@ -269,7 +269,7 @@ node_terminate_agent() {
 	nxlog "$lp killing agent_pid ($agent_pid)"
 	kill $agent_pid 2>/dev/null;
 	sleep 0.4s
-	kill -0 $agent_pid && {
+	kill -0 $agent_pid 2>/dev/null && {
 		nxlog "$lp killing agent_pid. Try #2"
 		kill -9 $agent_pid 2>/dev/null
 	}
@@ -304,7 +304,7 @@ node_terminate_session() {
 		nxlog "$lp start killing of nxagent ($agent_pid)"
 		kill $agent_pid 2>/dev/null
 		wait $agent_pid 2>/dev/null
-		kill -0 $agent_pid || {
+		kill -0 $agent_pid 2>/dev/null || {
 			nxlog "$lp nxagent ($agent_pid) is dead now"; agent_pid="0"
 			usess_set "$session_id" "agent_pid" "0"
 		}
@@ -314,7 +314,7 @@ node_terminate_session() {
 		nxlog "$lp kill tail process ($tail_pid)"
 		kill $tail_pid 2>/dev/null
 		wait $tail_pid 2>/dev/null
-		kill -0 $tail_pid || {
+		kill -0 $tail_pid 2>/dev/null || {
 			nxlog "$lp tail ($tail_pid) is dead now"; tail_pid="0"
 			usess_set "$session_id" "tail_pid" "0"
 		}
@@ -365,10 +365,10 @@ node_suspend_session() {
 	local agent_pid=$(usess_get "$1" "agent_pid")
 	if ((agent_pid>0)) 2>/dev/null; then 
 		nxlog "$lp Killing (HUP) agent_pid ($agent_pid)..."
-		kill -0 $agent_pid || {
+		kill -0 $agent_pid 2>/dev/null || {
 			nxlog "$lp nxagent is already dead. end (0)"; return 1;
 		}
-		kill -HUP $agent_pid && {
+		kill -HUP $agent_pid 2>/dev/null && {
 			nxlog "$lp end (HUP)"; return 0;
 		}
 	else nxlog "$lp agent_pid is not set; end"
@@ -1221,12 +1221,12 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 					echo "NX> 718 Session restore succeded"
 					usess_set "$session_id" "status,userip,acc_ip"\
 						 "Running&$userip&$accept"
-					kill $tail_pid; break
+					kill $tail_pid 2>/dev/null; break
 				;;
 				*"Session: Display failure detected at"*)
 					# Reconnection failure
 					echo "NX> 596 Error: Session $1 failed. Reason was: $line"
-					kill $tail_pid; break
+					kill $tail_pid 2>/dev/null; break
 				;;
 			esac
 		fi
