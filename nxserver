@@ -143,7 +143,7 @@ passdb_list_user() {
 
 # Needed global vars: NX_SESS_DIR session_count session_count_user
 # COMMAND_MD5SUM SESSION_USER_LIMIT SESSION_LIMIT SESSION_HISTORY
-# COMMAND_NXSHADOWACL user ENABLE_MIRROR_VIA_VNC
+# COMMAND_NXSHADOWACL user ENABLE_MIRROR_VIA_VNC ENABLE_NXSHADOWACL
 
 # =================== sqlite3 stuff =====================
 
@@ -289,6 +289,7 @@ session_count_user() {
 
 _session_list_user_suspended() {
 # use conf vars: COMMAND_NXSHADOWACL ENABLE_MIRROR_VIA_VNC COMMAND_MD5SUM
+# ENABLE_NXSHADOWACL
 # use glob: user
 	local p pstrs pattern geom depth render udepth urender mode;
 	local options available session_id geo2 displays;
@@ -313,7 +314,7 @@ _session_list_user_suspended() {
 		psession_id=$(getparam "$p" session_id); psession=$(getparam "$p" session)
 		if [ "$4" = "shadow" -a "$puser" != "$1" ]; then
 			[ -z "$pshadowcookie" ] && continue
-			if [ -x "$COMMAND_NXSHADOWACL" ]; then
+			if [ "$ENABLE_NXSHADOWACL" = "1" ]; then
 				$COMMAND_NXSHADOWACL "$puser" "$1" || continue
 			fi
 		fi
@@ -471,7 +472,7 @@ session_fail() {
 
 # config variables in use:
 # COMMAND_MD5SUM COMMAND_NETCAT COMMAND_NXACL COMMAND_NXSHADOWACL
-# COMMAND_SESSREG COMMAND_SSH COMMAND_XAUTH
+# ENABLE_NXSHADOWACL COMMAND_SESSREG COMMAND_SSH COMMAND_XAUTH
 # ENABLE_AUTORECONNECT ENABLE_AUTORECONNECT_BEFORE_140
 # ENABLE_EXTERNAL_NXDESKTOP ENABLE_EXTERNAL_NXVIEWER
 # ENABLE_LOAD_BALANCE_PREFERENCE ENABLE_LOG_FAILED_LOGINS
@@ -781,7 +782,7 @@ server_nxnode_start_wait() {
 	server_nxnode_start "$@" | while read cmd; do
 		case "$cmd" in
 			"NX> 706"*)
-				if [ -x "$COMMAND_NXSHADOWACL" ]; then
+				if [ "$ENABLE_NXSHADOWACL" = "1" ]; then
 					$COMMAND_NXSHADOWACL "$user" # check if we should save the cookie
 					if [ $? -eq 0 ]; then
 						shadowcookie=$(cutfn "$cmd" ":" 1)
