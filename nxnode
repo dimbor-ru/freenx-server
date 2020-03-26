@@ -1164,6 +1164,12 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 				usess_set "$session_id" "mmport" "$mmport"
 				continue;
 			;;
+			*"Info: Listening"*"CUPS connections on port"*)
+				# Catch NXAGENT CUPS Port
+				cupsport=$(cutfn "$line" "'" 1); cupsport=${cupsport##*:}
+				usess_set "$session_id" "cupsport" "$cupsport"
+				continue;
+			;;
 			*"Info: Watchdog running with pid"*)
 				# Watchdog termination
 				watchdog_pid=$(cutfn "$line" "'" 1)
