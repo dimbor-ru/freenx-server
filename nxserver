@@ -751,10 +751,10 @@ server_remove_usession() {
 
 server_nxnode_echo() {
 	if [ "$server_channel" = "1" ]; then
-		echo "$@"
+		echo -e "$@"
 		log 6 "$FUNCNAME >&$server_channel: $@"
 	elif [ "$server_channel" = "2" ]; then
-		echo "$@" >&2
+		echo -e "$@" >&2
 		log 6 "$FUNCNAME >&$server_channel: $@"
 	fi
 }
@@ -770,7 +770,7 @@ server_nxnode_exit_func() {
 server_nxnode_start_wait() {
 # use uplevel: $server_wait_pid $user $session_id
 	local lp="$FUNCNAME:";
-	local server_channel=1 kill_wait_pid=1 shadowcookie fl_start=""
+	local server_channel=1 kill_wait_pid=1 shadowcookie fl_start="" to_send=""
 	open_dbe $BASHPID
 	[ "$1" = "--startsession" ] && fl_start="1";
 	if [ -n "$fl_start" ]; then
@@ -781,6 +781,9 @@ server_nxnode_start_wait() {
 	fi
 	server_nxnode_start "$@" | while read cmd; do
 		case "$cmd" in
+			"NX> 700"*)
+				server_channel=0; to_send="$cmd"
+			;;
 			"NX> 706"*)
 				if [ "$ENABLE_NXSHADOWACL" = "1" ]; then
 					$COMMAND_NXSHADOWACL "$user" # check if we should save the cookie
@@ -790,6 +793,18 @@ server_nxnode_start_wait() {
 						session_change "$session_id" "shadowcookie" "$shadowcookie"
 					fi
 				fi
+				to_send+="\n$cmd"
+			;;
+			"NX> 70"*)
+				to_send+="\n$cmd"
+			;;
+			"NX> 710"*)
+				to_send+="\n$cmd"; server_channel=1;
+				server_nxnode_echo "$to_send";
+				server_channel=0;
+				to_send="";
+				kill -SIGUSR2 $$ 2>/dev/null
+				continue
 			;;
 			"NX> 1006"*|"NX> 1005"*|"NX> 1009"*)
 				case "$cmd" in
@@ -798,10 +813,9 @@ server_nxnode_start_wait() {
 						kill_wait_pid=0
 						if [ "$server_channel" = "1" ]; then
 							server_channel=2
-							log 6 "$lp set status $session_id: Running"
-							session_change $session_id "status" "Running"
 						fi
-						kill -SIGUSR2 $$ 2>/dev/null
+						log 6 "$lp set status $session_id: Running"
+						session_change $session_id "status" "Running"
 					;;
 					*closed*)
 						if [ -n "$fl_start" ]; then
