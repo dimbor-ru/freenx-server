@@ -809,7 +809,7 @@ server_nxnode_start_wait() {
 			"NX> 1006"*|"NX> 1005"*|"NX> 1009"*)
 				case "$cmd" in
 					*running*)
-						[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid 2>/dev/null
+						[ "$kill_wait_pid" = "1" ] && kill -INT $server_wait_pid 2>/dev/null
 						kill_wait_pid=0
 						if [ "$server_channel" = "1" ]; then
 							server_channel=2
@@ -825,7 +825,7 @@ server_nxnode_start_wait() {
 					;;
 					*suspended*)
 						if [ -n "$fl_start" ]; then
-							[ "$kill_wait_pid" = "1" ] && kill $server_wait_pid 2>/dev/null
+							[ "$kill_wait_pid" = "1" ] && kill -INT $server_wait_pid 2>/dev/null
 							kill_wait_pid=0; log 6 "$lp session suspend $session_id"
 							session_change $session_id "status,userip" "Suspended&-"
 						fi
@@ -853,8 +853,10 @@ server_nxnode_start_wait() {
 				esac
 			;;
 			"NX> 1004"*)
-				[ "$kill_wait_pid" = "1" ] && \
-					kill $server_wait_pid 2>/dev/null; kill_wait_pid=0
+				[ "$kill_wait_pid" = "1" ] && {
+					kill -INT $server_wait_pid 2>/dev/null
+					kill_wait_pid=0
+				}
 				# This fail is correct here as somehow the
 				# monitor process might have died and we don't
 				# want the session to be resumed again.
