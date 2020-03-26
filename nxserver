@@ -817,6 +817,16 @@ server_nxnode_start_wait() {
 						log 6 "$lp set status $session_id: Running"
 						session_change $session_id "status" "Running"
 					;;
+					*starting*)
+						log 6 "$lp set status $session_id: Starting"
+						session_change $session_id "status" "Starting"
+						continue;
+					;;
+					*resuming*)
+						log 6 "$lp set status $session_id: Resuming"
+						session_change $session_id "status" "Resuming"
+						continue;
+					;;
 					*closed*)
 						if [ -n "$fl_start" ]; then
 							log 6 "$lp session_close $session_id"
