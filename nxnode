@@ -1711,7 +1711,7 @@ if ! stringinstring "$1" "--check|--setkey|--agent"; then
 	set_vars_from_ampstr "$CMDLINE" "" "recode"
 	if [ -z "$session_id" ]; then
 		echo "NX> 500 Error: Fatal - Missing parameter session id." 1>&2
-		exit 1
+		exit_proc 1
 	fi
 	declare -g sess_id="$SERVER_NAME-$display-$session_id"
 	declare -g NXSESSION_DIRECTORY="$nx_dir/C-$sess_id"
