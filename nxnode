@@ -282,35 +282,33 @@ node_terminate_agent() {
 node_terminate_session() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp Start terminating session_id='$1' with status '$2'"
-	local qs=$(usess_get "$1" \
-		"status,display,agent_pid,tail_pid,mmport,cupsport,mport")
-	[ -z "$qs" ] && {
-		nxlog "$lp session_id='$1' not found in usess db. Bye."; return;
-	}
-	local status=$(cutfn "$qs" '&' 0)
+	local status=$(usess_get "$1" "status")
 	stringinstring "$status" "Terminating|Finished|Failed" && {
 		nxlog "$lp Session status is already '$status'. Bye."; return;
 	}
 	usess_set "$1" "status" "Terminating"
-	display=$(cutfn "$qs" '&' 1); local sess_id="$SERVER_NAME-$display-$1"
-	local agent_pid=$(cutfn "$qs" '&' 2) tail_pid=$(cutfn "$qs" '&' 3)
+
+	local qs=$(usess_get "$1" \
+		"display,agent_pid,tail_pid,mmport,cupsport,mport")
+	[ -z "$qs" ] && {
+		nxlog "$lp session_id='$1' not found in usess db. Bye."; return;
+	}
+	local display=$(cutfn "$qs" '&' 0); local sess_id="$SERVER_NAME-$display-$1"
+	local agent_pid=$(cutfn "$qs" '&' 1) tail_pid=$(cutfn "$qs" '&' 2)
 	local t_status="$2"; [ -z "$2" ] && t_status="Finished"
 	[ -d "$nx_dir/C-$sess_id" ] || {
 		nxlog "$lp Session dir '$nx_dir/C-$sess_id' not found. Bye."; return;
 	}
-	local p1=$(cutfn "$qs" '&' 4) p2=$(cutfn "$qs" '&' 5) p3=$(cutfn "$qs" '&' 6)
+	local p1=$(cutfn "$qs" '&' 3) p2=$(cutfn "$qs" '&' 4) p3=$(cutfn "$qs" '&' 5)
 	((p1+p2+p3!=0)) && node_stop_services
-	((agent_pid>0)) && {
+	kill -0 $agent_pid 2>/dev/null && {
 		nxlog "$lp start killing of nxagent ($agent_pid)"
 		kill $agent_pid 2>/dev/null
 		wait $agent_pid 2>/dev/null
-		kill -0 $agent_pid 2>/dev/null || {
-			nxlog "$lp nxagent ($agent_pid) is dead now"; agent_pid="0"
-			usess_set "$session_id" "agent_pid" "0"
-		}
+		kill -0 $agent_pid 2>/dev/null ||
+			nxlog "$lp nxagent ($agent_pid) is dead now"
 	}
-	# Kill tail process
-	((tail_pid>0)) && {
+	((tail_pid>0)) && kill -0 $tail_pid 2>/dev/null && { # Kill tail process
 		nxlog "$lp kill tail process ($tail_pid)"
 		kill $tail_pid 2>/dev/null
 		wait $tail_pid 2>/dev/null
@@ -363,16 +361,13 @@ node_suspend_session() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting"
 	local agent_pid=$(usess_get "$1" "agent_pid")
-	if ((agent_pid>0)) 2>/dev/null; then 
-		nxlog "$lp Killing (HUP) agent_pid ($agent_pid)..."
-		kill -0 $agent_pid 2>/dev/null || {
-			nxlog "$lp nxagent is already dead. end (0)"; return 1;
-		}
-		kill -HUP $agent_pid 2>/dev/null && {
-			nxlog "$lp end (HUP)"; return 0;
-		}
-	else nxlog "$lp agent_pid is not set; end"
-	fi
+	nxlog "$lp Killing (HUP) agent_pid ($agent_pid)..."
+	kill -0 $agent_pid 2>/dev/null || {
+		nxlog "$lp nxagent is already dead. end (0)"; return 1;
+	}
+	kill -HUP $agent_pid 2>/dev/null && {
+		nxlog "$lp end (HUP)"; return 0;
+	}
 	return 1
 }
 
@@ -822,7 +817,6 @@ node_start_agent() {
 
 	# Cleanup session information
 	nxlog "$lp cleanup session information '$sess_id'"
-	usess_set "$session_id" "agent_pid" "0"
 	nxlog "$lp call 'node_terminate_session \"$session_id\" \"$node_failed\"'"
 	node_terminate_session "$session_id" "$node_failed"
 
