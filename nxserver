@@ -471,7 +471,7 @@ session_fail() {
 #
 
 # config variables in use:
-# COMMAND_MD5SUM COMMAND_NETCAT COMMAND_NXACL COMMAND_NXSHADOWACL
+# COMMAND_MD5SUM COMMAND_NETCAT COMMAND_NXSHADOWACL
 # ENABLE_NXSHADOWACL COMMAND_SESSREG COMMAND_SSH COMMAND_XAUTH
 # ENABLE_AUTORECONNECT ENABLE_AUTORECONNECT_BEFORE_140
 # ENABLE_EXTERNAL_NXDESKTOP ENABLE_EXTERNAL_NXVIEWER
@@ -1099,18 +1099,6 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 	if [ "$ENABLE_FORCE_ENCRYPTION" = "1" -a "$ENCRYPTION" != "1" ]; then
 			echo_x "NX> 596 Unencrypted sessions are not allowed."
 			return 1
-	fi
-
-	if [ -x "$COMMAND_NXACL" ]; then
-			log 3 "Info: Using $COMMAND_NXACL to change session parameters or deny session."
-			new_params=$($COMMAND_NXACL "$params")
-			if [ $? -ne 0 ]; then
-				echo_x "NX> 596 The session failed due to a nxacl policy setting: $new_params"
-				return 1
-			fi
-
-			# check if the acl input did make sense
-			if [ -n "$new_params" ]; then params=$new_params; fi
 	fi
 
 	# check if there is a suspended session, which we could resume

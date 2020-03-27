@@ -211,7 +211,6 @@ COMMAND_X11VNC="x11vnc"
 COMMAND_TASKSET="taskset"
 
 COMMAND_NXSHADOWACL="$PATH_BIN/nxshadowacl"
-COMMAND_NXACL="$PATH_BIN/nxacl"
 COMMAND_NXCHECKLOAD="$PATH_BIN/nxcheckload"
 COMMAND_NXAGENT="$PATH_BIN/nxagent"
 
@@ -305,8 +304,6 @@ if [ "$NXCONFIG_RETEST" = "1" ]; then
 		COMMAND_VNCPASSWD=$(which vncpasswd)
 	{ ! mywhich "$COMMAND_NXSHADOWACL" && test -f /etc/nxserver/nxshadowacl; } >/dev/null 2>&1 && \
 		COMMAND_NXSHADOWACL=/etc/nxserver/nxshadowacl
-	{ ! mywhich "$COMMAND_NXACL" && test -f /etc/nxserver/nxacl; } >/dev/null 2>&1 && \
-		COMMAND_NXACL=/etc/nxserver/nxacl
 	{ ! mywhich "$COMMAND_NXCHECKLOAD" && test -f /etc/nxserver/nxcheckload; } >/dev/null 2>&1 && \
 		COMMAND_NXCHECKLOAD=/etc/nxserver/nxcheckload
 	{ ! mywhich "$COMMAND_NXAGENT" && which nxagent; } >/dev/null 2>&1 && \
