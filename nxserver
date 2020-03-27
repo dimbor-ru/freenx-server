@@ -1207,6 +1207,7 @@ type,screeninfo,geometry,host,shadowcookie,startTime,creationTime"\
 			"$session_id&$user&$session&$display&Running&$userip&$rootless&\
 $type&$screeninfo&$geometry&$server_host&none&$time_now&$time_now"
 	else
+		[ -z "$(getparam "$params" "session_id")" ] && params+="&session_id=$session_id"
 		session_change "$session_id" "userip" "$userip"
 		db_params=$(session_get "$session_id");
 		display=$(getparam "$db_params" display);
