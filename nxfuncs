@@ -27,10 +27,11 @@ trim() {
 }
 
 cutfn() {
-#args: line delim field_num_start_at_0
-	local IFS="$2"; local a=($1);
-	#echo "${a[($3)]}" # negative values works on all systems?
-	echo "${a[@]:($3):1}"
+#args: line field_num_start_at_0 [delim=$IFS]
+	if [ -n "$3" ]; then local IFS="$3"; fi
+	local a=($1);
+	#echo "${a[($2)]}" # negative values works on all systems?
+	echo "${a[@]:($2):1}"
 }
 
 rematchfn(){
@@ -262,8 +263,8 @@ qtxt2cmdstrs() {
 	while read line; do
 		[ -z "$line" ] && { res+=$'\n'; fl=1; continue; }
 		[ "$fl" = "1" ] && { res+="a=b&"; fl=0; }
-		k=$(trim "$(cutfn "$line" "=" 0)") #"
-		v=$(trim "$(cutfn "$line" "=" 1)") #"
+		k=$(trim "$(cutfn "$line" 0 '=')") #"
+		v=$(trim "$(cutfn "$line" 1 '=')") #"
 		res+="$k=$v&"
 	done <<< "$@"
 	echo "$res"

@@ -35,8 +35,8 @@ cp_conv() {
 	#nxlog "$lp starting with args \"$@\""
 	local res=${1//+/ } cp_pair cp_from cp_to;
 	for cp_pair in $WIN_CP_CONVERT_CHAIN ; do
-		cp_from=$(cutfn "$cp_pair" '>' 0); [ -n "$cp_from" ] || cp_from="UTF-8"
-		cp_to=$(cutfn "$cp_pair" '>' 1); [ -n "$cp_to" ] || cp_to="UTF-8"
+		cp_from=$(cutfn "$cp_pair" 0 '>'); [ -n "$cp_from" ] || cp_from="UTF-8"
+		cp_to=$(cutfn "$cp_pair" 1 '>'); [ -n "$cp_to" ] || cp_to="UTF-8"
 		res=$(echo "$res" | iconv -f $cp_from -t $cp_to)
 		#nxlog "$lp converting $cp_from > $cp_to == \"$res\""
 	done
@@ -247,8 +247,7 @@ reconnect_pa() {
 	done
 	if [ -n "$mmport" ]; then # try reconnect
 		papars=$(< $nx_dir/C-$sess_id/scripts/params.pa)
-		rate=$(cutfn "$papars" ":" 0)
-		channels=$(cutfn "$papars" ":" 1)
+		rate=$(cutfn "$papars" 0 ':'); channels=$(cutfn "$papars" 1 ':')
 		[ -z "$(check_local_pa_tunnel 127.0.0.1:$mmport $rate $channels)" ] && {
 			nxlog "$lp Couldn't reconnect PA tunnel to port $mmport."
 		}
@@ -293,13 +292,13 @@ node_terminate_session() {
 	[ -z "$qs" ] && {
 		nxlog "$lp session_id='$1' not found in usess db. Bye."; return;
 	}
-	local display=$(cutfn "$qs" '&' 0); local sess_id="$SERVER_NAME-$display-$1"
-	local agent_pid=$(cutfn "$qs" '&' 1) tail_pid=$(cutfn "$qs" '&' 2)
+	local display=$(cutfn "$qs" 0 '&'); local sess_id="$SERVER_NAME-$display-$1"
+	local agent_pid=$(cutfn "$qs" 1 '&') tail_pid=$(cutfn "$qs" 2 '&')
 	local t_status="$2"; [ -z "$2" ] && t_status="Finished"
 	[ -d "$nx_dir/C-$sess_id" ] || {
 		nxlog "$lp Session dir '$nx_dir/C-$sess_id' not found. Bye."; return;
 	}
-	local p1=$(cutfn "$qs" '&' 3) p2=$(cutfn "$qs" '&' 4) p3=$(cutfn "$qs" '&' 5)
+	local p1=$(cutfn "$qs" 3 '&') p2=$(cutfn "$qs" 4 '&') p3=$(cutfn "$qs" 5 '&')
 	((p1+p2+p3!=0)) && node_stop_services
 	kill -0 $agent_pid 2>/dev/null && {
 		nxlog "$lp start killing of nxagent ($agent_pid)"
@@ -489,11 +488,11 @@ node_start_applications() {
 		return
 	fi
 
-	mmode="$(cutfn "$mediahelper" "-" 0)"
+	mmode="$(cutfn "$mediahelper" 0 '-')"
 # this still not tested
 	if [ "$mmode" == "pa" ]; then
-		rate="$(cutfn "$mediahelper" "-" 1)"
-		channels="$(cutfn "$mediahelper" "-" 2)"; cntr=20;
+		rate="$(cutfn "$mediahelper" 1 '-')"
+		channels="$(cutfn "$mediahelper" 2 '-')"; cntr=20;
 		for ((i=0; i<cntr; i++)) {
 			mmport=$(usess_get "$session_id" "mmport")
 			((mmport>0)) && break; sleep 0.2s
@@ -574,10 +573,10 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 	esac
 
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1" ] && {
-		napp=$(cutfn "$node_app" " " 0); napp=$(cutfn "$napp" "/" -1)
+		napp=$(cutfn "$node_app" 0); napp=$(cutfn "$napp" -1 '/')
 		second_app=$(rematchfn "$napp:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
 		[ -n "$second_app" ] && {
-			sapp_pids0=$(ps -wo pid= -C $(cutfn "$second_app" "/" -1))
+			sapp_pids0=$(ps -wo pid= -C $(cutfn "$second_app" -1 '/'))
 			nxlog "$lp PID of $second_app will be waiting too. Initial: \"$sapp_pids0\""
 		}
 	}
@@ -605,7 +604,7 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && {
 		if [ -n "$second_app" ] ; then
-			sapp_pids1=$(ps -wo pid= -C $(cutfn "$second_app" "/" -1))
+			sapp_pids1=$(ps -wo pid= -C $(cutfn "$second_app" -1 '/'))
 			while read spid; do
 				stringinstring "$spid" "$sapp_pids0" && continue
 				sapp_pids+="${sapp_pids:+$' '}$spid"
@@ -851,7 +850,7 @@ check_remote_printer() {
 		nxlog "$lp end with res = $res"
 		echo $res; return 0;
 	fi
-	[ "$(cutfn "$2" "-" "-1")" = "nocheck" ] && {
+	[ "$(cutfn "$2" -1 '-')" = "nocheck" ] && {
 		res=1
 		nxlog "$lp special sharename \"$2\" - stop checking, end with res='$res'"
 		echo $res; return 0;
@@ -893,7 +892,7 @@ node_cups_reconnect() {
 	for spname in $scr_dir/@p@* ; do
 		[ "$spname" = "*" ] && { nxlog "$lp No printers found. end."
 			return 1; }
-		pname=$(cutfn "$spname" "/" -1); pname=${pname/@p@/}
+		pname=$(cutfn "$spname" -1 '/'); pname=${pname/@p@/}
 		nxlog "$lp process printer \"$pname\", search in system cups."
 		prstr=$(LC_ALL=C /usr/bin/lpstat -v "$pname" 2>/dev/null)
 		[ -z "$prstr" ] && { nxlog "$lp printer \"$pname\" NOT FOUND in system cups"
@@ -915,12 +914,12 @@ node_cups_reconnect() {
 		[ -r "$desc_fn" ] || { nxlog "$lp description file \"$desc_fn\" for printer \"$pname\" NOT ACCESSIBLE, stop remounting"
 			continue; }
 		descstr=$(< $desc_fn)
-		device_uri=$(cutfn "$descstr" "&" 1)
+		device_uri=$(cutfn "$descstr" 1 '&')
 		device_uri=${device_uri/:$mport/:$new_port}
-		share=$(cutfn "$device_uri" "/" -1)
-		upass=$(cutfn "$(cutfn "$device_uri" "/" 2)" "@" 0) #"
-		username="$(cutfn "$upass" ":" 0)"
-		password="$(cutfn "$upass" ":" 1)"
+		share=$(cutfn "$device_uri" -1 '/')
+		upass=$(cutfn "$(cutfn "$device_uri" 2 '/')" 0 '@') #"
+		username="$(cutfn "$upass" 0 ':')"
+		password="$(cutfn "$upass" 1 ':')"
 		#[ "$type" = "ipp" ] && {
 		#	newpass=$(cat "$new_dir/scripts/@p@$pname" 2>/dev/null)
 		#	[ ! -z "$newpass" ] && { nxlog "$lp new password for printer \"$pname\" ARE LOST, stop remounting"
@@ -933,12 +932,12 @@ node_cups_reconnect() {
 				= "0" ] && { nxlog "$lp smb/cifs-share \"$share\" for printer \"$pname\" NOT ACCESSIBLE, stop remounting"
 			continue;
 		}
-		model=$(cutfn "$descstr" "&" 0)
-		defaultPrinter=$(cutfn "$descstr" "&" 3)
+		model=$(cutfn "$descstr" 0 '&')
+		defaultPrinter=$(cutfn "$descstr" 3 '&')
 		if [ -r "$model" ]; then # ppd only
 			cmdstr="/usr/bin/sudo /usr/sbin/lpadmin -p $pname -P $model -v $device_uri -E"
 		else # foomatic
-			id="$model"; drv=$(cutfn "$descstr" "&" 4)
+			id="$model"; drv=$(cutfn "$descstr" 4 '&')
 			cmdstr="/usr/bin/sudo /usr/bin/foomatic-configure -s cups -n $pname -p $id -d $drv -c $device_uri -q"
 		fi
 		nxlog "$lp invoke $cmdstr"
@@ -949,7 +948,7 @@ node_cups_reconnect() {
 				descstr=${descstr/:$mport/:$new_port}
 				echo "$descstr" > "$desc_fn"
 			}
-			public=$(cutfn "$descstr" "&" 2)
+			public=$(cutfn "$descstr" 2 '&')
 			[ -n "$public" ] && { /usr/bin/sudo /usr/sbin/lpadmin -p $pname $public;
 				[ $? -ne 0 ] && nxlog "$lp FAILED to set options \"$public\" for printer \"$pname\""
 			}
@@ -1056,13 +1055,13 @@ node_umount_smb() {
 		return;
 	}
 	for ssname in $scr_dir/@s@*; do
-		sname=$(cutfn "$ssname" "/" -1); sname=${sname/@s@/}
+		sname=$(cutfn "$ssname" -1 '/'); sname=${sname/@s@/}
 		desc_fn="$nx_dir/shares_priv/@s@$sname"
 		[ ! -r "$desc_fn" ] && {
 			nxlog "$lp description file \"$desc_fn\" for share \"$sname\" NOT ACCESSIBLE, stop remounting it"
 			continue;
 		}
-		descstr=$(< $desc_fn); mpoint=$(cutfn "$descstr" "&" 1)
+		descstr=$(< $desc_fn); mpoint=$(cutfn "$descstr" 1 '&')
 		stringinstring "$mpoint" "$mpoints" || {
 			nxlog "$lp share \"$sname\" at \"$mpoint\" is not controlled by session. Stop remounting."
 			continue;
@@ -1077,9 +1076,9 @@ node_umount_smb() {
 			nxlog "$lp no running sessions found for share \"$sname\", stop remounting"
 			rmdir "$mpoint" >/dev/null 2>/dev/null; continue;
 		}
-		new_port=$(< $new_dir/scripts/mport); fsname=$(cutfn "$descstr" "&" 0)
-		username=$(cutfn "$descstr" "&" 2); password=$(cutfn "$descstr" "&" 3)
-		ids_opts=$(cutfn "$descstr" "&" 4)
+		new_port=$(< $new_dir/scripts/mport); fsname=$(cutfn "$descstr" 0 '&')
+		username=$(cutfn "$descstr" 2 '&'); password=$(cutfn "$descstr" 3 '&')
+		ids_opts=$(cutfn "$descstr" 4 '&')
 		try_mount_smb "$fsname" "$mpoint" "$username" $new_port "$ids_opts" "$password"
 		rc=$?
 		[ $rc -eq 0 ] && {
@@ -1148,25 +1147,25 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 			;;
 			*"Info: Listening"*"SMB connections on port"*)
 				# Catch NXAGENT SMB Port (sometimes the port differs from what we got from nxserver)
-				mport=$(cutfn "$line" "'" 1); mport=${mport##*:}
+				mport=$(cutfn "$line" 1 "'"); mport=${mport##*:}
 				usess_set "$session_id" "mport" "$mport"
 				continue;
 			;;
 			*"Info: Listening"*"multimedia connections on port"*)
 				# Catch NXAGENT Multimedia Port
-				mmport=$(cutfn "$line" "'" 1); mmport=${mmport##*:}
+				mmport=$(cutfn "$line" 1 "'"); mmport=${mmport##*:}
 				usess_set "$session_id" "mmport" "$mmport"
 				continue;
 			;;
 			*"Info: Listening"*"CUPS connections on port"*)
 				# Catch NXAGENT CUPS Port
-				cupsport=$(cutfn "$line" "'" 1); cupsport=${cupsport##*:}
+				cupsport=$(cutfn "$line" 1 "'"); cupsport=${cupsport##*:}
 				usess_set "$session_id" "cupsport" "$cupsport"
 				continue;
 			;;
 			*"Info: Watchdog running with pid"*)
 				# Watchdog termination
-				watchdog_pid=$(cutfn "$line" "'" 1)
+				watchdog_pid=$(cutfn "$line" 1 "'")
 				continue;
 			;;
 			*"Info: Waiting the watchdog process to complete"*)
@@ -1208,7 +1207,7 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 			case "$line" in
 				*"Info: tail -f running with pid"*)
 					# Catch tail pid
-					tail_pid=$(cutfn "$line" "'" 1)
+					tail_pid=$(cutfn "$line" 1 "'")
 					usess_set "$session_id" "tail_pid" "$tail_pid"
 					#echo "$node_tail_pid" >"$nx_dir/C-$sess_id/pids/tail"
 				;;
@@ -1275,7 +1274,7 @@ startsession() {
 	[ -z "$shmem" ] && shmem=0; [ -z "$shpix" ] && shpix=0
 	[ "$geometry" = "fullscreen" ] && fullscreen="1" || fullscreen="0"
 	[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && \
-		agent_keyboard=$(cutfn "$keyboard" '/' 1) || agent_keyboard=""
+		agent_keyboard=$(cutfn "$keyboard" 1 '/') || agent_keyboard=""
 	[ -z "$nodelay" ] && nodelay=1 # ???
 	cleanup=10; product=LFE/None/LFEN/None; id=$sess_id;
 	clipboard="$ENABLE_CLIPBOARD"; menu="$ENABLE_PULLDOWN_MENU"

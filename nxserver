@@ -188,7 +188,7 @@ session_list() {
 	[ -n "$2" ] && { 	echo "$res"; return; }
 	local line k v;
 	while read line; do
-		k=$(trim "$(cutfn "$line" "=" 0)"); v=$(trim "$(cutfn "$line" "=" 1)") #"
+		k=$(trim "$(cutfn "$line" 0 '=')"); v=$(trim "$(cutfn "$line" 1 '=')") #"
 		r2+="$k=$v"$'\n'
 	done <<< "$res"
 	echo -n "$r2"
@@ -788,7 +788,7 @@ server_nxnode_start_wait() {
 				if [ "$ENABLE_NXSHADOWACL" = "1" ]; then
 					$COMMAND_NXSHADOWACL "$user" # check if we should save the cookie
 					if [ $? -eq 0 ]; then
-						shadowcookie=$(cutfn "$cmd" ":" 1)
+						shadowcookie=$(cutfn "$cmd" 1 ':')
 						shadowcookie=${shadowcookie// /}
 						session_change "$session_id" "shadowcookie" "$shadowcookie"
 					fi
