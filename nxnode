@@ -18,9 +18,8 @@ shopt -s extglob
 # -----------------------------------------------------------------------------
 #
 echo_secure() {
-	if [ "$NX_LOG_SECURE" = "0" ]; then echo "$@"
-	else echo "${@/password=+([^&])&/password=****&}"
-	fi
+	[ "$NX_LOG_SECURE" = "0" ] && echo "$@" || \
+		echo "${@/password=+([^&])&/password=****&}"
 }
 
 nxlog() {
@@ -60,22 +59,22 @@ init_usess_db() {
 }
 
 usess_add() {
-#params: <col1,col2...> <val1&val2...>
+#args: <col1,col2...> <val1&val2...>
 	q_row_ins "usess" "$1" "$2"
 }
 
 usess_set() {
-# <session_id> <col1,col2...> <val1&val2...>
+#args: <session_id> <col1,col2...> <val1&val2...>
 	q_rows_upd "usess" "session_id='$1'" "$2" "$3"
 }
 
 usess_get() {
-# <session_id> <col1,col2...> [values_delim='&']
+#args: <session_id> <col1,col2...> [values_delim='&']
 	q_vals_str_get "usess" "session_id='$1'" "$2" "$3"
 }
 
 usess_close() {
-# <session_id> <status>
+#args: <session_id> <status>
 	if [ "$SESSION_LOG_CLEAN" = "1" ]; then
 		q_dbe "DELETE FROM usess WHERE session_id='$1';"
 	else
@@ -90,9 +89,7 @@ usess_close() {
 #
 
 check_local_pa_tunnel() {
-# params:	tunnel ip:port
-#		resample rate
-#		amount of channels
+# args:	tunnel_ip:port [resample_rate] [amount_of_channels]
 # return:	pid of pa process
 # This starts user's local pulseaudio server if not running and tune its own
 # modules - (re)create tunneled sink and source to remote pa
@@ -203,10 +200,10 @@ reconnect_pa() {
 	fi
 }
 
-# node_terminate_session <session_id> [status]
+node_terminate_session() {
+#args: <session_id> [status]
 # Used gvars: nx_dir
 # Used config vars: COMMAND_XAUTH, SESSION_LOG_CLEAN SERVER_NAME
-node_terminate_session() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp Start terminating session_id='$1' with status '$2'"
 	local status=$(usess_get "$1" "status")
@@ -271,20 +268,17 @@ from '$nx_dir/C-$sess_id/' to '$nx_dir/T-C-$sess_id'"
 	nxlog "$lp end"
 }
 
-
-# node_fail_restore_session <session_id>
 node_fail_restore_session() {
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting"
+#arg:  <session_id>
+	local lp="$FUNCNAME ($$/$BASHPID):"; nxlog "$lp starting"
 	echo "NX> 1004 Error: Could not resume session. nxagent process could not be found."
 	node_terminate_session "$1" "Failed"
 	nxlog "$lp end. Next is 'exit 1'"
 	exit_proc 1
 }
 
-
-# node_suspend_session <session_id>
 node_suspend_session() {
+#arg:  <session_id>
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting"
 	local agent_pid=$(usess_get "$1" "agent_pid")
@@ -298,13 +292,11 @@ node_suspend_session() {
 	return 1
 }
 
-# node_find_application <type>
-#	Used config vars: $COMMAND_START_KDE, $COMMAND_START_GNOME,
-#			  $COMMAND_START_CDE, $COMMAND_XTERM, $USER_X_STARTUP_SCRIPT,
-#			  $DEFAULT_X_SESSION
 node_find_application() {
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting with args \"$@\""
+#args: <type>
+# Used config vars: $COMMAND_START_KDE, $COMMAND_START_GNOME,
+# $COMMAND_START_CDE, $COMMAND_XTERM, $USER_X_STARTUP_SCRIPT,$DEFAULT_X_SESSION
+	local lp="$FUNCNAME ($$/$BASHPID):"; nxlog "$lp starting with args \"$@\""
 	local node_startx=""
 	case $1 in
 		shadow|windows|vnc)
@@ -353,10 +345,8 @@ node_find_application() {
 }
 
 get_pa_sound_mode() {
-# params:	port of pa server
-#		ipaddr
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	local cl_pa_mods
+#args:	port_of_pa ipaddr
+	local lp="$FUNCNAME ($$/$BASHPID):" cl_pa_mods
 	[ -z "$2" ] && {
 		nxlog "$lp Client's IP-address is not defined."; echo ""; return 1;
 	}
@@ -377,11 +367,10 @@ get_pa_sound_mode() {
 	echo "default"; return 0;
 }
 
-# node_start_applications
-#	Used glob vars: $type, $application, $sess_id, $mediahelper,
-#				 $virtualdesktop, $rootless, $display
-#	Used config vars: <several>
 node_start_applications() {
+# Used glob vars: $type, $application, $sess_id, $mediahelper,
+# $virtualdesktop, $rootless, $display
+# Used config vars: <several>
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting"
 	local node_app mmode rate channels mmport pa_remote pa_pid params i;
@@ -556,19 +545,12 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 	nxlog "$lp end"
 }
 
-
-# node_persistent_session
-# Is the user allowed to run a persistent session?
 node_agent_persistent_session() {
-	local username oifs p
-	p="-nopersistent"
+# Is the user allowed to run a persistent session?
+	local username IFS="," p="-nopersistent"
 	# Guest sessions are always nonpersistent
-	if [ "$login_method" = "GUEST" ]; then
-		echo "$p"; return
-	fi
-	oifs=$IFS; IFS=","
-	if [ "$ENABLE_PERSISTENT_SESSION" = "all" ]; then p="-persistent"
-	else
+	[ "$login_method" = "GUEST" ] && { echo "$p"; return; }
+	[ "$ENABLE_PERSISTENT_SESSION" = "all" ] && p="-persistent" || {
 		for username in $ENABLE_PERSISTENT_SESSION; do
 			[ "${username:0:1}" != "@" ] && [ "$USER" = "$username" ] && \
 				p="-persistent" && break;
@@ -576,7 +558,7 @@ node_agent_persistent_session() {
 				[ -z $(groups "$USER" | egrep "^${username:1}:") ] && \
 					p="-persistent" && break;
 		done
-	fi
+	}
 	for username in $DISABLE_PERSISTENT_SESSION; do
 		[ "${username:0:1}" != "@" ] && [ "$USER" = "$username" ] && \
 			p="-nopersistent" && break;
@@ -584,17 +566,16 @@ node_agent_persistent_session() {
 			[ -z $(groups "$USER" | egrep "^${username:1}:") ] && \
 				p="-nopersistent" && break;
 	done
-	IFS=$oifs; echo "$p"
+	echo "$p"
 }
 
-# node_start_agent
 node_start_agent() {
-	# Ok, now we do some wicked fd magic.
-	# first part:	nxagent's fd #2 -> fd #3
-	# second part:	fd #1 -> #4; fd #3 -> #1; tee | node_start_monitor
-	# third part:	fd #4 -> #1
-	# => all output of nxagent goes to tee | node_start_monitor, while
-	#    leaving all other output flow through like normally.
+# Ok, now we do some wicked fd magic.
+# first part:	nxagent's fd #2 -> fd #3
+# second part:	fd #1 -> #4; fd #3 -> #1; tee | node_start_monitor
+# third part:	fd #4 -> #1
+# => all output of nxagent goes to tee | node_start_monitor, while
+#    leaving all other output flow through like normally.
 
 	# preparations
 	local lp="$FUNCNAME ($$/$BASHPID):";
@@ -716,8 +697,7 @@ node_start_agent() {
 			p="-nopersistent"
 		fi
 		# Start the agent
-#		nxlog "$lp env start `env`"
-#		nxlog "$lp env end"
+		#nxlog "$lp env start `env`"; nxlog "$lp env end"
 		nxlog "$lp Start nxagent by command: '$COMMAND_NXAGENT $p $r -name \"NX - $user@$SERVER_NAME:$display - $session (GPL Edition)\" -option \"$NXSESSION_DIRECTORY/options\" $b $fp $AGENT_EXTRA_OPTIONS_X :$display'"
 		#PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $p $r -name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" -option "$NXSESSION_DIRECTORY/options" $k $g $b $fp $AGENT_EXTRA_OPTIONS_X :$display 2>&3 &
 		PATH="$PATH_BIN:$PATH" $COMMAND_NXAGENT $p $r \
@@ -757,7 +737,6 @@ node_start_agent() {
 		node_start_monitor; } 4>&1
 }
 
-
 node_stop_services() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting"
@@ -783,14 +762,13 @@ node_emergency_exit() {
 	nxlog "$lp end"
 }
 
-# node_start_monitor <start|restore>
+node_start_monitor() {
+#arg: <start|restore>
 # Monitoring the nxagent: Its also kind of a "state-machine"
 #                         as it has to keep track of different
 #                         connection states and react differently.
-node_start_monitor() {
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting with arg: $@"
-	local tail_pid=""watchdog_pid tosend pars_sent=""
+	local lp="$FUNCNAME ($$/$BASHPID):"; nxlog "$lp starting with arg: $@"
+	local tail_pid="" watchdog_pid tosend pars_sent=""
 	local mport="0" mmport="0" cupsport="0"
 
 	while read line; do
@@ -907,12 +885,7 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 	exit_proc 0
 }
 
-#
-# -----------------------------------------------------------------------------
-# startsession - Start a new session.
-# -----------------------------------------------------------------------------
-#
-startsession() {
+startsession() { # Start a new session.
 # 1.5.0 options: rdpcolors,rdpcache,http
 # nxclient > 1.5.0-106 variables: resize,keybd
 # FreeNX specific variables: clientproto,status,host
@@ -1067,11 +1040,6 @@ exit"
 	nxlog "$lp end"
 }
 
-#
-# -----------------------------------------------------------------------------
-# cmd_node functions - changes lots of small variables
-# -----------------------------------------------------------------------------
-#
 cmd_node_terminate() {
 	echo "$delim 716 Terminating session $session_id on user request."
 	node_terminate_session "$session_id"
@@ -1082,11 +1050,9 @@ cmd_node_suspend() {
 	node_suspend_session "$session_id"
 }
 
-#
 # -----------------------------------------------------------------------------
 # Startup of nxnode
 # -----------------------------------------------------------------------------
-#
 declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask);
 open_dbe $$
 
