@@ -107,7 +107,7 @@ qa_dbe() {
 ctl_dbe() {
 #arg: <pid_of_parent>
 	coproc $sq_cmd -batch
-	echo "$COPROC_PID" > "/tmp/nxdbe-$1"
+	echo "$COPROC_PID" > "$DBE_PIDS_FILE"
 	wait $COPROC_PID
 }
 
@@ -116,6 +116,7 @@ open_dbe() {
 #ret: 0 if dbe started, 1 - dbe connected, 2 - error;
 	#echo "open dbe start $1"
 	local new_dbe="" pids cntr;
+	[ "$USER" != "nx" ] && DBE_PIDS_FILE="/tmp/nxdbe-$USER"
 	if [ -z "$DBE_PID" ]; then
 		if [ -r "$DBE_PIDS_FILE" ]; then
 			pids=($(< "$DBE_PIDS_FILE")); DBE_PID=${pids[0]};
@@ -139,10 +140,10 @@ open_dbe() {
 	fi
 	if [ -n "$new_dbe" ]; then
 		local dbc_pid="";
+		[ "$USER" = "nx" ] && DBE_PIDS_FILE="/tmp/nxdbe-$1"
 		(ctl_dbe $1) &
 		dbc_pid=$!; disown $dbc_pid;
 		cntr=200;
-		DBE_PIDS_FILE="/tmp/nxdbe-$1"
 		while [ ! -e "$DBE_PIDS_FILE" ]; do sleep 0.01s; ((cntr--)); ((cntr<=0)) && break; done
 		#echo "create dbe $((200-cntr))0 ms"
 		DBE_PID=$(< "$DBE_PIDS_FILE"); echo "$1" >> "$DBE_PIDS_FILE"
