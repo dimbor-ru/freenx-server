@@ -171,7 +171,6 @@ CUPS_IPP_BACKEND="$CUPS_BACKEND/ipp"
 CUPS_DEFAULT_SOCK="/var/run/cups/cups.sock"
 CUPS_ETC="/etc/cups/"
 
-SAMBA_MOUNT_SHARE_PROTOCOL="both"
 ENABLE_SAMBA_PRELOAD="0"
 SOURCE_SYS_PROFILE="/etc/profile"
 SOURCE_USER_PROFILE="$HOME/.profile"
@@ -194,10 +193,8 @@ COMMAND_START_GNOME="gnome-session"
 COMMAND_START_CDE=cdwm
 COMMAND_XTERM=xterm
 COMMAND_XAUTH=/usr/bin/xauth
-COMMAND_SMBMOUNT=/bin/false
-COMMAND_SMBUMOUNT=/bin/false
-COMMAND_SMBMOUNT_CIFS=/sbin/mount.cifs
-COMMAND_SMBUMOUNT_CIFS=/bin/umount
+COMMAND_SMBMOUNT=/sbin/mount.cifs
+COMMAND_SMBUMOUNT=/bin/umount
 COMMAND_NETCAT=netcat
 COMMAND_SSH=ssh
 COMMAND_SSH_KEYGEN=ssh-keygen
@@ -592,21 +589,17 @@ if [ "$CHECK" = "yes" ]; then
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_XAUTH=$COMMAND_XAUTH\""
 	! mywhich "$COMMAND_SMBMOUNT" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT\". You'll not be able to use SAMBA. "
-	! mywhich "$COMMAND_SMBMOUNT_CIFS" >/dev/null 2>&1 && \
-		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBMOUNT_CIFS=$COMMAND_SMBMOUNT_CIFS\". You'll not be able to use SAMBA. "
-	mywhich "$COMMAND_SMBMOUNT_CIFS" >/dev/null 2>&1 && {
-		perms=$(stat -c %a `mywhich "$COMMAND_SMBMOUNT_CIFS"`)
+	mywhich "$COMMAND_SMBMOUNT" >/dev/null 2>&1 && {
+		perms=$(stat -c %a `mywhich "$COMMAND_SMBMOUNT"`)
 		[ $perms -ne 4711 -a $perms -ne 4755 ] && \
- 			WARNING="yes" && echo "Warning: Invalid permissions on \"$COMMAND_SMBMOUNT_CIFS\". Valid permissions are \"4711\" or \"4755\". You'll not be able to use SAMBA. "
+ 			WARNING="yes" && echo "Warning: Invalid permissions on \"$COMMAND_SMBMOUNT\". Valid permissions are \"4711\" or \"4755\". You'll not be able to use SAMBA. "
 	}
 	! mywhich "$COMMAND_SMBUMOUNT" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT\". You'll not be able to use SAMBA."
-	! mywhich "$COMMAND_SMBUMOUNT_CIFS" >/dev/null 2>&1 && \
-		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBUMOUNT_CIFS=$COMMAND_SMBUMOUNT_CIFS\". You'll not be able to use SAMBA. "
-	mywhich "$COMMAND_SMBUMOUNT_CIFS" >/dev/null 2>&1 && {
-		perms=$(stat -c %a `mywhich "$COMMAND_SMBUMOUNT_CIFS"`)
+	mywhich "$COMMAND_SMBUMOUNT" >/dev/null 2>&1 && {
+		perms=$(stat -c %a `mywhich "$COMMAND_SMBUMOUNT"`)
 		[ $perms -ne 4711 -a $perms -ne 4755 ] && \
-			WARNING="yes" && echo "Warning: Invalid permissions on \"$COMMAND_SMBUMOUNT_CIFS\". Valid permission are \"4711\" or \"4755\". You'll not be able to use SAMBA. "
+			WARNING="yes" && echo "Warning: Invalid permissions on \"$COMMAND_SMBUMOUNT\". Valid permission are \"4711\" or \"4755\". You'll not be able to use SAMBA. "
 	}
 	! mywhich "$COMMAND_NETCAT" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_NETCAT=$COMMAND_NETCAT\""
