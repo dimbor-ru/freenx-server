@@ -50,7 +50,7 @@ declare -g sqcols_usess="session_id, status, display, type, agent_pid,\
  pa_pid, pa_params"
 declare -g sqcols_usess_c=15
 
-init_usess_db() {
+init_usessions_db() {
 	local usess_cols="session_id TEXT PRIMARY KEY, status TEXT, display TEXT,\
  type TEXT, agent_pid INT, cookie TEXT, tail_pid INT, userip TEXT, acc_ip TEXT,\
  mmport INT, cupsport INT, mport INT, smbport INT, pa_pid INT, pa_params TEXT"
@@ -1069,7 +1069,7 @@ else
 fi
 
 attach_db "$nx_dir/usessions.sq3" && {
-	init_usess_db; chmod 0600 "$nx_dir/usessions.sq3" >/dev/null 2>&1; }
+	init_usessions_db; chmod 0600 "$nx_dir/usessions.sq3" >/dev/null 2>&1; }
 
 if ! stringinstring "$1" "--check|--setkey|--agent"; then
 	read CMDLINE;
