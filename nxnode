@@ -46,14 +46,13 @@ cp_conv() {
 # =================== sqlite3 stuff =====================
 
 declare -g sqcols_usess="session_id, status, display, type, agent_pid,\
- cookie, tail_pid, userip, acc_ip, mmport, cupsport, mport, smbport,\
- pa_pid, pa_params"
-declare -g sqcols_usess_c=15
+ cookie, tail_pid, userip, acc_ip, mmport, cupsport, mport, smbport"
+declare -g sqcols_usess_c=13
 
 init_usessions_db() {
 	local usess_cols="session_id TEXT PRIMARY KEY, status TEXT, display TEXT,\
  type TEXT, agent_pid INT, cookie TEXT, tail_pid INT, userip TEXT, acc_ip TEXT,\
- mmport INT, cupsport INT, mport INT, smbport INT, pa_pid INT, pa_params TEXT"
+ mmport INT, cupsport INT, mport INT, smbport INT"
 	local qstr="CREATE TABLE IF NOT EXISTS usessions.usess($usess_cols);"
    q_dbe "$qstr"
 }
@@ -87,118 +86,6 @@ usess_close() {
 # Node functions module
 # -----------------------------------------------------------------------------
 #
-
-check_local_pa_tunnel() {
-# args:	tunnel_ip:port [resample_rate] [amount_of_channels]
-# return:	pid of pa process
-# This starts user's local pulseaudio server if not running and tune its own
-# modules - (re)create tunneled sink and source to remote pa
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	local errstr retpid lpa_mods tunn_opts tunn_exists mname rmids rpa_info;
-	local errids="" errstr="" errstr2="" mname_tunn_sink mname_tunn_source;
-	local success="" def_rsink def_rsource rsi_args rso_args
-	local pactl_bin="env LANG=C /usr/bin/pactl"
-	unset PULSE_SERVER; unset PULSE_SINK; unset PULSE_SOURCE
-	# automatic start user's pa is here (pa starting with default system settings)
-	errstr=$($pactl_bin info 2>&1)
-	[ -n "$(rematchfn '(failure)' "$errstr")" ] && {
-		nxlog "$lp Local PA is not reachable ($errstr)."
-		echo ""; return 1;
-	}
-	retpid=$(ps -wo pid= -C "pulseaudio")
-	[ -n "$retpid" ] && nxlog "$lp Found PA:$retpid"
-	lpa_mods=$($pactl_bin list short 2>/dev/null)
-	tunn_opts="server=$1"
-	tunn_exists=$(rematchfn "($tunn_opts)" "$lpa_mods") #"
-	[ -n "$tunn_exists" ] && {
-		nxlog "$lp Right modules already exists: $tunn_exists"
-		echo $retpid; return 0;
-	}
-	mname="module-always-sink" # automatic null-sinks will be disabled
-	rmids=$(rematchfn "^([[:digit:]]+)[[:space:]]+$mname" "$lpa_mods") #"
-	# any sinks and sources will be unloaded too
-	rmids+="${rmids:+ }$(rematchfn "^([[:digit:]]+).+sink_name" "$lpa_mods")" #"
-	rmids+="${rmids:+ }$(rematchfn "^([[:digit:]]+).+source_name" "$lpa_mods")" #"
-	[ -n "$rmids" ] && {
-		for i in $rmids; do
-			errstr2=$($pactl_bin unload-module $i 2>&1)
-			[ $? -ne 0 ] && { errids+=" $i"; errstr+="; $errstr2"; }
-		done
-	}
-	[ -n "$errids" ] && {
-		nxlog "$lp Removing PA modules error. errids='$errids'; errsrr='$errstr' "
-	}
-	mname_tunn_sink="module-tunnel-sink"; mname_tunn_source="module-tunnel-source";
-	rpa_info=$($pactl_bin -s $1 info 2>/dev/null)
-	[ -z "$rpa_info" ] && {
-		nxlog "$lp Couldn't get defaults from REMOTE pulseaudio $1."
-		echo ""; return 1;
-	}
-	[ -n "$2" ] && {
-		tunn_opts+=" rate=$2"
-		[ -n "$3" ] && {
-			tunn_opts+=" channels=$3"
-			[ "$3" == "1" ] && tunn_opts+=" channel_map=mono"
-		}
-	}
-	def_rsink=$(rematchfn "Default Sink:[[:space:]]+(.+)" "$rpa_info") #"
-	if [ -z "$def_rsink" -o "$def_rsink" == "(null)" ]; then
-		nxlog "$lp Couldn't get default sink from REMOTE pulseaudio $1."
-	else # load module-tunnel-sink
-		rsi_args="sink_name=tcl_out sink=$def_rsink $tunn_opts"
-		errstr=$($pactl_bin load-module $mname_tunn_sink $rsi_args 2>&1)
-		[ $? -ne 0 ] && {
-			nxlog "$lp Loading module $mname_tunn_sink error (\"$rsi_args\"); \"$errstr\""
-		} || {
-			success="1"
-			nxlog "$lp Successfully loadded module $mname_tunn_sink  (\"$rsi_args\")."
-		}
-	fi
-	def_rsource=$(rematchfn "Default Source:[[:space:]]+(.+)" "$rpa_info") #"
-	if [ -z "$def_rsource" -o "$def_rsource" == "(null)" -o \
-			"$def_rsource" == "$def_rsink.monitor" ]; then
-		nxlog "$lp Couldn't get default source from REMOTE pulseaudio $1."
-	else # load module-tunnel-source
-		rso_args="source_name=tcl_in source=$def_rsource $tunn_opts"
-		errstr=$($pactl_bin load-module $mname_tunn_source $rso_args 2>&1)
-		[ $? -ne 0 ] && {
-			nxlog "$lp Loading module $mname_tunn_source error (\"$rso_args\"); \"$errstr\""
-		} || {
-			success="1"
-			nxlog "$lp Successfully loadded module $mname_tunn_source  (\"$rso_args\")."
-		}
-	fi
-	[ -n "$success" ] && echo $retpid || echo ""
-}
-
-reconnect_pa() {
-	local lp="$FUNCNAME ($$/$BASHPID):";
-	local mmport="" papars="" agent_pid rate channels papid="" agent_pids;
-	local sessdir;
-	[ -r "$nx_dir/C-$sess_id/scripts/pa_pid" ] && \
-		papid=$(< $nx_dir/C-$sess_id/scripts/pa_pid)
-	[ -z "$papid" ] && return
-	agent_pids=$(ps -wo pid= -C "nxagent")
-	for sessdir in $nx_dir/C-*; do # start port search
-		[ "$sessdir" == "$nx_dir/C-$sess_id" ] && continue
-		agent_pid=""; [ -r "$sessdir/pids/agent" ] && \
-			agent_pid=$(< $sessdir/pids/agent)
-		[ -z "$agent_pid" ] && continue
-		stringinstring $agent_pid "$agent_pids" || continue
-		mmport=""; [ -r "$sessdir/scripts/mmport" ] && \
-			mmport=$(< $sessdir/scripts/mmport)
-		[ -n "$mmport" ] && break
-	done
-	if [ -n "$mmport" ]; then # try reconnect
-		papars=$(< $nx_dir/C-$sess_id/scripts/params.pa)
-		rate=$(cutfn "$papars" 0 ':'); channels=$(cutfn "$papars" 1 ':')
-		[ -z "$(check_local_pa_tunnel 127.0.0.1:$mmport $rate $channels)" ] && {
-			nxlog "$lp Couldn't reconnect PA tunnel to port $mmport."
-		}
-	else # kill local PA
-		kill $papid 2>/dev/null
-	fi
-}
 
 node_terminate_session() {
 #args: <session_id> [status]
@@ -344,37 +231,14 @@ node_find_application() {
 	nxlog "$lp return node_startx='$node_startx'"
 }
 
-get_pa_sound_mode() {
-#args:	port_of_pa ipaddr
-	local lp="$FUNCNAME ($$/$BASHPID):" cl_pa_mods
-	[ -z "$2" ] && {
-		nxlog "$lp Client's IP-address is not defined."; echo ""; return 1;
-	}
-	stringinstring "open" "$($COMMAND_NETCAT -nvz -w 1 $2 $1 2>&1)" || {
-		nxlog "$lp Client's pulseaudio at $2:$1 is not reachable."
-		echo ""; return 1;
-	}
-	pactl_bin="env LANG=C /usr/bin/pactl -s $2:$1"
-	nxlog "$lp $pactl_bin list short"
-	cl_pa_mods=$($pactl_bin list short)
-	#nxlog "$lp $cl_pa_mods"
-	stringinstring "ts_receiver" "$cl_pa_mods" && \
-		stringinstring "ts_sender" "$cl_pa_mods" && {
-		nxlog "$lp Specials sink and source at $2:$1 are found."
-		echo "special"; return 0;
-	}
-	nxlog "$lp Defaults sink and source at $2:$1 be used."
-	echo "default"; return 0;
-}
-
 node_start_applications() {
 # Used glob vars: $type, $application, $sess_id, $mediahelper,
 # $virtualdesktop, $rootless, $display
 # Used config vars: <several>
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	nxlog "$lp starting"
-	local node_app mmode rate channels mmport pa_remote pa_pid params i;
-	local native_sound_mode second_app="" sapp_pids0="" napp;
+	local node_app mmode mmport params i;
+	local second_app="" sapp_pids0="" napp;
 	local spid node_app_pid sapp_pids="" sapp_pids1 node_wm_pid;
 	# close input and output file descriptors
 	exec 0<&-; exec 1>&-; exec 2>&-
@@ -403,42 +267,6 @@ node_start_applications() {
 	else
 		nxlog "$lp node_app is empty"
 		return
-	fi
-
-	mmode="$(cutfn "$mediahelper" 0 '-')"
-# this still not tested
-	if [ "$mmode" == "pa" ]; then
-		rate="$(cutfn "$mediahelper" 1 '-')"
-		channels="$(cutfn "$mediahelper" 2 '-')"; cntr=20;
-		for ((i=0; i<cntr; i++)) {
-			mmport=$(usess_get "$session_id" "mmport")
-			((mmport>0)) && break; sleep 0.2s
-		}
-		if ((mmport>0)); then
-			pa_remote="127.0.0.1:$mmport"
-			pa_pid="$(check_local_pa_tunnel $pa_remote $rate $channels)"
-			if [ -n "$pa_pid" ]; then
-				nxlog "$lp Local pulseaudio is started ($pa_pid). Sound mode set to tunneled."
-				usess_set "$session_id" "pa_pid" "$pa_pid"
-				params=$rate; [ -n "$channels" ] && params+=":$channels"
-				[ -n "$params" ] && usess_set "$session_id" "pa_params" "$params"
-			else
-				nxlog "$lp Local pulseaudio NOT STARTED. Set PULSE_SERVER=127.0.0.1:$mmport"
-				export PULSE_SERVER="127.0.0.1:$mmport"
-			fi
-		fi
-# still not tested end
-	elif [ "$ENABLE_DIRECT_NATIVE_PA_CHECK" = "1" ] ; then
-		native_sound_mode="$(get_pa_sound_mode 4713 $NXUSERIP)"
-		if [ -n "$native_sound_mode" ]; then
-			nxlog "$lp Sound mode set to direct $native_sound_mode"
-			export PULSE_SERVER="$NXUSERIP:4713"
-			if [ "$native_sound_mode" = "special" ]; then
-				export PULSE_SINK="ts_receiver"
-				export PULSE_SOURCE="ts_sender.monitor"
-			fi
-			node_app="/usr/bin/padsp $node_app"
-		fi
 	fi
 
 	[ "$cups" = "1" -o "$samba" = "1" ] && {
@@ -742,8 +570,8 @@ node_stop_services() {
 	nxlog "$lp starting"
 	#nxlog "$lp call node_umount_smb"
 	#nxlog "$lp call node_cups_reconnect"
-	nxlog "$lp call reconnect_pa"
-	reconnect_pa
+	#nxlog "$lp call reconnect_pa"
+	#reconnect_pa
 	nxlog "$lp end"
 }
 
@@ -960,7 +788,7 @@ startsession() { # Start a new session.
 		cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM); cookie=${cookie%% *}
 		# add row to usses with defaults: session_id, status, display, type,
 		# agent_pid, cookie, tail_pid, userip, acc_ip, mmport, cupsport,
-		# mport, smbport, pa_pid, pa_params
+		# mport, smbport
 		usess_add "$sqcols_usess" "$session_id&Starting&$display&$type&\
 0&$cookie&0&$userip&$accept&0&0&0&$smbport&0&"
 	elif [ "$1" = "restore" ]; then
