@@ -108,15 +108,15 @@ q_dbe() {
 }
 
 qa_dbe() {
-#args: [count_strings_in_answer] <query_string> ...
-	local c_max=1 c=1 r res=""
-	if [ "$1" -gt "0" 2>/dev/null ]; then c_max="$1"; shift; fi
+#args: <query_string> ...
+	local qstr="$@" r res=""
+	qstr+="SELECT '{end}';"
 	lock_dbe || return 1
-	echo -e "$@" >/proc/$DBE_PID/fd/0 || return 1
-	while ((c<=c_max)); do
-		read r </proc/$DBE_PID/fd/1
-		res+="${res:+$'\n'}$(trim "$r")"
-		((c++))
+	echo -e "$qstr" >/proc/$DBE_PID/fd/0 || return 1
+	while read r </proc/$DBE_PID/fd/1; do
+		r=$(trim "$r")
+		[ "${r:(-5)}" = "{end}" ] && break
+		res+="${res:+$'\n'}$r"
 	done
 	unlock_dbe
 	echo "$res"

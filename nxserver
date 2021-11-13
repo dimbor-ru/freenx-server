@@ -197,18 +197,14 @@ session_list() {
 session_find_cmdstrs() {
 #params: [sessid] [user] [display] [status="Running|Suspended"]
 #ret: sessions command strings delimited by \n
-	local st wstr qc res;
+	local st wstr res;
 	st="Running|Suspended"; [ -n "$4" ] && st="$4"
 	wstr="WHERE $(str_eq_cond "status" "$st")"
 	[ -n "$1" ] && wstr+=" AND $(str_eq_cond "session_id" "$1")"
 	[ -n "$2" -a "$2" != "all" -a "$2" != ".*" ] && \
 		wstr+=" AND $(str_eq_cond "user" "$2")"
 	[ -n "$3" ] && wstr+=" AND $(str_eq_cond "display" "$3")"
-	qc=$(qa_dbe ".mode tabs sess\n" \
-		"SELECT count(session_id) FROM sess $wstr LIMIT 1;");
-	[ "$qc" -gt "0" 2>/dev/null ] || return
-	qc=$((qc*sqcols_sess_c))
-	res=$(qa_dbe $qc ".mode line sess\n" \
+	res=$(qa_dbe ".mode line sess\n" \
 		"SELECT $sqcols_sess FROM sess $wstr ORDER BY startTime DESC;")
 	qtxt2cmdstrs "$res"
 }
@@ -266,19 +262,18 @@ session_count_user() {
 #params: user [status]
 # Count all sessions of a user
 # and save it in session_count and session_count_user
-	local st wstr r u="" sc="" uc
+	local st wstr r u="" sc=""
 	session_count=0; session_count_user=0
 	st="Running|Suspended"; [ -n "$2" ] && st="$2"
 	wstr="WHERE $(str_eq_cond "status" "$st")"
-	q_dbe ".mode tabs sess"
 	if [ "$1" = ".*" -o "$1" = "all" ]; then
-		session_count=$(qa_dbe "SELECT count(*) FROM sess $wstr;") #"
+		session_count=$(qa_dbe ".mode tabs sess\n" \
+			"SELECT count(*) FROM sess $wstr;") #"
 		session_count_user=$session_count
 		return 0
 	fi
-	uc=$(qa_dbe "SELECT count(DISTINCT user) FROM sess $wstr LIMIT 1;") #"
-	((uc==0)) && return;
-	r=$(qa_dbe $uc "SELECT user,count(*) FROM sess $wstr GROUP BY user;") #"
+	r=$(qa_dbe ".mode tabs sess\n" \
+				"SELECT user,count(*) FROM sess $wstr GROUP BY user;") #"
 	while read u sc; do
 		[ -z "$sc" ] && continue
 		((session_count+=sc))
@@ -380,7 +375,7 @@ session_list_user_suspended() {
 
 session_list_user() {
 #params: user [status="Running|Suspended"]
-	local st wstr c
+	local st wstr
 	echo -n "NX> 127 Sessions list"
 	if [ -n "$1" -a "$1" != "all" ]; then echo " of user '$1'"
 	else echo ":"
@@ -391,16 +386,13 @@ session_list_user() {
 	st="Running|Suspended"; [ -n "$2" ] && st="$2"
 	wstr="WHERE $(str_eq_cond "status" "$st")"
 	[ -n "$1" -a "$1" != "all" ] && wstr+=" AND $(str_eq_cond "user" "$1")"
-	c=$(qa_dbe ".mode tabs sess\n" \
-		"SELECT count(session_id) FROM sess $wstr LIMIT 1;")
-	((c==0)) && return;
-	qa_dbe $c "SELECT host,display,user,userip,session_id\
+	qa_dbe ".mode tabs sess\n SELECT host,display,user,userip,session_id\
  FROM sess $wstr ORDER BY startTime DESC;" # ! check order !
 }
 
 session_history() {
 #params: user session_id
-	local wstr="" c;
+	local wstr=""
 	echo "NX> 127 Session list:"
 	echo
 	echo "Display Username		Remote IP	   Session ID					   Date				Status"
@@ -409,10 +401,7 @@ session_history() {
 	[ -n "$wstr" -a -n "$2" ] && wstr+=" AND "
 	[ -n "$2" ] && wstr+=" session_id='$2'"
 	[ -n "$wstr" ] && wstr="WHERE $wstr"
-	c=$(qa_dbe ".mode tabs sess\n" \
-		"SELECT count(session_id) FROM sess $wstr LIMIT 1;")
-	((c==0)) && return;
-	qa_dbe $c "SELECT display,user,userip,session_id,\
+	qa_dbe ".mode tabs sess\n SELECT display,user,userip,session_id,\
  datetime(startTime,'unixepoch','localtime'),status\
  FROM sess $wstr ORDER BY startTime;" # ! check order !
 }
