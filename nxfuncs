@@ -26,6 +26,13 @@ trim() {
 	v=${v%${v##*[![:space:]]}}; echo -n "$v"
 }
 
+fcount() {
+#args: <text> [delim=$'\n']
+#ret: count of fields (lines by default)
+	local IFS=$'\n'; [ -n "$2" ] && IFS="$2"
+	local a=($1); echo "${#a[@]}"
+}
+
 cutfn() {
 #args: line field_num_start_at_0 [delim=$IFS]
 	if [ -n "$3" ]; then local IFS="$3"; fi
@@ -246,6 +253,15 @@ q_vals_str_get() {
 	local rs=$(qa_dbe "$mode" "SELECT count(*),$3 FROM $1 WHERE $2 LIMIT 1;") #"
 	[ "${rs%%$d*}" -gt "0" 2>/dev/null ] || { echo; return 1; }
 	local ret=${rs#*$d}; ret=${ret//\"/}
+	echo "$ret"
+}
+
+q_vals_strs_get() {
+#args: <table_name> <where_str> <col1,col2...> [query_tail_str] [values_delim='&']
+	local d="&"; [ -n "$5" ] && d="$5";
+	local mode=".mode csv $1\n.separator '$d'\n"
+	local rs=$(qa_dbe "$mode" "SELECT $3 FROM $1 WHERE $2 $4;") #"
+	local ret=${rs//\"/}
 	echo "$ret"
 }
 
