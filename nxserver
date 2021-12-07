@@ -248,16 +248,6 @@ session_get_user_suspended() {
 	a=($r); ((${#a[@]}==2)) && echo "${a[1]}"
 }
 
-session_get_user_suspended() {
-#params: user status
-#ret: session_id line[s] or empty
-	local wstr r a;
-	wstr="WHERE status='$2'AND user='$1'"
-	r=$(qa_dbe ".mode tabs sess\n" \
-		"SELECT count(session_id), session_id FROM sess $wstr ORDER BY startTime DESC LIMIT 1;")
-	a=($r); ((${#a[@]}==2)) && echo "${a[1]}"
-}
-
 session_count_user() {
 #params: user [status]
 # Count all sessions of a user
