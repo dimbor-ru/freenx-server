@@ -185,18 +185,18 @@ close_dbe() {
 	#echo "dbe close start - $1; $DBE_PIDS_FILE; $DBE_PID"
 	[ -z "$DBE_PID" ] && return
 	[ ! -e "$DBE_PIDS_FILE" ] && return
-	local spids pids="" isdbe="" i;
-	if [ -n "$1" ]; then
-		[ -r "$DBE_PIDS_FILE" ] && {
-			isdbe="1"; pids=($(< "$DBE_PIDS_FILE"))
-		}
-		for ((i=1; i<${#pids[@]}; i++)) do
-			#echo "'$1' '${pids[$i]}'"
-			if [ "$1" = "${pids[$i]}" ]; then
-				unset pids[i]; echo ${pids[@]} > "$DBE_PIDS_FILE"; break;
-			fi
-		done
-		((${#pids[@]}>1)) && return 1 #|| echo "${#pids[@]}"
+	local pids=($(< "$DBE_PIDS_FILE"))
+	local chgfl="" i;
+	for ((i=1; i<${#pids[@]}; i++)) do
+		if kill -0 ${pids[i]} &>/dev/null; then
+			[ "$1" = "${pids[$i]}" ] && { unset pids[i]; chgfl="1"; }
+		else
+			unset pids[i]; chgfl="1"
+		fi
+	done
+	if ((${#pids[@]}>1)); then
+		[ -n "$chgfl" ] && echo ${pids[@]} > "$DBE_PIDS_FILE"
+		return 1
 	fi
 	q_dbe ".quit"; unset DBE_PID; rm -f "$DBE_PIDS_FILE"
 	return 0
