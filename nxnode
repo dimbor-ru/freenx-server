@@ -45,16 +45,15 @@ cp_conv() {
 
 # =================== sqlite3 stuff =====================
 
-declare -g sqcols_usess="session_id, status, display, type, agent_pid,\
- cookie, tail_pid, userip, acc_ip, mmport, cupsport, smbport"
-declare -g sqcols_usess_c=12
+declare -g sqcols_usess="session_id, status, display, type, client,\
+ agent_pid, cookie, tail_pid, userip, acc_ip, mmport, cupsport, smbport"
 
 init_usessions_db() {
 	local usess_cols="session_id TEXT PRIMARY KEY, status TEXT, display TEXT,\
- type TEXT, agent_pid INT, cookie TEXT, tail_pid INT, userip TEXT, acc_ip TEXT,\
- mmport INT, cupsport INT, smbport INT"
+ type TEXT, client TEXT, agent_pid INT, cookie TEXT, tail_pid INT,\
+ userip TEXT, acc_ip TEXT, mmport INT, cupsport INT, smbport INT"
 	local qstr="CREATE TABLE IF NOT EXISTS usessions.usess($usess_cols);"
-   q_dbe "$qstr"
+	q_dbe "$qstr"
 }
 
 usess_add() {
@@ -783,9 +782,10 @@ startsession() { # Start a new session.
 	if [ "$1" = "start" ]; then
 		cookie=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM); cookie=${cookie%% *}
 		# add row to usses with defaults: session_id, status, display, type,
-		# agent_pid, cookie, tail_pid, userip, acc_ip, mmport, cupsport, smbport
-		usess_add "$sqcols_usess" "$session_id&Starting&$display&$type&\
-0&$cookie&0&$userip&$accept&0&0&0&0&"
+		# client, agent_pid, cookie, tail_pid, userip, acc_ip, mmport, cupsport,\
+		# smbport
+		usess_add "$sqcols_usess" "$session_id&Starting&$display&$type&$client&\
+0&$cookie&0&$userip&$accept&0&0&0&"
 	elif [ "$1" = "restore" ]; then
 		cookie=$(usess_get "$session_id" "cookie")
 	fi
