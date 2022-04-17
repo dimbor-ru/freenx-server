@@ -91,6 +91,13 @@ set_vars_from_ampstr() {
 	done
 }
 
+port_is_listening() {
+#args: <port> [host=127.0.0.1] [proto=tcp]
+	local hip="127.0.0.1"; [ -n "$3" ] && hip=$2
+	local proto="tcp"; [ -n "$3" ] && proto=$3
+	2>/dev/null > /dev/$proto/$hip/$1
+}
+
 # ===========================================================================
 # sqlite3 functions
 declare -g sq_cmd="/usr/bin/sqlite3";

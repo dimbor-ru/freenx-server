@@ -1111,14 +1111,14 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 
 			# Check if there is already an agent running on that display on that host
 			((agent_display=display+6000))
-			if $COMMAND_NETCAT -z "$server_host" $agent_display 2>/dev/null; then
+			if port_is_listening $agent_display "$server_host"; then
 				log 2 "Warning: Stray nxagent without .nX$display-lock found on host:port $server_host:$agent_display."
 				((display++))
 				continue
 			fi
 
 			((proxy_display=display+4000))
-			if $COMMAND_NETCAT -z "$server_host" $proxy_display 2>/dev/null; then
+			if port_is_listening $proxy_display "$server_host"; then
 				log 2 "Warning: nxagent proxy without .nX$display-lock found on host:port $server_host:$agent_display."
 				((display++))
 				continue
@@ -1126,24 +1126,24 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 
 			# Now check for the other enabled services
 			((samba_display=display+3000))
-			if [ "$samba" = 1 ] && ( $COMMAND_NETCAT -z \
-					"$server_host" $samba_display 2>/dev/null ); then
+			if [ "$samba" = 1 ] && \
+					port_is_listening $samba_display "$server_host"; then
 				log 2 "Warning: Skipping $server_host:$agent_display as samba port is not free."
 				((display++))
 				continue
 			fi
 
 			((media_display=display+7000))
-			if [ "$media" = 1 ] && ( $COMMAND_NETCAT -z \
-					"$server_host" $media_display 2>/dev/null ); then
+			if [ "$media" = 1 ] && \
+					port_is_listening $media_display "$server_host"; then
 				log 2 "Warning: Skipping $server_host:$agent_display as media port is not free."
 				((display++))
 				continue
 			fi
 
 			((cups_display=display+9000))
-			if [ "$cups" = 1 ] && ( $COMMAND_NETCAT -z \
-					"$server_host" $cups_display 2>/dev/null ); then
+			if [ "$cups" = 1 ] && \
+					port_is_listening $cups_display "$server_host"; then
 				log 2 "Warning: Skipping $server_host:$agent_display as cups port is not free."
 				((display++))
 				continue
