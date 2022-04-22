@@ -91,6 +91,17 @@ set_vars_from_ampstr() {
 	done
 }
 
+set_vars_from_ampvals() {
+#args: <instring> <varnames> [var_prefix=""] [%hex_recode=""]
+# varnames_list_delimited_by_spaces_or_commas, values delimited by '&'
+	local vnames vn vv i=0
+	local OIFS=$IFS IFS='&' a
+	a=($1); IFS=$OIFS; vnames="${2//,/ }"
+	for vn in $vnames; do
+		vv=${a[$i]}; declare -g $4$vn="$vv"; ((i++))
+	done
+}
+
 port_is_listening() {
 #args: <port> [host=127.0.0.1] [proto=tcp]
 	local hip="127.0.0.1"; [ -n "$3" ] && hip=$2
