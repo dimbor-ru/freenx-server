@@ -76,7 +76,7 @@ set_vars_from_params() {
 	vnames="${2//,/ }"
 	for vn in $vnames; do
 		vv=$(getparam "$1" $vn $4); #[ -z "$vv" ] && continue;
-		declare -g $4$vn="$vv"
+		declare -g $3$vn="$vv"
 	done
 }
 
