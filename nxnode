@@ -36,7 +36,7 @@ cp_conv() {
 	local res=${1//+/ } cp_pair cp_from cp_to;
 	[ -n "$CMD_ICONV" ] || { echo "$res"; return 1; }
 	for cp_pair in $WIN_CP_CONVERT_CHAIN ; do
-		cp_from=$(cutfn "$cp_pair" 0 '>'); [ -n "$cp_from" ] || cp_from="UTF-8"
+		cp_from=$(cutfn "$cp_pair" 0 '>'); [ -n "$cp_from" ] || cp_from="latin1"
 		cp_to=$(cutfn "$cp_pair" 1 '>'); [ -n "$cp_to" ] || cp_to="UTF-8"
 		res=$(echo "$res" | $CMD_ICONV -f $cp_from -t $cp_to)
 		#nxlog "$lp converting $cp_from > $cp_to == \"$res\"" #debug
@@ -1233,10 +1233,11 @@ case "$1" in
 	;;
 	--smbmount)
 		#nxlog "$0 ($$): env \"$(env)\"" #debug
-		# we need to covert cp for smb share on linux client?
-		username=$(cp_conv "$username"); password=$(cp_conv "$password")
-		share=$(cp_conv "$share"); dir=$(cp_conv "$dir")
-		computername=$(cp_conv "$computername")
+		[ "$(usess_get $session_id "client")" = "winnt" ] && {
+			username=$(cp_conv "$username"); password=$(cp_conv "$password")
+			share=$(cp_conv "$share"); dir=$(cp_conv "$dir")
+			computername=$(cp_conv "$computername")
+		}
 		svc=$(uservice_svc "smb-share" "$share")
 		uservice_start "$svc" "$port" "smb-share" "$share" "$username" "$password"\
 		 "$dir" "$computername"
