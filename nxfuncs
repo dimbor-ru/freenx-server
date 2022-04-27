@@ -149,7 +149,7 @@ qa_dbe() {
 
 ctl_dbe() {
 #arg: <pid_of_parent>
-	coproc $sq_cmd -batch
+	coproc $sq_cmd -batch 2>/dev/null
 	echo "$COPROC_PID" > "$DBE_PIDS_FILE"
 	wait $COPROC_PID
 }
