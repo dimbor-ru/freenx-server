@@ -415,8 +415,7 @@ node_terminate_session() {
 	}
 	usess_set "$1" "status" "Terminating"
 
-	local qs=$(usess_get "$1" \
-		"display,agent_pid,tail_pid,mmport,cupsport,smbport")
+	local qs=$(usess_get "$1" "display,agent_pid,tail_pid")
 	[ -z "$qs" ] && {
 		nxlog "$lp session_id='$1' not found in usess db. Bye."; return;
 	}
