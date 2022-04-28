@@ -31,7 +31,7 @@ cp_conv() {
 # arg: <string>
 # Used config vars: $CMD_ICONV $WIN_CP_CONVERT_CHAIN
 # successively convert string charset
-	local lp="$FUNCNAME ($$/$BASHPID):";
+	#local lp="$FUNCNAME ($$/$BASHPID):"; #debug
 	#nxlog "$lp starting with args \"$@\"" #debug
 	local res=${1//+/ } cp_pair cp_from cp_to;
 	[ -n "$CMD_ICONV" ] || { echo "$res"; return 1; }
@@ -408,7 +408,7 @@ node_terminate_session() {
 # Used gvars: nx_dir
 # Used config vars: COMMAND_XAUTH, SESSION_LOG_CLEAN SERVER_NAME
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp Start terminating session_id='$1' with status '$2'"
+	#nxlog "$lp Start terminating session_id='$1' with status '$2'" #debug
 	local status=$(usess_get "$1" "status")
 	stringinstring "$status" "Terminating|Finished|Failed" && {
 		nxlog "$lp Session status is already '$status'. Bye."; return;
@@ -427,14 +427,14 @@ node_terminate_session() {
 	}
 	node_stop_services
 	kill -0 $agent_pid 2>/dev/null && {
-		nxlog "$lp start killing of nxagent ($agent_pid)"
+		#nxlog "$lp start killing of nxagent ($agent_pid)" #debug
 		kill $agent_pid 2>/dev/null
 		wait $agent_pid 2>/dev/null
 		kill -0 $agent_pid 2>/dev/null ||
 			nxlog "$lp nxagent ($agent_pid) is dead now"
 	}
 	((tail_pid>0)) && kill -0 $tail_pid 2>/dev/null && { # Kill tail process
-		nxlog "$lp kill tail process ($tail_pid)"
+		#nxlog "$lp kill tail process ($tail_pid)" #debug
 		kill $tail_pid 2>/dev/null
 		wait $tail_pid 2>/dev/null
 		kill -0 $tail_pid 2>/dev/null || {
@@ -442,39 +442,30 @@ node_terminate_session() {
 			usess_set "$session_id" "tail_pid" "0"
 		}
 	}
-	# Remove display information
-	nxlog "$lp Remove display information"
+
+	#nxlog "$lp Remove session information" #debug
 	rm -f /tmp/.X$display-lock; rm -f /tmp/.X11-unix/X$display
 	# Remove magic cookie information
-	nxlog "$lp Remove magic cookie information"
 	$COMMAND_XAUTH remove "localhost:$display" >/dev/null 2>&1
 	$COMMAND_XAUTH remove ":$display" >/dev/null 2>&1
-	# Preserve or remove session information
-	nxlog "$lp Preserve or remove session information"
 	if [ "$SESSION_LOG_CLEAN" = "1" ]; then
-		nxlog "$lp Clean session information."
+		#nxlog "$lp Clean session information." #debug
 		rm -rf "$nx_dir/C-$sess_id/"
 		rm -f  "$nx_dir/nxnode-$1.log"
 		rm -f  "$nx_dir/nxnode.log"
-	elif [ "$2" = "Failed" ]; then
-		nxlog "$lp Session failed. Rename session directory \
-from '$nx_dir/C-$sess_id/' to '$nx_dir/F-C-$sess_id'"
-		mv "$nx_dir/C-$sess_id/" "$nx_dir/F-C-$sess_id"
-	else
-		nxlog "$lp Session terminated. Rename session directory \
-from '$nx_dir/C-$sess_id/' to '$nx_dir/T-C-$sess_id'"
-		mv "$nx_dir/C-$sess_id/" "$nx_dir/T-C-$sess_id"
+	elif [ "$2" = "Failed" ]; then mv "$nx_dir/C-$sess_id/" "$nx_dir/F-C-$sess_id"
+	else mv "$nx_dir/C-$sess_id/" "$nx_dir/T-C-$sess_id"
 	fi
 	usess_close "$1" "$t_status"
-	nxlog "$lp end"
+	#nxlog "$lp end" #debug
 }
 
 node_fail_restore_session() {
 #arg:  <session_id>
-	local lp="$FUNCNAME ($$/$BASHPID):"; nxlog "$lp starting"
+	#local lp="$FUNCNAME ($$/$BASHPID):"; nxlog "$lp starting" #debug
 	echo "NX> 1004 Error: Could not resume session. nxagent process could not be found."
 	node_terminate_session "$1" "Failed"
-	nxlog "$lp end. Next is 'exit 1'"
+	#nxlog "$lp end. Next is 'exit 1'" #debug
 	exit_proc 1
 }
 
@@ -485,7 +476,7 @@ node_suspend_session() {
 	local agent_pid=$(usess_get "$1" "agent_pid")
 	nxlog "$lp Killing (HUP) agent_pid ($agent_pid)..."
 	kill -0 $agent_pid 2>/dev/null || {
-		nxlog "$lp nxagent is already dead. end (0)"; return 1;
+		nxlog "$lp nxagent is already dead. end (1)"; return 1;
 	}
 	kill -HUP $agent_pid 2>/dev/null && {
 		nxlog "$lp end (HUP)"; return 0;
@@ -497,7 +488,8 @@ node_find_application() {
 #args: <type>
 # Used config vars: $COMMAND_START_KDE, $COMMAND_START_GNOME,
 # $COMMAND_START_CDE, $COMMAND_XTERM, $USER_X_STARTUP_SCRIPT,$DEFAULT_X_SESSION
-	local lp="$FUNCNAME ($$/$BASHPID):"; nxlog "$lp starting with args \"$@\""
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	#nxlog "$lp starting with args \"$@\"" #debug
 	local node_startx=""
 	case $1 in
 		shadow|windows|vnc)
@@ -537,12 +529,12 @@ node_find_application() {
 
 	# dimbor: another personalyzed way to ACLS control and replace X-application
 	[ -d "$NX_ACL_DIR" -a -x "$PATH_BIN/nxacl.app" ] && {
-		nxlog "$lp !!! call nxacl.app with source node_startx='$node_startx'"
+		#nxlog "$lp !!! call nxacl.app with source node_startx='$node_startx'" #debug
 		node_startx=$($PATH_BIN/nxacl.app "$node_startx" "$CMDLINE")
 	}
 
 	echo "$node_startx"
-	nxlog "$lp return node_startx='$node_startx'"
+	#nxlog "$lp return node_startx='$node_startx', type='$1'" #debug
 }
 
 node_start_applications() {
@@ -550,7 +542,7 @@ node_start_applications() {
 # $virtualdesktop, $rootless, $display
 # Used config vars: <several>
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting"
+	#nxlog "$lp starting" #debug
 	local node_app mmode mmport params i;
 	local second_app="" sapp_pids0="" napp;
 	local spid node_app_pid sapp_pids="" sapp_pids1 node_wm_pid;
@@ -560,16 +552,16 @@ node_start_applications() {
 	# Prepare application startup
 	export DISPLAY=:$display
 
-	nxlog "$lp display='$display', waiting for it's ready"
+	#nxlog "$lp display='$display', waiting for it's ready" #debug
 	local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
 	while [ ! -f /tmp/.X$display-lock ]; do
 		sleep 0.01s; ((cntr--)); ((cntr<=0)) && break
 	done
-	nxlog "$lp Stop waiting for DISPLAY $((cntr0-cntr))0 ms"
+	#nxlog "$lp Stop waiting for DISPLAY $((cntr0-cntr))0 ms" #debug
 
 	#numlockx
 	if [ "$NUMLOCKX_STATUS" != "system" ]; then
-		nxlog "$lp Run \"$NUMLOCKX $NUMLOCKX_STATUS\""
+		#nxlog "$lp Run \"$NUMLOCKX $NUMLOCKX_STATUS\"" #debug
 		"$NUMLOCKX" "$NUMLOCKX_STATUS"
 	fi
 
@@ -577,21 +569,22 @@ node_start_applications() {
 	node_app=$(node_find_application "$type")
 	# For rdesktop/VNC, there is no application to start
 	if [ -n "$node_app" ]; then
-		nxlog "$lp Got node_app is \"$node_app\""
+		#nxlog "$lp Got node_app is \"$node_app\"" #debug
+		:
 	else
-		nxlog "$lp node_app is empty"
+		#nxlog "$lp node_app is empty" #debug
 		return
 	fi
 
 	[ "$cups" = "1" -o "$samba" = "1" ] && {
-		nxlog "$lp export CUPS_SERVER=$CUPS_DEFAULT_SOCK"
+		#nxlog "$lp export CUPS_SERVER=$CUPS_DEFAULT_SOCK" #debug
 		export CUPS_SERVER=$CUPS_DEFAULT_SOCK
 	}
 	if [ "$ENABLE_SAMBA_PRELOAD" = "1" ]; then
 		NXSAMBA_PORT=$(usess_get "$session_id" "smbport")
 		((NXSAMBA_PORT>0)) && {
 			export NXSAMBA_PORT
-			nxlog "$lp Preload SAMBA using nxredir. NXSAMBA_PORT is '$NXSAMBA_PORT'"
+			#nxlog "$lp Preload SAMBA using nxredir. NXSAMBA_PORT is '$NXSAMBA_PORT'" #debug
 			node_app="$PATH_BIN/nxredir $node_app"
 			echo "Info: NXNODE - Using nxredir wrapper script to forward \
 SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
@@ -604,10 +597,10 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 	# Should we start a window manager?
 	if [ "$virtualdesktop" = "1" -a "$type" = "unix-application" -a \
 			-x "$DEFAULT_X_WM" ]; then
-		nxlog "$lp start a window manager - \"DISPLAY=:$display $DEFAULT_X_WM\""
+		#nxlog "$lp start a window manager - \"DISPLAY=:$display $DEFAULT_X_WM\"" #debug
 		DISPLAY=:$display $DEFAULT_X_WM >>"$NXSESSION_DIRECTORY/session" 2>&1 &
 		node_wm_pid=$!
-		nxlog "$lp node_wm_pid='$node_wm_pid'}"
+		#nxlog "$lp node_wm_pid='$node_wm_pid'" #debug
 	fi
 
 	# Use Xsession to execute the Desktop session
@@ -635,16 +628,16 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 		second_app=$(rematchfn "$napp:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
 		[ -n "$second_app" ] && {
 			sapp_pids0=$(ps -wo pid= -C $(cutfn "$second_app" -1 '/'))
-			nxlog "$lp PID of $second_app will be waiting too. Initial: \"$sapp_pids0\""
+			#nxlog "$lp PID of $second_app will be waiting too. Initial: \"$sapp_pids0\"" #debug
 		}
 	}
 
 	# Startup the application
-	nxlog "$lp Starting node_app with /etc/nxserver/Xsession"
+	#nxlog "$lp Starting node_app with /etc/nxserver/Xsession" #debug
 	DISPLAY=:$display /etc/nxserver/Xsession $node_app >> \
 		"$NXSESSION_DIRECTORY/session" 2>&1 &
 	node_app_pid=$!
-	nxlog "$lp Start successful. Waiting for node_app_pid='$node_app_pid'"
+	nxlog "$lp Start $node_app successful. Waiting for node_app_pid='$node_app_pid'"
 	wait $node_app_pid
 	nxlog "$lp node_app_pid finished"
 
@@ -667,7 +660,7 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 				stringinstring "$spid" "$sapp_pids0" && continue
 				sapp_pids+="${sapp_pids:+$' '}$spid"
 			done <<< "$sapp_pids1"
-			nxlog "$lp Waiting for $second_app PID(S) \"$sapp_pids\""
+			#nxlog "$lp Waiting for $second_app PID(S) \"$sapp_pids\"" #debug
 			while [ -n "$(ps -o pid= -p $sapp_pids 2>/dev/null)" ]; do
 				sleep 1s
 			done
@@ -680,10 +673,10 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 	# Do not terminate agent in case of rootless agent mode.
 	# The agent times out after a while by itself anyway.
 	if [ "$virtualdesktop" = "1" -o "$rootless" != "1" ] ; then
-		nxlog "$lp Call node_terminate_session for non-rootless or virtualdesktop session type"
+		#nxlog "$lp Call node_terminate_session for non-rootless or virtualdesktop session type" #debug
 		node_terminate_session "$session_id"
 	fi
-	nxlog "$lp end"
+	#nxlog "$lp end" #debug
 }
 
 node_agent_persistent_session() {
@@ -722,7 +715,7 @@ node_start_agent() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	local k g b r fp vncfullscreen u p d agent_port viewonly
 	local agent_exit_status node_failed
-	nxlog "$lp starting"
+	#nxlog "$lp starting" #debug
 	exec 3>&2; exec 4>&1;
 
 	{
@@ -740,7 +733,6 @@ node_start_agent() {
 	# backwards compatibility
 	[ -n "$keyboard" ] && k="-keyboard $keyboard"
 	[ -n "$kbtype" ] && k="-kbtype $kbtype"
-
 	# backingstore
 	b=""
 	if [ -n "$backingstore" -a "$ENABLE_1_5_0_BACKEND" = "1" ]; then
@@ -818,15 +810,13 @@ node_start_agent() {
 			-option "$NXSESSION_DIRECTORY/options" $vncfullscreen \
 			$g $k $agent_server $AGENT_EXTRA_OPTIONS_RFB 2>&3 &
 	elif [ "$r" = "-R" -a "$rootless" != "1" ]; 	then
-		# nxproxy single application mode session
-		nxlog "$lp Start nxproxy for single application session mode"
+		#nxlog "$lp Start nxproxy for single application session mode" #debug
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
 			export LD_LIBRARY_PATH="$PROXY_LIBRARY_PATH:$LD_LIBRARY_PATH"
 		nxlog "$lp Start nxproxy by command: '$PATH_BIN/nxproxy -C :$display $PROXY_EXTRA_OPTIONS'"
 		$PATH_BIN/nxproxy -C :$display $PROXY_EXTRA_OPTIONS 2>&3 &
 	else
-		nxlog "$lp NXAgent session type"
-		# nxagent session (X11)
+		#nxlog "$lp nxagent session type (X11)" #debug
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
 			export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
 		# Setup optional parameters
@@ -850,7 +840,7 @@ node_start_agent() {
 	# Wait for the agent
 	agent_pid=$!
 	usess_set "$session_id" "agent_pid" "$agent_pid"
-	nxlog "$lp Wait for agent_pid='$agent_pid'"
+	nxlog "$lp Waiting for agent_pid='$agent_pid'"
 	wait $agent_pid; agent_exit_status=$?
 	nxlog "$lp agent_exit_status='$agent_exit_status'"
 	node_failed=""
@@ -860,18 +850,17 @@ node_start_agent() {
 		node_failed="Failed"
 		nxlog "$lp node_failed='$node_failed'"
 	fi
-	nxlog "$lp close session"
+	#nxlog "$lp close session" #debug
 	echo "NX> 1006 Session status: closed"
-
 	# Cleanup session information
-	nxlog "$lp cleanup session information '$sess_id'"
-	nxlog "$lp call 'node_terminate_session \"$session_id\" \"$node_failed\"'"
+	#nxlog "$lp cleanup session information '$sess_id'" #debug
+	#nxlog "$lp call 'node_terminate_session \"$session_id\" \"$node_failed\"'" #debug
 	node_terminate_session "$session_id" "$node_failed"
 
 	# remove possible leftovers of nxagent
-	nxlog "$FUNCNAME ($$):remove /tmp/.X$display-lock"
+	#nxlog "$FUNCNAME ($$):remove /tmp/.X$display-lock" #debug
 	rm -f /tmp/.X$display-lock
-	nxlog "$lp remove /tmp/.X11-unix/X$display"
+	#nxlog "$lp remove /tmp/.X11-unix/X$display" #debug
 	rm -f /tmp/.X11-unix/X$display
 
 	} 3>&1 1>&4 | tee "$NXSESSION_DIRECTORY/session" | \
@@ -881,13 +870,11 @@ node_start_agent() {
 
 node_emergency_exit() {
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting"
-	# kill the session
-	nxlog "$lp call 'node_terminate_session \"$session_id\" \"Failed\"'"
+	#nxlog "$lp starting" #debug
+	#nxlog "$lp call 'node_terminate_session \"$session_id\" \"Failed\"'" #debug
 	node_terminate_session "$session_id" "Failed"
-
 	echo "NX> 1004 Error: Emergency exit due to kill signal."
-	nxlog "$lp end"
+	#nxlog "$lp end" #debug
 }
 
 node_start_monitor() {
@@ -895,7 +882,8 @@ node_start_monitor() {
 # Monitoring the nxagent: Its also kind of a "state-machine"
 #                         as it has to keep track of different
 #                         connection states and react differently.
-	local lp="$FUNCNAME ($$/$BASHPID):"; nxlog "$lp starting with arg: $@"
+	local lp="$FUNCNAME ($$/$BASHPID):";
+	#nxlog "$lp starting with arg: $@" #debug
 	local tail_pid="" watchdog_pid tosend pars_sent=""
 	local smbport="0" mmport="0" cupsport="0"
 
@@ -964,9 +952,9 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 				*"Session: Session suspended at"*)
 					# Session suspend
 					echo "NX> 1005 Session status: suspended"
-					nxlog "$lp $line"
+					#nxlog "$lp $line" #debug
 					((mmport+smbport+cupsport>0)) && {
-						nxlog "$lp call node_stop_services"
+						#nxlog "$lp call node_stop_services" #debug
 						node_stop_services
 					}
 					usess_set "$session_id" "status,userip,acc_ip" "Suspended&&"
@@ -1009,7 +997,7 @@ NX> 1002 Commit\nNX> 1006 Session status: running"
 	}
 	# close all open file descriptors
 	exec 0<&-; exec 1>&-; exec 2>&-;
-	nxlog "$lp end"
+	#nxlog "$lp end" #debug
 	exit_proc 0
 }
 
@@ -1026,7 +1014,7 @@ startsession() { # Start a new session.
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	local opt_vars opt_str pack cleanup product clipboard menu;
 	local id fullscreen accept vn;
-	nxlog "$lp starting with args \"$@\""
+	#nxlog "$lp starting with args \"$@\"" #debug
 
 	[ "$1" = "start" ] && mkdir -p -m700 "$NXSESSION_DIRECTORY"
 	# Setup environment
@@ -1095,13 +1083,13 @@ startsession() { # Start a new session.
 	if [ "$1" = "application" ]; then
 		# This needs to be set, else nxagent is terminated
 		rootless="1"; virtualdesktop="0"
-		nxlog "$lp call 'node_start_applications'"
+		#nxlog "$lp call 'node_start_applications'" #debug
 		node_start_applications &
 		echo "NX> 596 Application $application started successfully."
 		return
 	fi
 
-	nxlog "$lp generate \"$NXSESSION_DIRECTORY/options\""
+	#nxlog "$lp generate \"$NXSESSION_DIRECTORY/options\"" #debug
 	opt_vars="keyboard kbtype kbload keymap geometry\
  client resize cache images pack link nodelay type clipboard composite\
  cleanup product shmem backingstore shpix accept cookie id samba media\
@@ -1114,7 +1102,7 @@ startsession() { # Start a new session.
 	umask 0077;	echo "$opt_str" > "$NXSESSION_DIRECTORY/options"; umask $umask0
 
 	if [ "$1" = "start" ]; then # write xauth script file
-		nxlog "$lp write xauth script file"
+		#nxlog "$lp write xauth script file" #debug
 		txt="add localhost:$display MIT-MAGIC-COOKIE-1 $cookie
 add :$display MIT-MAGIC-COOKIE-1 $cookie
 exit"
@@ -1122,35 +1110,34 @@ exit"
 		echo "$txt" | $COMMAND_XAUTH -f "$NXSESSION_DIRECTORY/authority" >/dev/null 2>&1
 	fi
 
-	# If we have a shadow cookie, we add it to xauth session authority file as well
 	if [ -n "$shadowcookie" ]; then
-		nxlog "$lp If we have a shadow cookie, we add it to xauth session authority file as well"
+		#nxlog "$lp If we have a shadow cookie, we add it to xauth session authority file as well" #debug
 		$COMMAND_XAUTH -f "$SHADOW_XAUTHORITY" add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 "$shadowcookie"
 	elif [ -n "$shadowdisplay" ]; then
 		# we need to merge in the normal .Xauthority file
-		nxlog "$lp we need to merge in the normal .Xauthority file"
+		#nxlog "$lp we need to merge in the normal .Xauthority file" #debug
 		$COMMAND_XAUTH -f "$SHADOW_XAUTHORITY" merge "$HOME/.Xauthority"
 	fi
 
 	if [ "$1" = "restore" ]; then
-		nxlog "$lp restore session"
+		#nxlog "$lp restore session" #debug
 		#echo > "$NXSESSION_DIRECTORY/session" #this cause to damage file
 		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$NXSESSION_DIRECTORY"'/session' | node_start_monitor "restore" &
 		MONITOR_PID=$!; export MONITOR_PID
-		nxlog "$lp call 'node_suspend_session \"$session_id\"'"
+		#nxlog "$lp call 'node_suspend_session \"$session_id\"'" #debug
 		node_suspend_session "$session_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$NXSESSION_DIRECTORY/session"; node_fail_restore_session "$session_id"; }
 	else # start
-		nxlog "$lp call 'node_start_agent'"
+		#nxlog "$lp call 'node_start_agent'" #debug
 		node_start_agent &
-		nxlog "$lp call 'node_start_applications'"
+		#nxlog "$lp call 'node_start_applications'" #debug
 		node_start_applications &
 		if [ -x "$NODE_AUTOSTART" ]; then
-			nxlog "$lp NODE_AUTOSTART: waiting for nxagent"
+			#nxlog "$lp NODE_AUTOSTART: waiting for nxagent" #debug
 			local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
 			while [ ! -f /tmp/.X$display-lock ]; do
 				sleep 0.01s; ((cntr--)); ((cntr<=0)) && break
 			done
-			nxlog "$lp NODE_AUTOSTART: Stop waiting $((cntr0-cntr))0 ms"
+			#nxlog "$lp NODE_AUTOSTART: Stop waiting $((cntr0-cntr))0 ms" #debug
 			# go into background immediately
 			NXSESSIONID="$sess_id" DISPLAY=:$display "$NODE_AUTOSTART" "$1" >/dev/null 2>&1 &
 			disown $! # dont't wait for this child!
@@ -1162,7 +1149,7 @@ exit"
 		usess_set "$session_id" "tail_pid" "0"
 	fi
 	wait # for all children
-	nxlog "$lp end"
+	#nxlog "$lp end" #debug
 }
 
 cmd_node_terminate() {
