@@ -258,20 +258,20 @@ uservice_start() {
 #	if port not empty try to start on him
 # Used config vars: CMD_HIDE CMD_UNHIDE
 	local lp="$FUNCNAME ($$/$BASHPID):" errstr="" qs svcport
-	local i ok="" st startfl="" checkfl="" updvars="" updvals="" hpass
+	local st startfl="" checkfl="" updvars="" updvals="" hpass
 	local svc=$1  port=$2 type=$3 share=$4 username=$5 pass=$6 data=$7 comp=$8
 	local addr=$9; [ -z "$addr" ] && addr="127.0.0.1";
 
 	[ "$type" = "smb-share" -a -n "$data" ] && data=$(norm_dir "$data" $HOME)
 	# waiting for suitable service status: on/off/""
-	local step="0.25" timeo="28" #7sec
+	local i ok="" step="0.25" timeo="28" #7sec
 	for (( i=0; i<=timeo; i++ )); do
 		st=$(usvcs_get $svc "status") || { ok="1"; break; }
 		stringinstring "$st" "starting|stopping" || { ok="1"; break; }
 		sleep $step"s"
 	done
 	[ -n "$ok" ] || {
-		nxlog "$lp service $svc ($port) still set in \"$st\" state after $((timeo/4))s waitng";
+		nxlog "$lp service $svc ($port) still set in \"$st\" state after $((timeo/4)) s";
 		return 1; }
 
 	[ -z "$type" -a -z "$st" ] && {
@@ -553,11 +553,14 @@ node_start_applications() {
 	export DISPLAY=:$display
 
 	#nxlog "$lp display='$display', waiting for it's ready" #debug
-	local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
-	while [ ! -f /tmp/.X$display-lock ]; do
-		sleep 0.01s; ((cntr--)); ((cntr<=0)) && break
+	local i ok="" step="0.01" timeo=$((AGENT_STARTUP_TIMEOUT*100))
+	for (( i=0; i<=timeo; i++ )); do
+		[ -f /tmp/.X$display-lock ] && { ok="1"; break; }
+		sleep $step"s"
 	done
-	#nxlog "$lp Stop waiting for DISPLAY $((cntr0-cntr))0 ms" #debug
+	[ -n "$ok" ] || {
+		nxlog "$lp /tmp/.X$display-lock not found after $AGENT_STARTUP_TIMEOUT s";
+		return 1; }
 
 	#numlockx
 	if [ "$NUMLOCKX_STATUS" != "system" ]; then
@@ -1133,11 +1136,15 @@ exit"
 		node_start_applications &
 		if [ -x "$NODE_AUTOSTART" ]; then
 			#nxlog "$lp NODE_AUTOSTART: waiting for nxagent" #debug
-			local cntr=$((AGENT_STARTUP_TIMEOUT*100)); local cntr0=$cntr
-			while [ ! -f /tmp/.X$display-lock ]; do
-				sleep 0.01s; ((cntr--)); ((cntr<=0)) && break
+			local i ok="" step="0.01" timeo=$((AGENT_STARTUP_TIMEOUT*100))
+			for (( i=0; i<=timeo; i++ )); do
+				[ -f /tmp/.X$display-lock ] && { ok="1"; break; }
+				sleep $step"s"
 			done
-			#nxlog "$lp NODE_AUTOSTART: Stop waiting $((cntr0-cntr))0 ms" #debug
+			[ -n "$ok" ] || {
+				nxlog "$lp /tmp/.X$display-lock not found after $AGENT_STARTUP_TIMEOUT s";
+			}
+
 			# go into background immediately
 			NXSESSIONID="$sess_id" DISPLAY=:$display "$NODE_AUTOSTART" "$1" >/dev/null 2>&1 &
 			disown $! # dont't wait for this child!
