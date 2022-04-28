@@ -127,23 +127,21 @@ lock_dbe() {
 unlock_dbe() { rm -f "$DBE_PIDS_FILE.lock" &>/dev/null; return 0; }
 
 q_dbe() {
-	local rc; lock_dbe || return 1
+	local rc;
 	echo -e "$@" >/proc/$DBE_PID/fd/0; rc=$?
-	unlock_dbe; return $rc
+	return $rc
 }
 
 qa_dbe() {
 #args: <query_string> ...
 	local qstr="$@" r res=""
 	qstr+="SELECT '{end}';"
-	lock_dbe || return 1
 	echo -e "$qstr" >/proc/$DBE_PID/fd/0 || return 1
 	while read r </proc/$DBE_PID/fd/1; do
 		r=$(trim "$r")
 		[ "${r:(-5)}" = "{end}" ] && break
 		res+="${res:+$'\n'}$r"
 	done
-	unlock_dbe
 	echo "$res"
 }
 
