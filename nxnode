@@ -29,16 +29,16 @@ nxlog() {
 
 cp_conv() {
 # arg: <string>
-# Used config vars: $CMD_ICONV $WIN_CP_CONVERT_CHAIN
+# Used config vars: $COMMAND_ICONV $WIN_CP_CONVERT_CHAIN
 # successively convert string charset
 	#local lp="$FUNCNAME ($$/$BASHPID):"; #debug
 	#nxlog "$lp starting with args \"$@\"" #debug
 	local res=${1//+/ } cp_pair cp_from cp_to;
-	[ -n "$CMD_ICONV" ] || { echo "$res"; return 1; }
+	[ -n "$COMMAND_ICONV" ] || { echo "$res"; return 1; }
 	for cp_pair in $WIN_CP_CONVERT_CHAIN ; do
 		cp_from=$(cutfn "$cp_pair" 0 '>'); [ -n "$cp_from" ] || cp_from="latin1"
 		cp_to=$(cutfn "$cp_pair" 1 '>'); [ -n "$cp_to" ] || cp_to="UTF-8"
-		res=$(echo "$res" | $CMD_ICONV -f $cp_from -t $cp_to)
+		res=$(echo "$res" | $COMMAND_ICONV -f $cp_from -t $cp_to)
 		#nxlog "$lp converting $cp_from > $cp_to == \"$res\"" #debug
 	done
 	#nxlog "$lp return res='$res'" #debug
@@ -152,7 +152,7 @@ uservice_mounted() {
 	smb-share)
 		# output of mount cmd not contains mount.cifs port option value
 		# because we need to port arg ($3)
-		txt=$(env LC_ALL=C mount 2>/dev/null)
+		txt=$(env LC_ALL=C $COMMAND_MOUNT_LIST 2>/dev/null)
 		if stringinstring "//" "$2"; then pattern="($2)"
 		elif ! stringinstring "/" "$2"; then pattern="//$patt_addr/($2)"
 		else pattern="($2)"
@@ -188,7 +188,7 @@ uservice_configure() {
 		[ -n "$5" ] && optstr+=",password=$5"
 		[ -n "$SMB_MOUNT_OPTIONS" ] && optstr+=",$SMB_MOUNT_OPTIONS"
 		#[ -n "$7" ] && comp="$7" || comp="127.0.0.1"
-		cmdstr="/usr/bin/sudo $COMMAND_SMBMOUNT $2 $6 -o $optstr"
+		cmdstr="$COMMAND_SMBMOUNT $2 $6 -o $optstr"
 		echo "$cmdstr"
 	;;
 	esac
@@ -238,7 +238,7 @@ uservice_umount() {
 		#}
 		for (( i=1; i<=ct; i++ )); do
 			(( i>=ct/2 )) && ffl="-f"
-			errstr+=$(/usr/bin/sudo $COMMAND_SMBUMOUNT $ffl "$res" 2>&1) && \
+			errstr+=$($COMMAND_SMBUMOUNT $ffl "$res" 2>&1) && \
 				{ ok="1"; break; }
 			sleep 0.5s
 		done
@@ -256,7 +256,7 @@ uservice_start() {
 # [addr=127.0.0.1]
 # if type is empty try to operate params from usess db
 #	if port not empty try to start on him
-# Used config vars: CMD_HIDE CMD_UNHIDE
+# Used config vars: COMMAND_HIDE COMMAND_UNHIDE
 	local lp="$FUNCNAME ($$/$BASHPID):" errstr="" qs svcport
 	local st startfl="" checkfl="" updvars="" updvals="" hpass
 	local svc=$1  port=$2 type=$3 share=$4 username=$5 pass=$6 data=$7 comp=$8
@@ -283,7 +283,7 @@ uservice_start() {
 		type=$(cutfn "$qs" 0 '&');
 		[ -z "$port" ] && port=$(cutfn "$qs" 1 '&');
 		share=$(cutfn "$qs" 2 '&'); username=$(cutfn "$qs" 3 '&');
-		pass=$(cutfn "$qs" 4 '&'); pass=$(echo "$pass" | $CMD_UNHIDE);
+		pass=$(cutfn "$qs" 4 '&'); pass=$(echo "$pass" | $COMMAND_UNHIDE);
 		data=$(cutfn "$qs" 5 '&'); comp=$(cutfn "$qs" 6 '&');
 		addr=$(cutfn "$qs" 7 '&');
 		#nxlog "$lp service $svc ($st) load qs='$qs'" #debug
@@ -306,7 +306,7 @@ uservice_start() {
 		startfl=1; [ -n "$type" ] && checkfl=1;
 		st="starting"; usvcs_set $svc "status" $st
 	else # svc not found in usess table
-		hpass=$(echo $pass | $CMD_HIDE)
+		hpass=$(echo $pass | $COMMAND_HIDE)
 		usvcs_add "svc,type,status,port,share,comp,addr,username,pass,data" \
 			"$svc&$type&starting&$port&$share&$comp&$addr&$username&$hpass&$data"
 		startfl=1;
@@ -318,7 +318,7 @@ uservice_start() {
 			qs="$(usvcs_get $svc "share,username,pass,data,comp,addr")" || {
 				nxlog "$lp can't get service $svc params from usess _db"; return 1; }
 			s_share=$(cutfn "$qs" 0 '&'); s_username=$(cutfn "$qs" 1 '&');
-			s_pass=$(cutfn "$qs" 2 '&'); s_pass=$(echo $s_pass | $CMD_UNHIDE);
+			s_pass=$(cutfn "$qs" 2 '&'); s_pass=$(echo $s_pass | $COMMAND_UNHIDE);
 			s_data=$(cutfn "$qs" 3 '&'); s_comp=$(cutfn "$qs" 4 '&');
 			s_addr=$(cutfn "$qs" 5 '&');
 			[ "$share" != "$s_share" ] && {
@@ -329,7 +329,7 @@ uservice_start() {
 				updvars+=",username"; updvals+="&$username"; }
 			[ "$pass" != "$s_pass" ] && {
 				nxlog "$lp $svc password strings are different"
-				hpass=$(echo $pass | $CMD_HIDE)
+				hpass=$(echo $pass | $COMMAND_HIDE)
 				updvars+=",pass"; updvals+="&$hpass"; }
 			[ "$data" != "$s_data" ] && {
 				nxlog "$lp $svc share strings are different '$s_data' > '$data'"
@@ -1168,9 +1168,6 @@ cmd_node_suspend() {
 	echo "$delim 716 Suspending session $session_id on user request."
 	node_suspend_session "$session_id"
 }
-
-CMD_ICONV=$(which iconv 2>/dev/null) # !temporarily here!
-CMD_HIDE=$(which base64 2>/dev/null); CMD_UNHIDE="$CMD_HIDE -d" #!!!
 
 # -----------------------------------------------------------------------------
 # Startup of nxnode
