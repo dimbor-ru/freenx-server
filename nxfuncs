@@ -13,9 +13,10 @@ num_pattern='[+-]?[0-9]+([.][0-9]+)?'
 stringinstring() { case "$2" in *$1*) return 0;; esac; return 1; }
 
 getparam() {
-#args: <instring> <param_name> [recode_hex_%NN]
+#args: <instring> <param_name> [recode_hex_%NN] [delimiter='&']
 # Reread given line; echo last parameter's argument or return false.
-	local pattern=".*&$2=([^&]*)" str="&$1" r;
+	local d='&'; [ -n "$4" ] && d="$4"
+	local pattern=".*$d$2=([^$d]*)" str="$d$1" r;
 	[[ "$str" =~ $pattern ]]; r=${BASH_REMATCH[1]}
 	[ -n "$3" ] && echo -e "${r//\%/\\x}" || echo "$r"
 	[ "$BASH_REMATCH" != "" ]
