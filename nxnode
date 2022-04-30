@@ -124,23 +124,12 @@ usess_lport_name() {
 }
 
 norm_dir() {
-#args: <share_dir> [home_dir]
+#args: <share_dir> [parent_dir]
+# exclude potential parts to exec and set dir path from given parent_dir
 	local r=${1//\`/}; r=${r//\$[(\{]*[)\}]/$2}; r=${r/\.\.\//$2\/};
 	r=${r/\.\//$2\/}; r=${r/\~\//$2\/}
 	[[ "${r:0:1}" =~ [[:alnum:]] ]] && r="$2/$r"
 	echo "$r"
-}
-
-uservice_svc() {
-#args: <type> <share> [addr=127.0.0.1]
-#return service string
-	local svc="" addr="127.0.0.1"
-	[ -n "$3" ] && addr=$3
-	case $1 in
-	smb-share) svc="//$addr/$2" ;;
-	smb-prn|ipp-prn) svc="$USER""_$2" ;;
-	esac
-	echo "$svc"
 }
 
 uservice_mounted() {
@@ -162,6 +151,14 @@ uservice_mounted() {
 			 port_is_listening $3 || rc=1
 		fi
 	;;
+	smb-prn|ipp-prn)
+		txt=$(env LC_ALL=C $COMMAND_LPSTAT -v 2>/dev/null)
+		pattern=".*$2.*//$patt_addr:("
+		[ -n "$port" ] && pattern+="$patt_port)" || pattern+="$num_pattern)"
+		port=$(rematchfn "$pattern" "$txt"); rc=$?
+		[ -n "$port" ] || return $rc
+		port_is_listening "$port" || rc=1
+	;;
 	esac
 	[ -n "$port" ] && echo "$port"
 	return $rc
@@ -169,11 +166,11 @@ uservice_mounted() {
 
 uservice_configure() {
 #args:
-# smb-share <svc> <port> <username> <password> <dir> [computername]
-# 		*-prn <svc> <port> <username> <password> <opts> [computername]
-#opts="public=&model=&defaultPrinter="
+# smb-share <svc> <port> <username> <password> <dir> <computername>
+# 		*-prn <svc> <port> <username> <password> <opts> <computername> <share>
+#opts="model=;public=;defaultprinter="
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local cmdstr opttpl optstr comp rc=0
+	local cmdstr optstr comp rc=0 txt
 	case $1 in
 	smb-share)
 		# create/check mountpoint
@@ -187,8 +184,37 @@ uservice_configure() {
 		optstr="uid=$USER,gid=$egroup,ip=127.0.0.1,port=$3,username=$4"
 		[ -n "$5" ] && optstr+=",password=$5"
 		[ -n "$SMB_MOUNT_OPTIONS" ] && optstr+=",$SMB_MOUNT_OPTIONS"
-		#[ -n "$7" ] && comp="$7" || comp="127.0.0.1"
 		cmdstr="$COMMAND_SMBMOUNT $2 $6 -o $optstr"
+		echo "$cmdstr"
+	;;
+	smb-prn|ipp-prn)
+		local model=$(getparam "$6" "model" "" ';')
+		[ "$model" = "NULL" ] && model=""
+		local ppdn=${2#$USER}; ppdn=${ppdn:1}; ppdn=${ppdn%#[0-9]*}
+		local ppdfn="$NX_PPD_DIR/$ppdn.ppd" uri
+		[ -r "$ppdfn" ] || { # ppd is not found, search for driver in CUPS
+			txt=$($COMMAND_LPINFO -m 2>/dev/null)
+			local str drv=""
+			[ -n "$model" ] && {
+				while read str; do
+					[[ "$str" =~ "$model" ]] && { drv="${str%% *}"; break; }
+				done <<< "$txt"
+			}
+			[ -n "$drv" ] || {
+				while read str; do
+					[[ "$str" =~ "$ppdn" ]] && { drv="${str%% *}"; break; }
+				done <<< "$txt"
+			}
+			[ -n "$drv" ] || {
+				nxlog "$lp '$svc;' CUPS driver for service is not found";
+				return 1; }
+			$COMMAND_PPDCAT cat "$drv" > "$ppdfn" || {
+				nxlog "$lp Can't save $ppdfn"; return 1; }
+		}
+		[ "${1:0:3}" = "smb" ] && \
+			uri="nxsmb://$4:$5@127.0.0.1:$3/cifs/$8" || \
+			uri="ipp://$4:$5@127.0.0.1:$3/printers/$8"
+		cmdstr="$COMMAND_LPADMIN -p $svc -P $ppdfn -v $uri -E"
 		echo "$cmdstr"
 	;;
 	esac
@@ -197,24 +223,43 @@ uservice_configure() {
 
 uservice_mount() {
 #args:
-# smb-share <svc> <port> <username> <password> <dir> [computername]
+# smb-share <svc> <port> <username> <password> <dir> <computername>
+# *-prn <svc> <port> <username> <password> <opts> <computername> <share>
 	local lp="$FUNCNAME ($$/$BASHPID):" rc=0 cmdstr errstr
-	cmdstr="$(uservice_configure $@)" || return 1
+	cmdstr=$(uservice_configure "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8") || return 1
 	local i ok="" step=0.25 timeo=28 #7sec
+	for (( i=0; i<=timeo; i++ )); do
+		port_is_listening $3 && { ok="1"; break; }
+		sleep $step"s"
+	done
+	[ -n "$ok" ] || \
+		 { nxlog "$lp '$svc'; port $3 is not listen after $((timeo/4))s";
+		  return 1; }
+
 	case $1 in
 	smb-share)
-		for (( i=0; i<=timeo; i++ )); do
-			port_is_listening $3 && { ok="1"; break; }
-			sleep $step"s"
-		done
-		[ -n "$ok" ] || \
-			 { nxlog "$lp port $3 is not listen after $((timeo/4))s"; return 1; }
 		#nxlog "$lp share cmdstr='$cmdstr'" #debug
 		errstr=$($cmdstr 2>&1) || \
-			{ nxlog "$lp share $2 ($3) mount failed: $errstr"
+			{ nxlog "$lp $2 ($3) share mount failed: $errstr"
 				rmdir "$6" &>/dev/null; return 1; }
-		nxlog "$lp share $2 ($3) mounted"
+		nxlog "$lp $2 ($3) share mounted"
 	;;
+	smb-prn|ipp-prn)
+		#nxlog "$lp add printer cmdstr='$cmdstr'" #debug
+		errstr=$($cmdstr 2>&1) || \
+			{ nxlog "$lp $2 ($3) printer installing failed: $errstr"; return 1; }
+		# post-configure
+		local public=$(getparam "$6" "public" "" ';')
+		[ "$public" != "1" ] && {
+		errstr=$($COMMAND_LPADMIN -p $svc -u allow:$USER,guest,root 2>&1) || \
+			{ nxlog "$lp $2 ($3) printer set permission failed: $errstr"; }
+		}
+		local defp=$(getparam "$6" "defaultprinter" "" ';')
+		[ "$defp" = "1" ] && {
+		errstr=$($COMMAND_LPADMIN -d $svc 2>&1) || \
+			{ nxlog "$lp $2 ($3) printer set to default failed: $errstr"; }
+		}
+		nxlog "$lp $2 ($3) printer installed"
 	esac
 	return $rc
 }
@@ -222,7 +267,7 @@ uservice_mount() {
 uservice_umount() {
 #args: <type> <svc/mountpoint> [data]
 	local lp="$FUNCNAME ($$/$BASHPID):" errstr=""
-	local i ok="" ct=4
+	local i ok="" step="0.5" ct=4
 	case $1 in
 	smb-share)
 		local mdir=$3 res ffl=""
@@ -240,12 +285,22 @@ uservice_umount() {
 			(( i>=ct/2 )) && ffl="-f"
 			errstr+=$($COMMAND_SMBUMOUNT $ffl "$res" 2>&1) && \
 				{ ok="1"; break; }
-			sleep 0.5s
+			sleep $step"s"
 		done
 		[ -n "$ok" ] || \
-			 { nxlog "$lp share $res umount failed: $errstr"; return 1; }
+			 { nxlog "$lp $res share umount failed: $errstr"; return 1; }
 		[ -n "$mdir" ] && [ -d "$mdir" ] && rmdir "$mdir" &>/dev/null
-		nxlog "$lp share $res umounted"; return 0
+		nxlog "$lp $res share umounted"; return 0
+	;;
+	smb-prn|ipp-prn)
+		for (( i=1; i<=ct; i++ )); do
+			errstr+=$($COMMAND_LPADMIN -x "$2" 2>&1) && \
+				{ ok="1"; break; }
+			sleep $step"s"
+		done
+		[ -n "$ok" ] || \
+			 { nxlog "$lp $2 printer deleting failed: $errstr"; return 1; }
+		nxlog "$lp $2 printer deleted"; return 0
 	;;
 	esac
 }
@@ -259,8 +314,9 @@ uservice_start() {
 # Used config vars: COMMAND_HIDE COMMAND_UNHIDE
 	local lp="$FUNCNAME ($$/$BASHPID):" errstr="" qs svcport
 	local st startfl="" checkfl="" updvars="" updvals="" hpass
-	local svc=$1  port=$2 type=$3 share=$4 username=$5 pass=$6 data=$7 comp=$8
-	local addr=$9; [ -z "$addr" ] && addr="127.0.0.1";
+	local svc="$1"  port="$2" type="$3" share="$4"
+	local username="$5" pass="$6" data="$7" comp="$8"
+	local addr="$9"; [ -z "$addr" ] && addr="127.0.0.1";
 
 	[ "$type" = "smb-share" -a -n "$data" ] && data=$(norm_dir "$data" $HOME)
 	# waiting for suitable service status: on/off/""
@@ -275,11 +331,11 @@ uservice_start() {
 		return 1; }
 
 	[ -z "$type" -a -z "$st" ] && {
-		nxlog "$lp params for service $svc not found in usess db";
+		nxlog "$lp '$svc': params for service are not found in usess db";
 		return 1; }
 	[ -z "$type" ] && { #load params from usess db
 		qs="$(usvcs_get $svc "type,port,share,username,pass,data,comp,addr")" || {
-			nxlog "$lp can't get service $svc params from usess db"; return 1; }
+			nxlog "$lp '$svc': can't get service params from usess db"; return 1; }
 		type=$(cutfn "$qs" 0 '&');
 		[ -z "$port" ] && port=$(cutfn "$qs" 1 '&');
 		share=$(cutfn "$qs" 2 '&'); username=$(cutfn "$qs" 3 '&');
@@ -297,19 +353,21 @@ uservice_start() {
 			startfl=1; [ -n "$type" ] && checkfl=1;
 			st="starting"; usvcs_set $svc "status" $st
 		fi
-	elif [ "$st" = "off" ]; then
+	else
 		if uservice_mounted $type $svc; then
 			usvcs_set $svc "status" "stopping"
 			nxlog "$lp $svc service status is \"$st\", but it's mounted. Try to stop";
 			uservice_umount $type $svc $data || {	return 1; }
 		fi
-		startfl=1; [ -n "$type" ] && checkfl=1;
-		st="starting"; usvcs_set $svc "status" $st
-	else # svc not found in usess table
-		hpass=$(echo $pass | $COMMAND_HIDE)
-		usvcs_add "svc,type,status,port,share,comp,addr,username,pass,data" \
-			"$svc&$type&starting&$port&$share&$comp&$addr&$username&$hpass&$data"
-		startfl=1;
+		if [ "$st" = "off" ]; then
+			startfl=1; [ -n "$type" ] && checkfl=1;
+			st="starting"; usvcs_set $svc "status" $st
+		else # svc is not found in usess table
+			hpass=$(echo $pass | $COMMAND_HIDE)
+			usvcs_add "svc,type,status,port,share,comp,addr,username,pass,data" \
+				"$svc&$type&starting&$port&$share&$comp&$addr&$username&$hpass&$data"
+			startfl=1;
+		fi
 	fi
 
 	[ -n "$startfl" ] && {
@@ -343,11 +401,10 @@ uservice_start() {
 
 		}
 		#if [ -n "$type"]; then # add to current session, waiting to agent's port
-		#	:
-		#fi
 
-		#nxlog "$lp _$st _$type _$svc _$port _$username _$pass _$data _$comp" #debug
-		if uservice_mount $type $svc $port "$username" "$pass" "$data" "$comp";
+		#nxlog "$lp _$st _$type _$svc _$port _$username _$pass _$data _$comp" _$share" #debug
+		if uservice_mount $type $svc $port "$(echo -e "${username//\%/\\x}")" \
+			 "$pass" "$data" "$(echo -e "${comp//\%/\\x}")" "$share";
 		then
 			usvcs_set $svc "status,port""$updvars" "on&"$port$updvals
 			return 0
@@ -381,7 +438,7 @@ uservice_stop() {
  AND $lport_name>0"
 		#nxlog "$lp $svc wstr='$wstr'" #debug
 		lport=$(q_vals_str_get "usess" "$wstr" "$lport_name") || \
-			nxlog "$lp other suitable listening port for $svc not found" #; wstr='$wstr'" #debug
+			nxlog "$lp '$svc': other suitable listening port is not found" #; wstr='$wstr'" #debug
 	}
 	[ -n "$3" -o -z "$lport" ] && data=$(usvcs_get $svc "data")
 	uservice_umount $type $svc $data || return 1
@@ -1172,7 +1229,7 @@ cmd_node_suspend() {
 # -----------------------------------------------------------------------------
 # Startup of nxnode
 # -----------------------------------------------------------------------------
-declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask) svc;
+declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask);
 open_dbe $$
 
 [ -n "$2" ] && delim="NX-$2>"
@@ -1222,18 +1279,31 @@ case "$1" in
 		cmd_node_suspend
 	;;
 	--smbmount)
-		#nxlog "$0 ($$): env \"$(env)\"" #debug
 		[ "$(usess_get $session_id "client")" = "winnt" ] && {
+			username=$(getparam "$CMDLINE" "username") # reread with no hex recode
+			computername=$(getparam "$CMDLINE" "computername")
 			username=$(cp_conv "$username"); password=$(cp_conv "$password")
 			share=$(cp_conv "$share"); dir=$(cp_conv "$dir")
 			computername=$(cp_conv "$computername")
 		}
-		svc=$(uservice_svc "smb-share" "$share")
-		uservice_start "$svc" "$port" "smb-share" "$share" "$username" "$password"\
-		 "$dir" "$computername"
+		uservice_start "//127.0.0.1/$share" "$port" "smb-share" "$share" \
+		 "$username" "$password" "$dir" "$computername"
 	;;
 	--addprinter)
-		#cmd_node_addprinter
+		[ "$(usess_get $session_id "client")" = "winnt" ] && {
+			username=$(getparam "$CMDLINE" "username") # reread with no hex recode
+			computername=$(getparam "$CMDLINE" "computername")
+			username=$(cp_conv "$username"); password=$(cp_conv "$password")
+			share=$(cp_conv "$share"); computername=$(cp_conv "$computername")
+		}
+		[ -n "$defaultPrinter" ] && defaultprinter=$defaultPrinter
+		opts="model=$model;public=$public;defaultprinter=$defaultprinter"
+		[ "$type" = "ipp" ] && share=$printer; svc=$share
+
+		[ "${svc:0:1}" = "@" ] && svc=${svc:1} # for backward compatibility
+		svc=${svc%-nocheck}; svc="$USER""_${svc%%__*}"
+
+		uservice_start "$svc" "$port" "$type-prn" "$share" "$username" "$password" "$opts" "$computername"
 	;;
 	--check)
 		echo "NX> 716 finished"

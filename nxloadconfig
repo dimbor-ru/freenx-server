@@ -83,6 +83,7 @@ NXCONFIG_RETEST=0
 #########################################################################
 
 # General FreeNX directives
+NX_PPD_DIR=$NX_ETC_DIR/ppd
 SERVER_NAME="$(hostname)"
 EXTERNAL_PROXY_IP=""
 
@@ -210,6 +211,10 @@ COMMAND_VNCVIEWER="vncviewer"
 COMMAND_VNCPASSWD="vncpasswd"
 COMMAND_X11VNC="x11vnc"
 COMMAND_TASKSET="taskset"
+COMMAND_LPINFO=/usr/sbin/lpinfo
+COMMAND_LPSTAT=/usr/bin/lpstat
+COMMAND_LPADMIN="/usr/bin/sudo /usr/sbin/lpadmin"
+COMMAND_PPDCAT=/usr/lib/cups/daemon/cups-driverd
 
 COMMAND_NXSHADOWACL="$PATH_BIN/nxshadowacl"
 COMMAND_NXCHECKLOAD="$PATH_BIN/nxcheckload"
