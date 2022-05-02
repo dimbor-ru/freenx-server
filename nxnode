@@ -529,7 +529,7 @@ node_fail_restore_session() {
 node_suspend_session() {
 #arg:  <session_id>
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	nxlog "$lp starting"
+	#nxlog "$lp starting" #debug
 	local agent_pid=$(usess_get "$1" "agent_pid")
 	nxlog "$lp Killing (HUP) agent_pid ($agent_pid)..."
 	kill -0 $agent_pid 2>/dev/null || {
@@ -687,7 +687,7 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 		napp=$(cutfn "$node_app" 0); napp=$(cutfn "$napp" -1 '/')
 		second_app=$(rematchfn "$napp:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
 		[ -n "$second_app" ] && {
-			sapp_pids0=$(ps -wo pid= -C $(cutfn "$second_app" -1 '/'))
+			sapp_pids0=$($COMMAND_PS -wo pid= -C $(cutfn "$second_app" -1 '/'))
 			#nxlog "$lp PID of $second_app will be waiting too. Initial: \"$sapp_pids0\"" #debug
 		}
 	}
@@ -715,13 +715,13 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && {
 		if [ -n "$second_app" ] ; then
-			sapp_pids1=$(ps -wo pid= -C $(cutfn "$second_app" -1 '/'))
+			sapp_pids1=$($COMMAND_PS -wo pid= -C $(cutfn "$second_app" -1 '/'))
 			while read spid; do
 				stringinstring "$spid" "$sapp_pids0" && continue
 				sapp_pids+="${sapp_pids:+$' '}$spid"
 			done <<< "$sapp_pids1"
 			#nxlog "$lp Waiting for $second_app PID(S) \"$sapp_pids\"" #debug
-			while [ -n "$(ps -o pid= -p $sapp_pids 2>/dev/null)" ]; do
+			while [ -n "$($COMMAND_PS -o pid= -p $sapp_pids 2>/dev/null)" ]; do
 				sleep 1s
 			done
 			nxlog "$lp PID(S) \"$sapp_pids\" finished"
