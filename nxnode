@@ -53,7 +53,7 @@ declare -g sqcols_usess="session_id, status, display, type, client,\
 declare -g sqcols_usvcs="svc, type, status, port, share, username, pass,\
  data, comp, addr"
 #svc: internal service name
-#type: smb-share | smb-prn | ipp-prn | pa ...
+#type: smb-share | smb-prn | ipp-prn | media-pa | ...
 #status: starting|on|stopping|off
 #port: tunneled/remote port
 #share: incomming share name
@@ -101,25 +101,18 @@ usvcs_set() { q_rows_upd "usvcs" "svc='$1'" "$2" "$3"; }
 #usvcs_get() args: <service> <col1,col2...> [values_delim='&']
 usvcs_get() { q_vals_str_get "usvcs" "svc='$1'" "$2" "$3"; }
 
-usvcs_switch_off() {
-#args: <service>
-	if [ "$SESSION_LOG_CLEAN" = "1" ]; then
-		q_dbe "DELETE FROM usvcs WHERE svc='$1';"
-	else usvcs_set $1 "status,port" "off&0"
-	fi
-}
-
 #
 # -----------------------------------------------------------------------------
 # Node functions module
 # -----------------------------------------------------------------------------
 #
 
-usess_lport_name() {
+sess_lport_name() {
 #arg: <svc_type>
 	case $1 in
 	smb-share|smb-prn) echo "smbport";;
 	ipp-prn)	echo "cupsport";;
+	media-pa)	echo "mmport";;
 	esac
 }
 
@@ -134,9 +127,8 @@ norm_dir() {
 
 uservice_mounted() {
 #args: <type> <service/sharename/mountpoint> [port]
-	local rc=0 txt="" pattern patt_port="$num_pattern" port=""
-	local patt_addr="127.0.0.1"
-	#[ -n "$3" ] && patt_port=$3
+	local rc=0 txt="" pattern  port=""
+	local patt_addr="127.0.0.1"; [ -n "$4" ] && patt_addr=$4
 	case $1 in
 	smb-share)
 		# output of mount cmd not contains mount.cifs port option value
@@ -154,13 +146,26 @@ uservice_mounted() {
 	smb-prn|ipp-prn)
 		txt=$(env LC_ALL=C $COMMAND_LPSTAT -v 2>/dev/null)
 		pattern=".*$2.*//$patt_addr:("
-		[ -n "$port" ] && pattern+="$patt_port)" || pattern+="$num_pattern)"
+		[ -n "$3" ] && pattern+="$3)" || pattern+="$num_pattern)"
 		port=$(rematchfn "$pattern" "$txt"); rc=$?
 		[ -n "$port" ] || return $rc
 		port_is_listening "$port" || rc=1
 	;;
+	media-pa)
+		case $2 in
+		pa) # tunneled pa
+			#$COMMAND_PA --check || return 1
+			txt=$(env LC_ALL=C $COMMAND_PACTL list short 2>/dev/null)
+			pattern="server=$patt_addr:("
+			[ -n "$3" ] && pattern+="$3)" || pattern+="[0-9]+)"
+			port=$(rematchfn "$pattern" "$txt"); rc=$?
+			#nxlog "$1 port=$port" #debug
+			[ -n "$port" ] || return $rc
+			port_is_listening "$port" || rc=1
+		;;
+		esac
+	;;
 	esac
-	[ -n "$port" ] && echo "$port"
 	return $rc
 }
 
@@ -168,9 +173,10 @@ uservice_configure() {
 #args:
 # smb-share <svc> <port> <username> <password> <dir> <computername>
 # 		*-prn <svc> <port> <username> <password> <opts> <computername> <share>
-#opts="model=;public=;defaultprinter="
+#				opts="model=;public=;defaultprinter="
+# media-pa	<svc> <port> <""> <""> <opts>
 	local lp="$FUNCNAME ($$/$BASHPID):";
-	local cmdstr optstr comp rc=0 txt
+	local cmdstr optstr comp rc=0 txt errstr uri
 	case $1 in
 	smb-share)
 		# create/check mountpoint
@@ -191,7 +197,7 @@ uservice_configure() {
 		local model=$(getparam "$6" "model" "" ';')
 		[ "$model" = "NULL" ] && model=""
 		local ppdn=${2#$USER}; ppdn=${ppdn:1}; ppdn=${ppdn%#[0-9]*}
-		local ppdfn="$NX_PPD_DIR/$ppdn.ppd" uri
+		local ppdfn="$NX_PPD_DIR/$ppdn.ppd"
 		[ -r "$ppdfn" ] || { # ppd is not found, search for driver in CUPS
 			txt=$($COMMAND_LPINFO -m 2>/dev/null)
 			local str drv=""
@@ -206,7 +212,7 @@ uservice_configure() {
 				done <<< "$txt"
 			}
 			[ -n "$drv" ] || {
-				nxlog "$lp '$svc;' CUPS driver for service is not found";
+				nxlog "$lp '$svc'; CUPS driver for service is not found";
 				return 1; }
 			$COMMAND_PPDCAT cat "$drv" > "$ppdfn" || {
 				nxlog "$lp Can't save $ppdfn"; return 1; }
@@ -217,6 +223,28 @@ uservice_configure() {
 		cmdstr="$COMMAND_LPADMIN -p $svc -P $ppdfn -v $uri -E"
 		echo "$cmdstr"
 	;;
+	media-pa)
+		case $2 in
+		pa) # tunneled pa
+			local uri="127.0.0.1:$3"
+			# get sink and source from remote pa
+			local rmods=$(env LC_ALL=C $COMMAND_PACTL -s $uri list short 2>/dev/null)
+			[ -n "$rmods" ] || {
+				nxlog "$lp '$svc'; can't get module list from remote PA ($uri)";
+				return 1; }
+			local rsink=$(rematchfn "(ts_receiver)" "$rmods") #"
+			local rsource=$(rematchfn "(ts_sender.monitor)" "$rmods") #"
+			[ -n "$rsink" -a -n "$rsource" ] || {
+				local rinfo=$(env LC_ALL=C $COMMAND_PACTL -s $uri info 2>/dev/null)
+				[ -n "$rsink" ] || \
+					rsink=$(rematchfn "Default Sink:[[:blank:]]+(.+)" "$rinfo") #"
+				[ -n "$rsource" ] || \
+					rsource=$(rematchfn "Default Source:[[:blank:]]+(.+)" "$rinfo") #"
+			}
+			echo "$rsink $rsource"
+		;;
+		esac
+	;;
 	esac
 	return $rc
 }
@@ -225,8 +253,8 @@ uservice_mount() {
 #args:
 # smb-share <svc> <port> <username> <password> <dir> <computername>
 # *-prn <svc> <port> <username> <password> <opts> <computername> <share>
+# media-pa <svc> <port> "" "" <mode> <computername>
 	local lp="$FUNCNAME ($$/$BASHPID):" rc=0 cmdstr errstr
-	cmdstr=$(uservice_configure "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8") || return 1
 	local i ok="" step=0.25 timeo=28 #7sec
 	for (( i=0; i<=timeo; i++ )); do
 		port_is_listening $3 && { ok="1"; break; }
@@ -236,6 +264,7 @@ uservice_mount() {
 		 { nxlog "$lp '$svc'; port $3 is not listen after $((timeo/4))s";
 		  return 1; }
 
+	cmdstr=$(uservice_configure "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8") || return 1
 	case $1 in
 	smb-share)
 		#nxlog "$lp share cmdstr='$cmdstr'" #debug
@@ -260,12 +289,66 @@ uservice_mount() {
 			{ nxlog "$lp $2 ($3) printer set to default failed: $errstr"; }
 		}
 		nxlog "$lp $2 ($3) printer installed"
+	;;
+	media-pa)
+		if  ! $COMMAND_PA --check &>/dev/null; then
+			$COMMAND_PA --start --exit-idle-time=-1 &>/dev/null || {
+			#--log-target=file:$nx_dir/pa-$3.log --log-level=4 || { #debug
+				nxlog "$lp '$svc' can't start local pulseaudio server";
+				return 1; }
+			# automatic null-sink will be disabled
+			# unload unnecessary local modules here too
+			local rmmods="module-always-sink module-rescue-streams module-systemd-login \
+module-device-restore module-stream-restore module-card-restore \
+module-default-device-restore module-switch-on-port-available \
+module-udev-detect module-suspend-on-idle module-console-kit"
+			local txt=$($COMMAND_PACTL list short 2>/dev/null)
+			local midpat="([0-9]+)[[:blank:]]+" mid rmod
+			for rmod in $rmmods; do
+				mid=$(rematchfn "$midpat$rmod" "$txt") && {
+					$COMMAND_PACTL unload-module $mid &>/dev/null
+					#nxlog "$lp ! $mid" #debug
+				}
+			done
+		else nxlog "$lp '$svc' local pulseaudio server already started" #debug
+		fi
+		case $2 in
+		pa) # tunneled pa
+			local rsink=$(cutfn "$cmdstr" 0) rsource=$(cutfn "$cmdstr" 1)
+			local mname="module-tunnel-sink" opts="server=127.0.0.1:$3" oo args ok2=""
+			oo=$(cutfn "$6" 1 '-'); [ -n "$oo" ] && opts+=" rate=$oo"
+			oo=$(cutfn "$6" 2 '-'); [ -n "$oo" ] && opts+=" channels=$oo"
+			[ "$oo" = "1" ] && opts+=" channel_map=mono"
+			if [ "$rsink" != "(null)" ]; then
+				args="sink_name=tcl_out sink=$rsink $opts"
+				errstr=$($COMMAND_PACTL load-module $mname $args 2>&1)
+				[ $? -eq 0 ] && ok="tcl_out" || \
+					nxlog "$FUNCNAME ($$): $2 ($3) can't load $mname $args; '$errstr'"
+				[ -n "$ok" ] && $COMMAND_PACTL set-default-sink "tcl_out" &>/dev/null
+			else nxlog "$lp $2 ($3) can't load $name with rsink=$rsink"
+			fi
+			mname="module-tunnel-source"
+			if [ "$rsource" != "(null)" ]; then
+				args="source_name=tcl_in source=$rsource $opts"
+				errstr=$($COMMAND_PACTL load-module $mname $args 2>&1)
+				[ $? -eq 0 ] && ok2="tcl_in" || \
+					nxlog "$FUNCNAME ($$): $2 ($3) can't load $mname $args; '$errstr'"
+				[ -n "$ok2" ] && $COMMAND_PACTL set-default-source "tcl_in" &>/dev/null
+			else nxlog "$lp $2 ($3) can't load $name with rsource=$rsource"
+			fi
+			if [ -n "$ok" -o  -n "$ok2" ]; then 
+				nxlog "$lp $2 ($3) tunnel modules loaded: $ok $ok2"
+			else rc=1
+			fi
+		;;
+		esac
+	;;
 	esac
 	return $rc
 }
 
 uservice_umount() {
-#args: <type> <svc/mountpoint> [data]
+#args: <type> <svc/mountpoint> [data] [port]
 	local lp="$FUNCNAME ($$/$BASHPID):" errstr=""
 	local i ok="" step="0.5" ct=4
 	case $1 in
@@ -290,7 +373,7 @@ uservice_umount() {
 		[ -n "$ok" ] || \
 			 { nxlog "$lp $res share umount failed: $errstr"; return 1; }
 		[ -n "$mdir" ] && [ -d "$mdir" ] && rmdir "$mdir" &>/dev/null
-		nxlog "$lp $res share umounted"; return 0
+		nxlog "$lp $res share umounted"
 	;;
 	smb-prn|ipp-prn)
 		for (( i=1; i<=ct; i++ )); do
@@ -300,9 +383,36 @@ uservice_umount() {
 		done
 		[ -n "$ok" ] || \
 			 { nxlog "$lp $2 printer deleting failed: $errstr"; return 1; }
-		nxlog "$lp $2 printer deleted"; return 0
+		nxlog "$lp $2 printer deleted"
+	;;
+	media-pa)
+		case $2 in
+		pa) # tunneled pa
+			local midpat="([0-9]+)[[:blank:]]+module-" uri="127.0.0.1"
+			[ -n "$4" ] && uri+=":$4"
+			txt=$(env LC_ALL=C $COMMAND_PACTL list short 2>/dev/null)
+			[ -n "$txt" ] || {
+				nxlog "$lp '$svc'; local PA already stopped";	return 0; }
+			local mid es mids=$(rematchfn "$midpat.+server=$uri" "$txt" all);
+			#nxlog "$lp '$2'; rmids: "$mids; #debug
+			for mid in $mids; do
+				es=$($COMMAND_PACTL unload-module $mid 2>&1)
+				[ $? -ne 0 ] && errstr+="\n$es"
+			done
+			[ -n "$errstr" ] && {
+				nxlog "$lp '$2'; unload some local PA modules failed: $errstr";
+			}
+			nxlog "$lp $2 remote tunnel disconnected"
+			#nxlog "$lp $2 remote tunnel: $($COMMAND_PACTL list short 2>/dev/null)" #debug
+		;;
+		esac
+		[ -n "$3" ] && {
+			$COMMAND_PA --kill || {
+				nxlog "$lp '$2'; unable to kill local PA";	return 0; }
+		}
 	;;
 	esac
+	return 0
 }
 
 uservice_start() {
@@ -317,10 +427,24 @@ uservice_start() {
 	local svc="$1"  port="$2" type="$3" share="$4"
 	local username="$5" pass="$6" data="$7" comp="$8"
 	local addr="$9"; [ -z "$addr" ] && addr="127.0.0.1";
-
 	[ "$type" = "smb-share" -a -n "$data" ] && data=$(norm_dir "$data" $HOME)
+
+	local i ok="" step="0.25" timeo="28" #4sec
+	[ -n "$type" -a -z "$port" ] && {
+		# starting no restarting - we wait for session listening port just in case
+		local lport_name=$(sess_lport_name $type)
+		local wstr="session_id='$session_id' AND $lport_name>0"
+		for (( i=0; i<=timeo; i++ )); do
+			port=$(q_vals_str_get "usess" "$wstr" "$lport_name") && break
+			sleep $step"s"
+		done
+		[ -n "$port" ] || {
+			nxlog "$lp $svc session $lport_name no declared after $((timeo/4)) s";
+			return 1; }
+	}
+
 	# waiting for suitable service status: on/off/""
-	local i ok="" step="0.25" timeo="28" #7sec
+	ok="" step="0.25" timeo="28" #7sec
 	for (( i=0; i<=timeo; i++ )); do
 		st=$(usvcs_get $svc "status") || { ok="1"; break; }
 		stringinstring "$st" "starting|stopping" || { ok="1"; break; }
@@ -400,7 +524,6 @@ uservice_start() {
 				updvars+=",addr"; updvals+="&$addr"; }
 
 		}
-		#if [ -n "$type"]; then # add to current session, waiting to agent's port
 
 		#nxlog "$lp _$st _$type _$svc _$port _$username _$pass _$data _$comp" _$share" #debug
 		if uservice_mount $type $svc $port "$(echo -e "${username//\%/\\x}")" \
@@ -418,7 +541,7 @@ uservice_stop() {
 #arg: svc [type] [norestart]
 # Used gvars: session_id
 	local lp="$FUNCNAME ($$/$BASHPID):"
-	local i ok="" st type=$2 data="" lport=""
+	local i ok="" st type=$2 lport_name lport="" data="" hardstop=$3
 	# waiting for suitable service status: on
 	local step=0.25 timeo=28 #7sec
 	for (( i=0; i<=timeo; i++ )); do
@@ -431,20 +554,28 @@ uservice_stop() {
 		return 1; }
 	[ -z "$type" ] && type=$(usvcs_get $svc "type")
 	usvcs_set $svc "status" "stopping"
-	[ -n "$3" ] || { # get suitable session first
-		local comp=$(usvcs_get $svc "comp")
-		local lport_name=$(usess_lport_name $type)
-		local wstr="status='Running' AND session_id!='$session_id'\
- AND $lport_name>0"
+	[ -n "$hardstop" ] || { # get suitable session first
+		lport_name=$(sess_lport_name $type)
+		local wstr="status='Running' AND session_id!='$session_id' AND $lport_name>0"
 		#nxlog "$lp $svc wstr='$wstr'" #debug
-		lport=$(q_vals_str_get "usess" "$wstr" "$lport_name") || \
+		lport=$(q_vals_str_get "usess" "$wstr" "$lport_name") || {
+			hardstop=1
 			nxlog "$lp '$svc': other suitable listening port is not found" #; wstr='$wstr'" #debug
+		}
 	}
-	[ -n "$3" -o -z "$lport" ] && data=$(usvcs_get $svc "data")
-	uservice_umount $type $svc $data || return 1
-	[ -n "$3" -o -z "$lport" ] && { usvcs_switch_off $svc; return 0; }
+	[ -n "$hardstop" ] && { # if unable to restart we must known data
+		data=$(usvcs_get $svc "data"); }
+	#nxlog "$lp '$svc': hs=$hardstop; data=$data" #debug
+	uservice_umount $type $svc "$data" "$port" || return 1
+	[ -n "$hardstop" ] && {
+		if [ "$SESSION_LOG_CLEAN" = "1" ]; then
+			q_dbe "DELETE FROM usvcs WHERE svc='$1';"
+		else usvcs_set $1 "status,port" "off&0"
+		fi
+		return 0;
+	}
 	usvcs_set $svc "status,port" "off&0"
-	uservice_start $svc $lport || return 1
+	uservice_start $svc $lport #|| return 1
 	return 0
 }
 
@@ -600,9 +731,10 @@ node_start_applications() {
 # Used config vars: <several>
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	#nxlog "$lp starting" #debug
-	local node_app mmode mmport params i;
+	local node_app mmport i;
 	local second_app="" sapp_pids0="" napp;
 	local spid node_app_pid sapp_pids="" sapp_pids1 node_wm_pid;
+	local ok step timeo
 	# close input and output file descriptors
 	exec 0<&-; exec 1>&-; exec 2>&-
 
@@ -610,7 +742,7 @@ node_start_applications() {
 	export DISPLAY=:$display
 
 	#nxlog "$lp display='$display', waiting for it's ready" #debug
-	local i ok="" step="0.01" timeo=$((AGENT_STARTUP_TIMEOUT*100))
+	ok="" step="0.01" timeo=$((AGENT_STARTUP_TIMEOUT*100))
 	for (( i=0; i<=timeo; i++ )); do
 		[ -f /tmp/.X$display-lock ] && { ok="1"; break; }
 		sleep $step"s"
@@ -1074,6 +1206,7 @@ startsession() { # Start a new session.
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	local opt_vars opt_str pack cleanup product clipboard menu;
 	local id fullscreen accept vn;
+	local i ok step timeo
 	#nxlog "$lp starting with args \"$@\"" #debug
 
 	[ "$1" = "start" ] && mkdir -p -m700 "$NXSESSION_DIRECTORY"
@@ -1185,7 +1318,12 @@ exit"
 		sh -c 'echo "Info: tail -f running with pid '\'\$$\''."; exec tail -n1 -f '"$NXSESSION_DIRECTORY"'/session' | node_start_monitor "restore" &
 		MONITOR_PID=$!; export MONITOR_PID
 		#nxlog "$lp call 'node_suspend_session \"$session_id\"'" #debug
-		node_suspend_session "$session_id" || { echo "Info: Reconnection failed: NX Agent process could not be found." >>"$NXSESSION_DIRECTORY/session"; node_fail_restore_session "$session_id"; }
+		node_suspend_session "$session_id" || {
+			echo "Info: Reconnection failed: NX Agent process could not be found." >> \
+				"$NXSESSION_DIRECTORY/session";
+			node_fail_restore_session "$session_id";
+			return 1;
+		}
 	else # start
 		#nxlog "$lp call 'node_start_agent'" #debug
 		node_start_agent &
@@ -1193,7 +1331,7 @@ exit"
 		node_start_applications &
 		if [ -x "$NODE_AUTOSTART" ]; then
 			#nxlog "$lp NODE_AUTOSTART: waiting for nxagent" #debug
-			local i ok="" step="0.01" timeo=$((AGENT_STARTUP_TIMEOUT*100))
+			ok="" step="0.01" timeo=$((AGENT_STARTUP_TIMEOUT*100))
 			for (( i=0; i<=timeo; i++ )); do
 				[ -f /tmp/.X$display-lock ] && { ok="1"; break; }
 				sleep $step"s"
@@ -1206,6 +1344,21 @@ exit"
 			NXSESSIONID="$sess_id" DISPLAY=:$display "$NODE_AUTOSTART" "$1" >/dev/null 2>&1 &
 			disown $! # dont't wait for this child!
 		fi
+	fi
+
+	if [ -n "$mediahelper" -a "$1" != "application" ]; then
+		#nxlog "$lp display='$display', waiting for it's ready" #debug
+		ok="" step="0.01" timeo=$((AGENT_STARTUP_TIMEOUT*100))
+		for (( i=0; i<=timeo; i++ )); do
+			[ -f /tmp/.X$display-lock ] && { ok="1"; break; }
+			sleep $step"s"
+		done
+		[ -n "$ok" ] || \
+			nxlog "$lp /tmp/.X$display-lock not found after $AGENT_STARTUP_TIMEOUT s";
+		[ -n "$ok" ] && {
+			#nxlog "$lp env: $(env)" #debug
+			uservice_start ${mediahelper%%-*} "" "media-pa" "" "" "" "$mediahelper"
+		}
 	fi
 
 	if [ -n "$MONITOR_PID" ]; then
@@ -1286,7 +1439,7 @@ case "$1" in
 			share=$(cp_conv "$share"); dir=$(cp_conv "$dir")
 			computername=$(cp_conv "$computername")
 		}
-		uservice_start "//127.0.0.1/$share" "$port" "smb-share" "$share" \
+		uservice_start "//127.0.0.1/$share" "" "smb-share" "$share" \
 		 "$username" "$password" "$dir" "$computername"
 	;;
 	--addprinter)
@@ -1303,7 +1456,8 @@ case "$1" in
 		[ "${svc:0:1}" = "@" ] && svc=${svc:1} # for backward compatibility
 		svc=${svc%-nocheck}; svc="$USER""_${svc%%__*}"
 
-		uservice_start "$svc" "$port" "$type-prn" "$share" "$username" "$password" "$opts" "$computername"
+		uservice_start "$svc" "" "$type-prn" "$share"\
+			"$username" "$password" "$opts" "$computername"
 	;;
 	--check)
 		echo "NX> 716 finished"
