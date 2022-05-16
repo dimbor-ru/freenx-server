@@ -22,8 +22,6 @@ case "$1" in
 			groupadd nx 2>/dev/null
 			useradd -g nx -G utmp -d /var/lib/nxserver/home/ \
 				-s $PBIN/nxserver -c "NX System User" nx 2>/dev/null
-			chown nx:root $PBIN/nxserver-suid
-			chmod 4755 $PBIN/nxserver-suid
 			chown nx:root $PBIN/nx-session-launcher-suid
 			chmod 4755 $PBIN/nx-session-launcher-suid
 			chown :users /etc/nxserver/ppd

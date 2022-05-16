@@ -17,9 +17,9 @@ PATH_SHARE      ?= $(PREFIX)/share
 
 NX_VERSION=`cat VERSION 2>/dev/null`
 
-SUBDIRS=nxredir nxviewer-passwd nxserver-helper nxserver-suid nx-session-launcher
+SUBDIRS=nxredir nxviewer-passwd nxserver-helper nx-session-launcher
 PROGRAMS=nxacl.sample nxacl.app nxcheckload.sample nxcups-gethost nxdesktop_helper nxdialog.freenx nxkeygen nxloadconfig nxnode nxnode-login nxprint nxserver nxsetup nxviewer_helper nx-session-launcher/nx-session-launcher
-PROGRAMS_BIN=nxserver-helper/nxserver-helper nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher-suid nxserver-suid/nxserver-suid
+PROGRAMS_BIN=nxserver-helper/nxserver-helper nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher-suid
 
 all:
 	cd nxviewer-passwd && xmkmf && make Makefiles && make depend
@@ -31,8 +31,6 @@ all:
 	done
 
 suid_install:
-	chown nx:root $(DESTDIR)/$(PATH_BIN)/nxserver-suid
-	chmod 4755 $(DESTDIR)/$(PATH_BIN)/nxserver-suid
 	chown nx:root $(DESTDIR)/$(PATH_BIN)/nx-session-launcher-suid
 	chmod 4755 $(DESTDIR)/$(PATH_BIN)/nx-session-launcher-suid
 	chown :users $(DESTDIR)/$(NX_ETC_DIR)/ppd
