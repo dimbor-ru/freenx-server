@@ -78,64 +78,6 @@ log_error() {
 
 echo_x() { log "4" "$@"; echo "$@"; }
 
-############### PACKAGE passdb.bm #######################
-#
-# Library of passdb functions (outsource)
-#
-
-# Policy: Variable and function names _must_ start with passdb_ / PASSDB_
-
-# Needed global vars: $NX_ETC_DIR, $PATH_BIN
-
-# Needed nonstd functions: md5sum
-
-passdb_get_crypt_pass() { echo "$@" | $COMMAND_MD5SUM | cut -d" " -f1; }
-
-passdb_get_pass() {
-	local passdb_chuser="$1"
-	local passdb_pass=$(egrep "^$passdb_chuser:" $NX_ETC_DIR/passwords 2>/dev/null | cut -d":" -f2)
-	if [ "$ENABLE_PASSDB_AUTHENTICATION" = "1" ]; then
-		egrep -q "^$passdb_chuser:" $NX_ETC_DIR/passwords 2>/dev/null && echo $passdb_pass
-		egrep -q "^$passdb_chuser:" $NX_ETC_DIR/passwords 2>/dev/null || echo "NOT_VALID"
-	else
-		echo "NOT_VALID"
-	fi
-}
-
-passdb_chpass() {
-	local passdb_chuser="$1" passdb_enc_pass="$2"
-	cp -f $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	sed -i -e "s/$passdb_chuser:.*/$passdb_chuser:$passdb_enc_pass/g" $NX_ETC_DIR/passwords
-}
-
-passdb_user_exists() {
-	local passdb_chuser="$1"
-	egrep -q "^$passdb_chuser:" $NX_ETC_DIR/passwords 2>/dev/null
-}
-
-
-passdb_remove_user() {
-	local passdb_chuser="$1"
-	cp -f $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	sed -i -e "/$passdb_chuser:/d" $NX_ETC_DIR/passwords
-}
-
-passdb_add_user() {
-	local passdb_chuser="$1"
-	cp -f $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	echo "$passdb_chuser:*" >> $NX_ETC_DIR/passwords
-	# deactivated to avoid problems with comm-server
-	su - $passdb_chuser -c "$PATH_BIN/nxnode --setkey"
-}
-
-passdb_list_user() {
-	cat $NX_ETC_DIR/passwords | cut -d":" -f1
-}
-
-#
-# End of passdb Library
-#
-
 ############### PACKAGE session.bm #######################
 #
 # Library of session management functions
@@ -455,17 +397,12 @@ session_fail() {
 # ENABLE_AUTORECONNECT ENABLE_AUTORECONNECT_BEFORE_140
 # ENABLE_EXTERNAL_NXDESKTOP ENABLE_EXTERNAL_NXVIEWER
 # ENABLE_LOAD_BALANCE_PREFERENCE ENABLE_LOG_FAILED_LOGINS
-# ENABLE_MIRROR_VIA_VNC ENABLE_PASSDB_AUTHENTICATION
-# ENABLE_SESSION_SHADOWING_AUTHORIZATION ENABLE_SSH_AUTHENTICATION
-# ENABLE_SU_AUTHENTICATION ENABLE_USER_DB ENABLE_USERMODE_AUTHENTICATION
+# ENABLE_MIRROR_VIA_VNC ENABLE_SESSION_SHADOWING_AUTHORIZATION
 # ENABLE_USESSION LOAD_BALANCE_SERVERS
 # NX_ETC_DIR NX_HOME_DIR NX_LICENSE NX_LOGFILE NX_LOG_LEVEL
 # NX_LOG_SECURE NX_SESS_DIR NX_VERSION
 # SERVER_NAME SESSION_HISTORY SESSION_LIMIT SESSION_USER_LIMIT
 # SHARED_CONFS SSHD_PORT
-
-# lost? conf vars:
-# COMMAND_GUEST_LOGIN ENABLE_GUEST_LOGIN
 
 # declare global variables:
 declare -g cmd in_params proto login_success login_method
@@ -473,51 +410,9 @@ declare -g server_mode preferred_host session_count session_count_user
 declare -g user2 ENCRYPTION proxy_display server_host
 declare -g oifs rc isdbs NODE_HOSTNAME user fl_send="1"
 
-# env variables?
-# NX_USERMODE USER
-
 server_mode="0"; [ "$USER" = "nx" ] && server_mode="1"
 
-# We can override usermode via environment var
-[ "$NX_USERMODE" = "1" ] && ENABLE_USERMODE_AUTHENTICATION="1"
-
-# When usermode is 1, we only run in server loop
-# if nxserver was run without any arguments or just with -c nxserver.
-if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]; then
-	# do not run in server mode loop regardless of username
-	server_mode="0"
-	[ -z "$*" -o "$*" = "-c $PATH_BIN/nxserver" ] && server_mode="1"
-
-	# Reread the config files (so that $USER.node.conf get sourced)
-	. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --userconf
-
-	# We might need to reactivate this now
-	ENABLE_USERMODE_AUTHENTICATION="1"
-	# export the necessary variables
-	export NX_SESS_DIR="$HOME/.nx/db/"
-	export NX_LOGFILE="$HOME/.nx/temp/nxserver.log"
-	mkdir -p $(dirname $NX_LOGFILE)
-	open_dbe
-	isdbs=""; [ -f $sess_bd ] && isdbs="1"
-	attach_db $sess_bd
-	init_sess_db
-	[[ -z "$isdbs" && ( -d "$NX_SESS_DIR/closed" || \
-		-d "$NX_SESS_DIR/failed" ) ]] && drop_old_conf_dirs
-
-	# we are logged in already
-	login_success="1"
-	login_method="USERMODE"
-
-	# we do not use loadbalancing mode for usermode
-	LOAD_BALANCE_SERVERS=""
-fi
-
 if [ "$server_mode" = "1" ]; then
-
-nxnode_login() {
-	local PASS="$1"; shift
-	NXNODE_TOSEND="$NXNODE_TOSEND" echo $PASS | $PATH_BIN/nxnode-login "$@"
-}
 
 # Start!
 isdbs=""; [ -f $sess_bd ] && isdbs="1"
@@ -530,9 +425,6 @@ log 3 "-- NX SERVER START: $@ - ORIG_COMMAND=$SSH_ORIGINAL_COMMAND"
 # Get the hostname out of SSH_ORIGINAL_COMMAND
 preferred_host=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 
-if [ "$NX_USERMODE" = "1" ]; then
-	log 3 "Info: Usermode authentication: Logged in as $USER."
-else
 	echo_x "HELLO NXSERVER - Version $NX_VERSION $NX_LICENSE"
 	# Login stage
 	while true; do
@@ -574,69 +466,15 @@ else
 				read -r -s PASS; export IFS=$oifs; echo_x ""
 				log 6 -n "Info: Auth method: "
 				# USER already logged in?
-				if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]; then
-					login_success="1"
-					# we have read the user config already above,
-					# so we don't get any new information here
-					break
-				fi
 				user=$user2
 
-				# Guest authentication
-				if [ "$user" = "NX guest user" ]; then
-					if [ "$ENABLE_GUEST_LOGIN" != "1" -o \
-								! -x "$COMMAND_GUEST_LOGIN" ]; then
-						if [ "$ENABLE_GUEST_LOGIN" != "1" ]; then
-							echo_x "NX> 404 ERROR: guest authentication not enabled"
-						else
-							echo_x "NX> 404 ERROR: $COMMAND_GUEST_LOGIN not correct"
-						fi
-						echo_x "NX> 999 Bye"
-						if [ "$ENABLE_LOG_FAILED_LOGINS" = "1" ]; then
-							logger -t nxserver -i -p auth.info \
-								"($(whoami)) Failed login for user=$user from IP=$(echo $SSH_CLIENT | awk '{print $1}')"
-						fi
-						exit_proc 1
-					fi
-					log 6 -n "guest "
-					nxnode_login "" -- guest "" "" "$COMMAND_GUEST_LOGIN" \
-						--check 2>&1 >/dev/null
-					if [ $? -eq 0 ]; then login_success="1"; login_method="GUEST"; fi
-				fi
-
-				# SU based auth
-				if [ "$ENABLE_SU_AUTHENTICATION" = "1" -a \
-						"$login_success" = "0" ]; then
+				# SU based auth used ONLY
+				if [ "$login_success" = "0" ]; then
 					log 6 -n "su "
 					LANG=C echo "$PASS" | \
 						/usr/bin/sudo -u $user -Svk -p "" >/dev/null 2>&1
 					if [ $? -eq 0 ]; then login_success="1"; login_method="SU"; fi
 				fi
-
-				# PASSDB based auth
-				if [ "$ENABLE_PASSDB_AUTHENTICATION" = "1" -a \
-					"$login_success" = "0" ]; then
-					log 6 -n "passdb "
-					if [ $(passdb_get_crypt_pass "$PASS") = \
-						$(passdb_get_pass "$user") ]; then
-						login_success="1"; login_method="PASSDB"
-					fi
-				fi
-
-				# SSH based auth
-				if [ "$ENABLE_SSH_AUTHENTICATION" = "1" -a "$login_success" = "0" ]; then
-					log 6 -n "ssh "; export COMMAND_SSH;
-					nxnode_login "$PASS" -- ssh "$user" "$SSHD_PORT" \
-						"$PATH_BIN/nxnode" --check 2>&1 >/dev/null
-					if [ $? -eq 0 ]; then login_success="1"; login_method="SSH"; fi
-				fi
-
-				# Check if user in passdb
-				if [ "$ENABLE_USER_DB" = "1" ]; then
-					log 6 "userdb check"
-					passdb_user_exists "$user" || login_success="0"
-				fi
-				log 6 ""
 
 				if [ "$login_success" = "1" ]; then
 					# Reread the config files (so that $USER.node.conf get sourced)
@@ -655,7 +493,6 @@ else
 			;;
 		esac
 	done
-fi
 echo_x "NX> 103 Welcome to: $SERVER_NAME user: $user"
 
 # remove old session infos from history
@@ -681,7 +518,7 @@ server_get_params() {
 
 server_nxnode_start() {
 # use vars: session_id
-# NODE_HOSTNAME NXNODE_TOSEND COMMAND_SSH
+# NODE_HOSTNAME NXNODE_TOSEND
 	local cmd="$1" user="$2"; shift; shift;
 
 	# Find NODE_HOSTNAME
@@ -690,30 +527,9 @@ server_nxnode_start() {
 	#CMDLINE=$(session_get "$session_id")
 	NODE_HOSTNAME=$host; [ -z "$NODE_HOSTNAME" ] && NODE_HOSTNAME="127.0.0.1"
 	export NODE_HOSTNAME
-	# Use nxnode-login?
-	if [ "$login_method" = "SU" ]; then
-		echo -e "$PASS\n$@" | \
-			/usr/bin/sudo -u $user -HSik -p "" $PATH_BIN/nxnode "$cmd" 2>&1 | \
-				log_tee
-	elif [ "$login_method" = "SSH" ]; then
-	    export COMMAND_SSH
-	    NXNODE_TOSEND="$@" nxnode_login "$PASS" -- \
-			ssh "$user" "$SSHD_PORT" "$PATH_BIN/nxnode" "$cmd" 2>&1 | log_tee
-	elif [ "$login_method" = "GUEST" ]; then
-		NXNODE_TOSEND="$@" nxnode_login "" -- \
-			guest "" "" "$COMMAND_GUEST_LOGIN" "$cmd" 2>&1 | log_tee
-	elif [ "$login_method" = "USERMODE" ]; then
-	    # we need to unset SSH_* variables so that nxnode
-	    # chooses the right accept= value.
-	    unset SSH_CLIENT SSH_CLIENT2
-	    echo "$@" | $PATH_BIN/nxnode "$cmd" 2>&1 | log_tee
-	else
-	    echo "$@" | $COMMAND_SSH -l "$user" "$NODE_HOSTNAME" -p $SSHD_PORT \
-			-x -2 -i $NX_ETC_DIR/users.id_dsa -o 'PubkeyAuthentication yes' \
-			-o 'RSAAuthentication yes' -o 'RhostsAuthentication no' \
-			-o 'PasswordAuthentication no' -o 'RhostsRSAAuthentication no' \
-			-o 'StrictHostKeyChecking no' $PATH_BIN/nxnode "$cmd" | log_tee
-	fi
+	echo -e "$PASS\n$@" | \
+		/usr/bin/sudo -u $user -HSik -p "" $PATH_BIN/nxnode "$cmd" 2>&1 | \
+			log_tee
 }
 
 server_add_usession() {
@@ -1335,35 +1151,6 @@ while true; do
 			in_params+="&display=$display"
 			( server_nxnode_start --addprinter "$user" "$in_params" >/dev/null 2>&1 ) &
 		;;
-		passwd)
-			echo_x "NX> 113 Changing password of user '$user'"
-			echo_x -n "NX> 102 Current password:"
-			read -r -s pass
-			enc_pass=$(passdb_get_crypt_pass "$pass")
-			real_pass=$(passdb_get_pass "$user")
-			echo_x
-			if [ "$enc_pass" = "$real_pass" ]; then
-				echo_x -n "NX> 102 Password:"
-				read -r -s new_pass1
-				if [ ${#new_pass1} -lt 5 ]; then
-					echo_x "NX> 500 ERROR: incorrect password format, password must be long at least five characters"
-					continue
-				fi
-				echo_x
-				echo_x -n "NX> 102 Confirm password:"
-				read -r -s new_pass2
-				echo_x
-				if [ "$new_pass1" = "$new_pass2" ]; then
-					enc_pass=$(passdb_get_crypt_pass "$new_pass1")
-					passdb_chpass "$user" "$enc_pass"
-					echo_x "NX> 114 Password of user '$user' changed"
-				else
-					echo_x "NX> 537 ERROR: passwords do not match"
-				fi
-			else
-				echo_x "NX> 500 ERROR: current password doesn't match"
-			fi
-		;;
 		*)
 			# disabled for 1.4.0-5 snapshot client
 			#echo_x "NX> 503 Error: undefined command: '$cmd'"
@@ -1393,11 +1180,6 @@ cmd_usage() {
 	echo "Usage: nxserver <option>" 1>&2
 
 	if [ "$1" = "root" ]; then
-		echo "--adduser <user>: Add a new user" 1>&2
-		echo "--passwd <user>: Change password of <user>" 1>&2
-		echo "--deluser <user>: Remove a user from nx" 1>&2
-		echo "--listuser: List enabled users" 1>&2
-		echo "" 1>&2
 		echo "--start: Start the nx server" 1>&2
 		echo "--stop: Stop the nx server" 1>&2
 		echo "--status: Show status of nx server" 1>&2
@@ -1416,8 +1198,6 @@ cmd_usage() {
 		echo "" 1>&2
 		echo "--broadcast <message>: Send a message to all users" 1>&2
 		echo "--send <user | :display | session_id> <message>: Send a message to the specified user or session_id" 1>&2
-	else
-		echo "--passwd: Change password" 1>&2
 	fi
 	exit_proc 1
 }
@@ -1449,52 +1229,6 @@ cmd_user_passwd() {
 	#read -s NEWPASS2
 }
 
-cmd_passwd() {
-	local cmd_chuser=$2 cmd_newpass cmd_enc_pass
-	egrep -q "^$cmd_chuser:" $NX_ETC_DIR/passwords || \
-		cmd_abort "Error: User $cmd_chuser not found in database."
-	echo -n "New password: "
-	read -r -s cmd_newpass
-	echo
-	cmd_enc_pass=$(passdb_get_crypt_pass "$cmd_newpass")
-	passdb_chpass "$cmd_chuser" "$cmd_enc_pass"
-	echo "Password changed."
-}
-
-cmd_checkpassdb() {
-	if [ "$ENABLE_PASSDB_AUTHENTICATION" != "1" ]; then
-		cmd_abort "Error: The passdb function is not activated in node.conf.\n\nMost probably your FreeNX setup will work out of the box without this\nfunctionality and you've been misleaded by an old tutorial or old\ndocumentation to do this step.\n\nIf however you really need this functionality, just set\nENABLE_PASSDB_AUTHENTICATION=\"1\" in node.conf.\n"
-	fi
-	return 0
-}
-
-cmd_adduser() {
-	local cmd_chuser=$2
-	[ ${#cmd_chuser} -ge 32 ] && \
-		cmd_abort "Error: User $cmd_chuser must be shorter than 32 characters."
-	egrep -q "^$cmd_chuser:" $NX_ETC_DIR/passwords && \
-		cmd_abort "Error: User $cmd_chuser already in database."
-	getent passwd "$cmd_chuser" >/dev/null || \
-		cmd_abort "Error: User $cmd_chuser not existing on local system. Can't add."
-	passdb_add_user "$cmd_chuser"
-}
-
-cmd_deluser() {
-	local cmd_chuser=$2
-	egrep -q "^$cmd_chuser:" $NX_ETC_DIR/passwords || \
-		cmd_abort "Error: User $cmd_chuser not found in database."
-	passdb_remove_user "$cmd_chuser"
-}
-
-cmd_listuser() {
-	echo "NX> 146 NX users list"
-	echo
-	echo "Username"
-	echo "---------------"
-	echo
-	passdb_list_user
-	echo
-}
 
 cmd_start() {
 	[ -f $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS ] && \
@@ -1596,9 +1330,7 @@ cmd_history() {
 
 cmd_execute() {
 	local cmd_host="$1" cmd_user="$2" cmd_cmd="$3"
-	if [ "$ENABLE_USERMODE_AUTHENTICATION" = "1" ]; then
-		sh -c "$cmd_cmd"
-	elif [ "$cmd_host" = "127.0.0.1" -o "$cmd_host" = "localhost" ]; then
+	if [ "$cmd_host" = "127.0.0.1" -o "$cmd_host" = "localhost" ]; then
 		/bin/su - "$cmd_user" -c "$cmd_cmd"
 	else
 		ssh "$cmd_host" su - "$cmd_user" -c "'$cmd_cmd'"
@@ -1669,10 +1401,10 @@ fi
 
 #
 # normal user available functions
-if [ $UID -ne 0 -a "$ENABLE_USERMODE_AUTHENTICATION" != "1" ]; then
-	[ "$1" = "--agent" ] && exec $PATH_BIN/nxnode "$@"
-	[ "$1" != "--passwd" ] && cmd_usage
-	cmd_user_passwd
+if [ $UID -ne 0 ]; then
+	if [ "$1" = "--agent" ]; then exec $PATH_BIN/nxnode "$@"
+	else cmd_usage
+	fi
 	exit_proc 0
 fi
 
@@ -1689,24 +1421,6 @@ fi
 cmd=$1
 echo "NX> 100 NXSERVER - Version $NX_VERSION $NX_LICENSE"
 case $cmd in
-	#
-	# User functions ...
-	--passwd)
-		cmd_checkpassdb
-		cmd_passwd "$@"
-	;;
-	--adduser|--useradd)
-		cmd_checkpassdb
-		cmd_adduser "$@"
-	;;
-	--deluser|--userdel)
-		cmd_checkpassdb
-		cmd_deluser "$@"
-	;;
-	--listuser|--userlist)
-		cmd_checkpassdb
-		cmd_listuser
-	;;
 	--start)
 		cmd_start
 	;;

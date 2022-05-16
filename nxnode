@@ -799,19 +799,11 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 	case $type in
 		unix-gnome)
 			export STARTUP="$node_app"
-			if [ "$login_method" = "GUEST" ]; then
-				node_app=$COMMAND_GUEST_X_SESSION
-			elif [ "$BOOTSTRAP_X_SESSION" = "1" ]; then
-				node_app=$COMMAND_GDM_X_SESSION
-			fi
+			[ "$BOOTSTRAP_X_SESSION" = "1" ] && node_app=$COMMAND_GDM_X_SESSION
 		;;
 		unix-kde|unix-cde)
 			export STARTUP="$node_app"
-			if [ "$login_method" = "GUEST" ]; then
-				node_app=$COMMAND_GUEST_X_SESSION
-			elif [ "$BOOTSTRAP_X_SESSION" = "1" ]; then
-				node_app=$DEFAULT_X_SESSION
-			fi
+			[ "$BOOTSTRAP_X_SESSION" = "1" ] && node_app=$DEFAULT_X_SESSION
 		;;
 	esac
 
@@ -874,8 +866,6 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 node_agent_persistent_session() {
 # Is the user allowed to run a persistent session?
 	local username IFS="," p="-nopersistent"
-	# Guest sessions are always nonpersistent
-	[ "$login_method" = "GUEST" ] && { echo "$p"; return; }
 	[ "$ENABLE_PERSISTENT_SESSION" = "all" ] && p="-persistent" || {
 		for username in $ENABLE_PERSISTENT_SESSION; do
 			[ "${username:0:1}" != "@" ] && [ "$USER" = "$username" ] && \
@@ -1199,7 +1189,6 @@ startsession() { # Start a new session.
 # FreeNX specific variables: clientproto,status,host
 # NX 3.0 shadow mode related variables: shadowusername,shadowcookie,
 # shadowdisplay,shadowhost
-# Authentication method needed by guest mode: login_method
 # dimbor: additional extra-channels extra[1-3], patched nxcomp both
 # on server and client are required
 

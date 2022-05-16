@@ -97,13 +97,6 @@ else
 	SSHD_PORT=22
 fi
 
-# Authentication / Security directives
-ENABLE_USERMODE_AUTHENTICATION="0"
-ENABLE_PASSDB_AUTHENTICATION="0"
-ENABLE_SSH_AUTHENTICATION="0"
-ENABLE_SU_AUTHENTICATION="1"
-ENABLE_USER_DB="0"
-
 ENABLE_FORCE_ENCRYPTION="0"
 SSHD_CHECK_IP="0"
 
@@ -220,14 +213,6 @@ COMMAND_NXSHADOWACL="$PATH_BIN/nxshadowacl"
 COMMAND_NXCHECKLOAD="$PATH_BIN/nxcheckload"
 COMMAND_NXAGENT="$PATH_BIN/nxagent"
 
-# Guest directives
-ENABLE_GUEST_LOGIN="0"
-COMMAND_GUEST_LOGIN="/usr/lib/nx/guest/nxnode"
-# Try to use protected enviroment for guest sessions
-COMMAND_GUEST_X_SESSION="/usr/share/gdm/guest-session/Xsession custom"
-if [ ! -x "/usr/share/gdm/guest-session/Xsession" ]; then
-	COMMAND_GUEST_X_SESSION=$COMMAND_GDM_X_SESSION
-fi
 
 # Misc directives
 ENABLE_1_5_0_BACKEND=""
@@ -474,16 +459,6 @@ if [ "$CHECK" = "yes" ]; then
 		ERROR="yes" && echo "Error: Invalid value \"SERVER_NAME=$SERVER_NAME\""
 	[ -z $(echo "$SSHD_PORT" | egrep "^[1-9][0-9]{0,4}$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"SSHD_PORT=$SSHD_PORT\""
-
-	# Authentication / Security directives
-	[ -z $(echo "$ENABLE_PASSDB_AUTHENTICATION" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_PASSDB_AUTHENTICATION=$ENABLE_PASSDB_AUTHENTICATION\""
-	[ -z $(echo "$ENABLE_SSH_AUTHENTICATION" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_SSH_AUTHENTICATION=$ENABLE_SSH_AUTHENTICATION:\""
-	[ -z $(echo "$ENABLE_SU_AUTHENTICATION" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_SU_AUTHENTICATION=$NENABLE_SU_AUTHENTICATION\""
-	[ -z $(echo "$ENABLE_USER_DB" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_USER_DB=$ENABLE_USER_DB\""
 
 	[ -z $(echo "$ENABLE_FORCE_ENCRYPTION" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_FORCE_ENCRYPTION=$ENABLE_FORCE_ENCRYPTION\""

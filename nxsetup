@@ -346,42 +346,6 @@ if [ "$INSTALL" = "yes" ]; then
 	[ "$AUTOMATIC" = "no" ] && test_nx
 
 	echo "Ok, nxserver is ready."
-	echo
-	if [ "$ENABLE_SSH_AUTHENTICATION" = "1" -o \
-		"$ENABLE_SU_AUTHENTICATION" = "1" ]; then
-		echo "PAM authentication enabled:"
-		if [ "$ENABLE_USER_DB" = "1" ]; then
-			echo "  Users will be able to login with their normal passwords,"
-			echo "  but they have to be registered in the NX database to do so."
-			echo "  To add new users to the NX user database do:"
-			echo "    nxserver --adduser <username>"
-		else
-			echo "  All users will be able to login with their normal passwords."
-		fi
-		echo
-		if [ "$ENABLE_SSH_AUTHENTICATION" = "1" -a \
-			"$ENABLE_SU_AUTHENTICATION" = "1" ]; then
-			echo "  Both SSH and SU authentication is enabled."
-			echo "  This does work, but is redundant."
-			echo "  Please check if this is really what you intended."
-		elif [ "$ENABLE_SSH_AUTHENTICATION" = "1" ]; then
-			echo "  PAM authentication will be done through SSH."
-			echo "  Please ensure that SSHD on localhost accepts password authentication."
-		else
-			echo "  PAM authentication will be done through SU."
-			echo "  Please ensure that the user "nx" is a member of the wheel group."
-		fi
-	else
-		echo "PAM authentication disabled."
-		echo "  Only users in the NX user database will be able to log in."
-		echo
-		echo "  To add new users to the NX user database do:"
-		echo "    nxserver --adduser <username>"
-		echo "  Afterwards change the password with:"
-		echo "    nxserver --passwd <username>"
-	fi
-	echo
-	echo "  You can change this behaviour in the $NX_ETC_DIR/node.conf file."
 
 	if [ "$SETUP_NOMACHINE_KEY" = "no" -a "$SETUP_NX_KEY" = "yes" ]; then
 		echo
