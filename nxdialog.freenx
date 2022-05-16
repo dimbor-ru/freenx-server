@@ -26,7 +26,7 @@ function requote {
 PARAMS=( "$@" )
 INPUTS=$(requote "$@")	#JJK: Save input parameter line...
 
-TEMP=`getopt -a -o d: --long local,noautokill,dialog:,caption:,message:,display:,printer:,parent: -n $(basename $0) -- "$@"`
+TEMP=`getopt -a -o d: --long local,noautokill,dialog:,caption:,message:,display:,parent: -n $(basename $0) -- "$@"`
 
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 
@@ -38,7 +38,6 @@ DIALOG_CAPTION=""
 DIALOG_MESSAGE=""
 DIALOG_LOCAL=""
 DIALOG_NOAUTOKILL=""
-DIALOG_PRINTER=""
 DIALOG_PARENT="$PPID"
 
 while true; do
@@ -49,7 +48,6 @@ while true; do
 		--local) DIALOG_LOCAL="yes"; shift ;;
 		--noautokill) DIALOG_NOAUTOKILL="yes"; shift ;;
 		--display) DISPLAY="$2"; shift 2 ;;
-		--printer) DIALOG_PRINTER="$2"; shift 2 ;;
 		--parent) DIALOG_PARENT="$2"; shift 2 ;;
 		--) shift ; break ;;
 		*) echo "Internal error!" ; exit 1; ;;
@@ -57,9 +55,6 @@ while true; do
 done
 
 export DISPLAY
-
-# if --printer is set, the dialog type is overridden
-[ -n "$DIALOG_PRINTER" ] && DIALOG_TYPE="printer"
 
 # First check if the commercial nxclient is available and use it
 # but check that it isn't this script to prevent a loop!
@@ -117,71 +112,6 @@ else
 fi
 
 #
-# utility functions for all interfaces
-#
-
-# utility_printer "get|set|getlist|getvendlist|getdrvlist"
-#
-# get <name> - gets the current driver for name
-# set <name> <driver> <description> - sets the current driver and description for name
-# getvendlist - gets a list of vendors
-# getdrvlist <vendor> - gets a list of drivers for vendor
-# getextdrvlist <vendor> - gets an extended list (with driver and
-#                                description) of drivers for vendor
-# getdesc <driver> - gets the description for driver <driver>
-# getlist - gets a list of drivers
-
-#
-# drivers.cache has the following format:
-#
-# driver|<printername>|<ppdfile>|<description>
-#
-
-#
-# Example: IFS='|' DEFAULT_PRINTER=( $(utility_printer get <myprinter>) )
-#
-# You can then select ${DEFAULT_PRINTER[1]} for <printername>.
-#
-
-utility_printer() {
-	UTILITY_DRIVERS_CACHE="$HOME/.nx/config/drivers.cache"
-	[ -n "$HOME" ] && \
-		UTILITY_DRIVERS_CACHE="$HOME/.nx/config/drivers.cache"
-	UTILITY_NXPRINT="nxprint"
-	[ -n "$PATH_BIN" ] && UTILITY_NXPRINT="$PATH_BIN/nxprint"
-	# Export configuration vars for nxprint
-	export ENABLE_FOOMATIC COMMAND_FOOMATIC UTILITY_DRIVERS_CACHE
-	case "$1" in
-		get)
-			grep "driver|$2|" "$UTILITY_DRIVERS_CACHE" 2>/dev/null
-		;;
-		set)
-			# FIXME: Handle possible race conditions?
-			grep -v "driver|$2|" "$UTILITY_DRIVERS_CACHE" \
-				2>/dev/null > $UTILITY_DRIVERS_CACHE.tmp
-			echo "driver|$2|$3|$4" >> $UTILITY_DRIVERS_CACHE.tmp
-			mv -f $UTILITY_DRIVERS_CACHE.tmp $UTILITY_DRIVERS_CACHE
-		;;
-		getvendlist)
-			$UTILITY_NXPRINT -d | awk -F'|' '{ print $2 }' | uniq | tr '\n' '|'
-		;;
-		getdrvlist)
-			$UTILITY_NXPRINT -d | awk -F'|' '($2=="'$2'") { print $4}' \
-				| tr '\n' '|'
-		;;
-		getextdrvlist)
-			$UTILITY_NXPRINT -d | awk -F'|' '($2=="'$2'") { print $4 "|" $3 }'
-		;;
-		getdesc)
-			$UTILITY_NXPRINT -d | awk -F'|' '($4=="'$2'") { print $3}'
-		;;
-		getlist)
-			$UTILITY_NXPRINT -d
-		;;
-	esac
-}
-
-#
 # xmessage dialog interface
 #
 
@@ -205,38 +135,6 @@ xmessage_panic() {
 xmessage_quit() {
 	$xmessage -buttons "Quit:0" -center "$DIALOG_MESSAGE"
 	return 0 # Give cancel on close ...
-}
-
-xmessage_printer_ask() {
-	$xmessage	-buttons "Ok:100,Configure:101,Cancel:102" \
-					-center "$DIALOG_MESSAGE"
-	RC=$?
-	[ $RC -lt 100 ] && return 2
-	let RC=$RC-100
-	return $RC
-}
-
-xmessage_printer_configure() {
-	IFS=','
-	$xmessage -buttons "$*" -center "$DIALOG_MESSAGE"
-	RC=$?
-	unset IFS
-	VENDOR=""
-	if [ $RC -gt 100 ]; then
-		let NR=$RC-100
-		VENDOR="${!NR}"
-	fi
-	echo "$VENDOR"
-}
-
-xmessage_printer_configure_vendor() {
-	IFS='|' VENDOR_LIST=( $(utility_printer getvendlist) )
-	xmessage_printer_configure "${VENDOR_LIST[@]}"
-}
-
-xmessage_printer_configure_driver() {
-	IFS='|' DRIVER_LIST=( $(utility_printer getdrvlist "$1") )
-	xmessage_printer_configure "${DRIVER_LIST[@]}"
 }
 
 #
@@ -287,37 +185,6 @@ zenity_quit() {
 	return 0 # Give cancel on close ...
 }
 
-zenity_printer_ask() {
-	$DIALOG	--question --title="$DIALOG_CAPTION" --ok-label="Ok" \
-				--cancel-label="Configure" \
-				--text="$DIALOG_MESSAGE\n\nClose this dialog to cancel."
-	RC=$?
-	[ $RC -eq 255 ] && return 2
-	return $RC
-}
-
-zenity_printer_configure_vendor()
-{
-	IFS='|' VENDOR_LIST=( $(utility_printer getvendlist) )
-	unset IFS
-	for el in $(seq 0 $(( ${#VENDOR_LIST[@]} -1 ))); do
-		z+=" $el"
-		z+=" ${VENDOR_LIST[$el]/ /_}"
-	done
-	$DIALOG	--list  --title="$DIALOG_CAPTION" --text="$DIALOG_MESSAGE" \
-				--radiolist --column="" --column="" $z
-}
-
-# zenity_printer_configure_driver vendor old_driver
-zenity_printer_configure_driver() {
-	IFS='|' XDIALOG_LIST=( $( utility_printer getextdrvlist "$1" | \
-		sed 's,^,FALSE ,g; /'"$(basename $2)"'/ s,FALSE ,TRUE ,g' | \
-		tr '\n' '|' | sed 's/ /./g' | sed 's/TRUE./TRUE /g' ) )
-	$DIALOG	--list --radiolist --title="$DIALOG_CAPTION" \
-				--text="$DIALOG_MESSAGE" --column="" \
-				--column="" ${XDIALOG_LIST[@]}
-}
-
 #"
 # xdialog interface
 #
@@ -356,31 +223,6 @@ xdialog_quit() {
 	$DIALOG	--buttons-style text --ok-label "Quit" --title "$DIALOG_CAPTION" \
 				--msgbox "$DIALOG_MESSAGE" 0 0
 	return 0 # Give cancel on close ...
-}
-
-xdialog_printer_ask() {
-	$DIALOG	--title "$DIALOG_CAPTION" --buttons-style text --ok-label "Ok" \
-				--cancel-label "Configure" \
-				--yesno "$DIALOG_MESSAGE\n\nClose this dialog to cancel." 400x250
-	RC=$?
-	[ $RC -eq 255 ] && return 2
-	return $RC
-}
-
-xdialog_printer_configure_vendor() {
-	IFS='|' VENDOR_LIST=( $(utility_printer getvendlist | sed 's/|/||off|/g') )
-	$DIALOG	--stdout --title "$DIALOG_CAPTION" \
-				--radiolist "$DIALOG_MESSAGE" 0 0 6 "${VENDOR_LIST[@]}"
-}
-
-# xdialog_printer_configure_driver vendor old_driver
-xdialog_printer_configure_driver()
-{
-	IFS='|' XDIALOG_LIST=( $(utility_printer getextdrvlist "$1" | \
-				sed 's,$,|off,g; /'"$(basename $2)"'/ s,|off,|on,g' | \
-				tr '\n' '|') )
-	$DIALOG	--stdout --title "$DIALOG_CAPTION" \
-				--radiolist "$DIALOG_MESSAGE" 0 0 6 "${XDIALOG_LIST[@]}"
 }
 
 #JJK: dialog interface "
@@ -424,70 +266,6 @@ dialog_quit() {
 	return 0 # Give cancel on close ...
 }
 
-dialog_printer_ask() {
-	$DIALOG	--stdout --cr-wrap --title "$DIALOG_CAPTION" --yes-label "Ok" \
-				--no-label "Configure" \
-				--yesno "$DIALOG_MESSAGE\n\nPress 'Esc' to cancel." 10 70
-	RC=$?
-	echo $RC
-	[ $RC -eq 255 ] && return 2
-	return $RC
-}
-
-dialog_printer_configure_vendor() {
-	IFS='|' VENDOR_LIST=( $(utility_printer getvendlist | sed 's/|/||/g') )
-	$DIALOG	--stdout --title "$DIALOG_CAPTION" --menu "$DIALOG_MESSAGE" \
-				0 40 15 "${VENDOR_LIST[@]}"
-}
-
-# dialog_printer_configure_driver vendor old_driver
-dialog_printer_configure_driver() {
-	IFS='|' XDIALOG_LIST=( $(utility_printer getextdrvlist "$1" \
-										| tr '\n' '|') )
-	$DIALOG	--stdout --title "$DIALOG_CAPTION" --menu "$DIALOG_MESSAGE" \
-				0 110 15 "${XDIALOG_LIST[@]}"
-}
-
-
-#
-# helper functions
-#
-
-helper_dialog_printer() {
-	IFS="|" PRINTER_INFORMATION=( $(utility_printer get "$DIALOG_PRINTER") )
-	PRINTER_CONFIGURE="yes"
-	[ -z "$DIALOG_CAPTION" ] && \
-		DIALOG_CAPTION="NX Printer configuration for $DIALOG_PRINTER"
-	# Do we have old printer information present?
-	if [ -n "$PRINTER_INFORMATION" ]; then
-		DIALOG_MESSAGE=$(echo -e "Found driver for printer $DIALOG_PRINTER.\n\nOld choice was: ${PRINTER_INFORMATION[3]}.\n\nIf you want to keep the settings click on 'Ok' \n- else click on 'Configure'.") ${dialog_interface}_printer_ask
-		RC=$?
-		# bail out with exit code 2 in case the user cancelled the operation
-		[ $RC -eq 2 ] && echo "cancel: aborted" && exit 2
-		[ $RC -eq 0 ] && PRINTER_CONFIGURE="no"
-	fi
-
-	VENDOR=""
-	OLD_DRIVER="${PRINTER_INFORMATION[2]}"
-	if [ "$PRINTER_CONFIGURE" = "yes" ]; then
-		DRIVER=""
-		VENDOR=$(DIALOG_MESSAGE="Choose vendor for printer $DIALOG_PRINTER." ${dialog_interface}_printer_configure_vendor)
-		[ -n "$VENDOR" ] && DRIVER=$(DIALOG_MESSAGE="Choose driver for printer $DIALOG_PRINTER." ${dialog_interface}_printer_configure_driver "$VENDOR" "${OLD_DRIVER:-invalid}")
-		# set the new printer driver
-		if [ -n "$DRIVER" ]; then
-			DESC=$(utility_printer getdesc "$DRIVER")
-			utility_printer set "$DIALOG_PRINTER" "$DRIVER" "$DESC"
-		fi
-	else
-		DRIVER="$OLD_DRIVER"
-	fi
-
-	# echo the choosen <ppdfile> to stdout
-	[ -n "$DRIVER" ] && echo "$DRIVER"
-	[ -z "$DRIVER" ] && echo "cancel: aborted" && exit 2
-	exit 0
-}
-
 #
 # main case statement
 #
@@ -507,9 +285,6 @@ case $DIALOG_TYPE in
 	;;
 	quit)
 		${dialog_interface}_quit
-	;;
-	printer)
-		helper_dialog_printer
 	;;
 esac
 

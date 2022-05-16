@@ -148,22 +148,9 @@ ENABLE_ARTSD_PRELOAD="0"
 ARTSD_BIN_PRELOAD="artsdsp"
 ENABLE_DIRECT_NATIVE_PA_CHECK="0"
 
-ENABLE_KDE_CUPS="1"
-ENABLE_KDE_CUPS_DYNAMIC="0"
-KDE_PRINTRC="" # Calculated
-
-ENABLE_CUPS_SERVER_EXPORT="1"
-ENABLE_CUPS_SEAMLESS="0"
-CUPS_SEAMLESS_DELAY="10"
-ENABLE_FOOMATIC="1"
-COMMAND_FOOMATIC="/usr/bin/foomatic-ppdfile"
-#JJK: added the following path referenced in nxprint
-PPD_DIR="/usr/share/cups/model" #JJK: Note /usr/share/ppd on some systems
-
 CUPS_BACKEND="/usr/lib/cups/backend"
 CUPS_IPP_BACKEND="$CUPS_BACKEND/ipp"
 CUPS_DEFAULT_SOCK="/var/run/cups/cups.sock"
-CUPS_ETC="/etc/cups/"
 
 ENABLE_SAMBA_PRELOAD="0"
 SOURCE_SYS_PROFILE="/etc/profile"
@@ -369,15 +356,6 @@ NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | \
 [ -z "$NX_BACKEND_VERSION" ] && NX_BACKEND_VERSION="not detected"
 NX_LICENSE=$(echo $NX_LICENSE | sed "s/%BACKEND%/$NX_BACKEND_VERSION/g")
 
-if [ "$ENABLE_KDE_CUPS" = "1" ]; then
-	[ -z "$KDE_PRINTRC" -a -n "$KDEHOME" ] && \
-		KDE_PRINTRC="$KDEHOME/share/config/kdeprintrc"
-	[ -z "$KDE_PRINTRC" ] && which kde-config >/dev/null 2>&1 && \
-		KDE_PRINTRC=$(kde-config --localprefix 2>/dev/null)"/share/config/kdeprintrc"
-	[ -z "$KDE_PRINTRC" -o ! -r "$KDE_PRINTRC" ] && \
-		KDE_PRINTRC="$HOME/.kde/share/config/kdeprintrc"
-fi
-
 # Load balance to some other core if specified
 [ -n "$USE_PROCESSOR_TASKSET" ] && \
 	$COMMAND_TASKSET -cp "$USE_PROCESSOR_TASKSET" $$
@@ -517,14 +495,6 @@ if [ "$CHECK" = "yes" ]; then
 		WARNING="yes" && echo "Warning: Invalid value \"ARTSD_BIN_PRELOAD=$ARTSD_BIN_PRELOAD\"" \
 					&& echo "         No arts preload will be performed."
 
-	[ -z $(echo "$ENABLE_KDE_CUPS" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_KDE_CUPS=$ENABLE_KDE_CUPS\""
-	[ "$ENABLE_KDE_CUPS" = "1" -a ! -e "$KDE_PRINTRC" ] && \
-		WARNING="yes" && echo "Warning: Invalid value \"KDE_PRINTRC=$KDE_PRINTRC\". ENABLE_KDE_CUPS will not work." \
-					&& echo "         For root it's normal. Try to run 'nxloadconfig --check' by user."
-	[ "$ENABLE_FOOMATIC" = "1" ] && ! mywhich "$COMMAND_FOOMATIC" >/dev/null 2>&1 && \
-		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_FOOMATIC=$COMMAND_FOOMATIC\"" \
-					&& echo "         Users will not be able to use foomatic."
 	[ ! -x "$CUPS_IPP_BACKEND" ] && \
 		WARNING="yes" && echo "Warning: \"$CUPS_IPP_BACKEND\" is not executable." \
 					&& echo "         Users will not be able to enable printing."
