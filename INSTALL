@@ -91,12 +91,6 @@ Old way without Makefile (instead of make; make install):
   $ make
   $ cd ..
 
-# nxserver-helper
-  
-  $ cd nxserver-helper
-  $ make
-  $ cd ..
-
 # nxpasswd
 
   $ cd nxviewer-passwd
@@ -109,7 +103,6 @@ Old way without Makefile (instead of make; make install):
   $ cd nxredir
   $ make install
   $ cd ..
-  $ cp -a nxserver-helper/nxserver-helper ${NXPREFIX}/bin
   $ cp -a nxviewer-passwd/nxpasswd/nxpasswd ${NXPREFIX}/bin
 
 # scripts

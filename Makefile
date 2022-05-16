@@ -17,9 +17,9 @@ PATH_SHARE      ?= $(PREFIX)/share
 
 NX_VERSION=`cat VERSION 2>/dev/null`
 
-SUBDIRS=nxredir nxviewer-passwd nxserver-helper nx-session-launcher
+SUBDIRS=nxredir nxviewer-passwd nx-session-launcher
 PROGRAMS=nxacl.sample nxacl.app nxcheckload.sample nxcups-gethost nxdesktop_helper nxdialog.freenx nxkeygen nxloadconfig nxnode nxnode-login nxprint nxserver nxsetup nxviewer_helper nx-session-launcher/nx-session-launcher
-PROGRAMS_BIN=nxserver-helper/nxserver-helper nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher-suid
+PROGRAMS_BIN=nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher-suid
 
 all:
 	cd nxviewer-passwd && xmkmf && make Makefiles && make depend
