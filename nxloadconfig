@@ -142,12 +142,6 @@ LOAD_BALANCE_ALGORITHM="random"
 ENABLE_LOAD_BALANCE_PREFERENCE="0"
 
 # Services directives
-ENABLE_ESD_PRELOAD="0"
-ESD_BIN_PRELOAD="esddsp"
-ENABLE_ARTSD_PRELOAD="0"
-ARTSD_BIN_PRELOAD="artsdsp"
-ENABLE_DIRECT_NATIVE_PA_CHECK="0"
-
 CUPS_BACKEND="/usr/lib/cups/backend"
 CUPS_IPP_BACKEND="$CUPS_BACKEND/ipp"
 CUPS_DEFAULT_SOCK="/var/run/cups/cups.sock"
@@ -483,18 +477,6 @@ if [ "$CHECK" = "yes" ]; then
 		ERROR="yes" && echo "Error: Invalid value \"SESSION_HISTORY=$SESSION_HISTORY\""
 
 	# Services directives
-	[ -z $(echo "$ENABLE_ESD_PRELOAD" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_ESD_PRELOAD=$ENABLE_ESD_PRELOAD\""
-	[ "$ENABLE_ESD_PRELOAD" = "1" ] && ! mywhich "$ESD_BIN_PRELOAD" >/dev/null 2>&1 && \
-		WARNING="yes" && echo "Warning: Invalid value \"ESD_BIN_PRELOAD=$ESD_BIN_PRELOAD\"" \
-					&& echo "         No esd preload will be performed."
-
-	[ -z $(echo "$ENABLE_ARTSD_PRELOAD" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_ARTSD_PRELOAD=$ENABLE_ARTSD_PRELOAD\""
-	[ "$ARTSD_BIN_PRELOAD" = "1" ] && ! mywhich "$ARTSD_BIN_PRELOAD" >/dev/null 2>&1 && \
-		WARNING="yes" && echo "Warning: Invalid value \"ARTSD_BIN_PRELOAD=$ARTSD_BIN_PRELOAD\"" \
-					&& echo "         No arts preload will be performed."
-
 	[ ! -x "$CUPS_IPP_BACKEND" ] && \
 		WARNING="yes" && echo "Warning: \"$CUPS_IPP_BACKEND\" is not executable." \
 					&& echo "         Users will not be able to enable printing."
