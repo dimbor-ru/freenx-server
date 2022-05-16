@@ -198,7 +198,6 @@ COMMAND_NXAGENT="$PATH_BIN/nxagent"
 # Misc directives
 ENABLE_1_5_0_BACKEND=""
 ENABLE_AUTORECONNECT="1"
-ENABLE_AUTORECONNECT_BEFORE_140="1"
 EXPORT_USERIP="1"
 EXPORT_SESSIONID="1"
 NODE_AUTOSTART=""
@@ -566,8 +565,6 @@ if [ "$CHECK" = "yes" ]; then
 	# Misc directives
 	[ -z $(echo "$ENABLE_AUTORECONNECT" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_AUTORECONNECT=$ENABLE_AUTORECONNECT\""
-	[ -z $(echo "$ENABLE_AUTORECONNECT_BEFORE_140" | egrep "^[0|1]$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"ENABLE_AUTORECONNECT_BEFORE_140=$ENABLE_AUTORECONNECT_BEFORE_140\""
 	[ -z $(echo "$EXPORT_USERIP" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"EXPORT_USERIP=$EXPORT_USERIP\""
 	[ -z $(echo "$EXPORT_SESSIONID" | egrep "^[0|1]$") ] && \

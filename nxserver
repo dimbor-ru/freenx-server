@@ -394,7 +394,7 @@ session_fail() {
 # config variables in use:
 # COMMAND_MD5SUM COMMAND_NETCAT COMMAND_NXSHADOWACL
 # ENABLE_NXSHADOWACL COMMAND_SESSREG COMMAND_SSH COMMAND_XAUTH
-# ENABLE_AUTORECONNECT ENABLE_AUTORECONNECT_BEFORE_140
+# ENABLE_AUTORECONNECT
 # ENABLE_EXTERNAL_NXDESKTOP ENABLE_EXTERNAL_NXVIEWER
 # ENABLE_LOAD_BALANCE_PREFERENCE ENABLE_LOG_FAILED_LOGINS
 # ENABLE_MIRROR_VIA_VNC ENABLE_SESSION_SHADOWING_AUTHORIZATION
@@ -445,10 +445,6 @@ preferred_host=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 			hello*|HELLO*)
 				proto=$(rematchfn 'Version ([[:digit:][:punct:]]+)' "$cmd") #'
 				echo_x "NX> 134 Accepted protocol: $proto"
-				if [ "$proto" = "1.3.0" -o "$proto" = "1.3.2" ]; then
-					[ "$ENABLE_AUTORECONNECT_BEFORE_140" = "1" ] && \
-						ENABLE_AUTORECONNECT="1"
-				fi
 			;;
 			"set auth_mode*"|"SET AUTH_MODE*")
 				if [ "$cmd" = "set auth_mode password" -o \
