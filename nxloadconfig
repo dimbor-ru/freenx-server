@@ -90,13 +90,6 @@ EXTERNAL_PROXY_IP=""
 [ -f "/etc/openssh/sshd_config" ] && SSHD_CONFIG="/etc/openssh/sshd_config"
 [ -f "/etc/ssh/sshd_config" ] && SSHD_CONFIG="/etc/ssh/sshd_config"
 
-if [ -r "$SSHD_CONFIG" ]; then
-	SSHD_PORT=$(grep "^ *Port " -m 1 "$SSHD_CONFIG" | awk '{ print $2 ;}')
-	[ -z $(echo "$SSHD_PORT" | egrep "^[1-9][0-9]{0,4}$") ] && SSHD_PORT=22
-else
-	SSHD_PORT=22
-fi
-
 ENABLE_FORCE_ENCRYPTION="0"
 SSHD_CHECK_IP="0"
 
@@ -427,8 +420,6 @@ if [ "$CHECK" = "yes" ]; then
 	# General FreeNX directives
 	[ -z "$SERVER_NAME" ] && \
 		ERROR="yes" && echo "Error: Invalid value \"SERVER_NAME=$SERVER_NAME\""
-	[ -z $(echo "$SSHD_PORT" | egrep "^[1-9][0-9]{0,4}$") ] && \
-		ERROR="yes" && echo "Error: Invalid value \"SSHD_PORT=$SSHD_PORT\""
 
 	[ -z $(echo "$ENABLE_FORCE_ENCRYPTION" | egrep "^[0|1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"ENABLE_FORCE_ENCRYPTION=$ENABLE_FORCE_ENCRYPTION\""

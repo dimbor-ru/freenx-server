@@ -268,7 +268,7 @@ test_nx() {
 		esac
 
 	done < <(NODE_PUBLICKEY="$NX_HOME_DIR/.ssh/client.id_dsa.key" \
-		$PATH_BIN/nxnode-login test-nx nx "$SSHD_PORT" nxserver --check)
+		$PATH_BIN/nxnode-login test-nx nx 22 nxserver --check)
 
 	if [ -z "$CONNECTION" ]; then
 		echo "Fatal error: Could not connect to NX Server."
@@ -282,7 +282,7 @@ test_nx() {
 		echo "  - Make sure \"nx\" is one of the AllowGroups in sshd_config."
 		echo "    (or that the line is outcommented/not there)"
 		echo "  - Make sure your sshd allows public key authentication."
-		echo "  - Make sure your sshd is really running on port $SSHD_PORT."
+		echo "  - Make sure your sshd is really running on port 22."
 		echo "  - Make sure your sshd_config AuthorizedKeysFile in sshd_config is set to $SSH_AUTHORIZED_KEYS."
 		echo "    (this should be a filename not a pathname+filename)"
 		echo "  - Make sure you allow ssh on localhost, this could come from some"

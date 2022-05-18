@@ -380,7 +380,7 @@ session_fail() {
 # NX_ETC_DIR NX_HOME_DIR NX_LICENSE NX_LOGFILE NX_LOG_LEVEL
 # NX_SESS_DIR NX_VERSION
 # SERVER_NAME SESSION_HISTORY SESSION_LIMIT SESSION_USER_LIMIT
-# SHARED_CONFS SSHD_PORT
+# SHARED_CONFS
 
 # declare global variables:
 declare -g cmd in_params proto login_success login_method
