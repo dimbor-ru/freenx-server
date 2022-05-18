@@ -117,7 +117,6 @@ ENABLE_INTERACTIVE_SESSION_SHADOWING=1
 ENABLE_CLIPBOARD="both"
 ENABLE_PULLDOWN_MENU="1"
 
-USE_PROCESSOR_TASKSET=""
 
 ENABLE_ADVANCED_SESSION_CONTROL="0"
 ENABLE_SHOW_RUNNING_SESSIONS="0"
@@ -176,7 +175,6 @@ COMMAND_VNCVIEWER="vncviewer"
 #JJK: COMMAND_VNCPASSWD="$PATH_BIN/nxpasswd"
 COMMAND_VNCPASSWD="vncpasswd"
 COMMAND_X11VNC="x11vnc"
-COMMAND_TASKSET="taskset"
 COMMAND_LPINFO=/usr/sbin/lpinfo
 COMMAND_LPSTAT=/usr/bin/lpstat
 COMMAND_LPADMIN="/usr/bin/sudo /usr/sbin/lpadmin"
@@ -340,10 +338,6 @@ NX_BACKEND_VERSION=$(strings $COMMAND_NXAGENT 2>/dev/null | \
 
 [ -z "$NX_BACKEND_VERSION" ] && NX_BACKEND_VERSION="not detected"
 NX_LICENSE=$(echo $NX_LICENSE | sed "s/%BACKEND%/$NX_BACKEND_VERSION/g")
-
-# Load balance to some other core if specified
-[ -n "$USE_PROCESSOR_TASKSET" ] && \
-	$COMMAND_TASKSET -cp "$USE_PROCESSOR_TASKSET" $$
 
 #########################################################################
 # Support for --check
