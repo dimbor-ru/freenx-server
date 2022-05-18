@@ -23,27 +23,12 @@ shopt -s extglob
 
 . $SHARED_CONFS/nxfuncs
 
-############### PACKAGE log.bm #######################
-#
-# Library of log functions (outsource)
-#
-
-# Loglevels:
-# 1: Errors
-# 2: Warnings
-# 3: Important information
-# 4: Server - Client communication
-# 5: Information
-# 6: Debugging information
-# 7: stderror-channel of some applications
-
 log() {
-#args: <loglevel> <logstr>
-	[ "$NX_LOG_LEVEL" -ge "$1" ] && shift && {
-		[ -n "$1" ] &&
-			echo -n "[$(date "+%d.%m %T.%3N"):$$/$BASHPID] " >> "$NX_LOGFILE"
-		echo $@ >> "$NX_LOGFILE"
-	}
+#args: <logstr>
+	[ "$NX_LOG_LEVEL" != "0" ] || return
+	[ -n "$1" ] && \
+		echo -n "[$(date "+%d.%m %T.%3N"): $$/$BASHPID] " >> "$NX_LOGFILE"
+	echo -e $@ >> "$NX_LOGFILE"
 }
 
 # Log in a way that is secure for passwords / cookies / ...
@@ -51,32 +36,30 @@ echo_secure() {
 	[ -n "$1" ] &&
 		echo -n "[$(date "+%d.%m %T.%3N")] " >> "$NX_LOGFILE"
 	local res=${@/password=+([^&])&/password=****&}
-	res=${res//--cookie=\"+([^\"])\"/--cookie=\"****\"}
+	#res=${res//--cookie=\"+([^\"])\"/--cookie=\"****\"}
 	res=${res//--password=\"+([^\"])\"/--password=\"****\"}
 	echo "$res"
 }
 
 log_secure() {
 #args: <loglevel> <logstr>
-	if [ "$NX_LOG_SECURE" = "0" ]; then log $@
-	elif [ "$NX_LOG_LEVEL" -ge "$1" ]; then
-		shift && echo_secure $@ >> "$NX_LOGFILE"
-	fi
+	[ "$NX_LOG_LEVEL" != "0" ] || return
+	echo_secure $@ >> "$NX_LOGFILE"
 }
 
 log_tee() {
-	if [ "$NX_LOG_LEVEL" -ge "4" ]; then exec tee -a "$NX_LOGFILE"
+	if [ "$NX_LOG_LEVEL" != "0" ]; then exec tee -a "$NX_LOGFILE"
 	else exec cat -
 	fi
 }
 
 log_error() {
-	if [ "$NX_LOG_LEVEL" -ge "7" ]; then exec tee -a "$NX_LOGFILE"
+	if [ "$NX_LOG_LEVEL" != "0" ]; then exec tee -a "$NX_LOGFILE"
 	else exec cat -
 	fi
 }
 
-echo_x() { log "4" "$@"; echo "$@"; }
+echo_x() { log "$@"; echo "$@"; }
 
 ############### PACKAGE session.bm #######################
 #
@@ -96,7 +79,7 @@ sqcols_sess="session_id, session, display, status, userip,\
 sqcols_sess_c=15
 
 drop_old_conf_dirs() {
-	log 1 "Info: Old sessions db dropped."
+	log "Info: Old sessions db dropped."
 	rm -rf $NX_SESS_DIR/{closed,failed,running} >/dev/null 2>&1
 }
 
@@ -400,7 +383,7 @@ session_fail() {
 # ENABLE_MIRROR_VIA_VNC ENABLE_SESSION_SHADOWING_AUTHORIZATION
 # ENABLE_USESSION LOAD_BALANCE_SERVERS
 # NX_ETC_DIR NX_HOME_DIR NX_LICENSE NX_LOGFILE NX_LOG_LEVEL
-# NX_LOG_SECURE NX_SESS_DIR NX_VERSION
+# NX_SESS_DIR NX_VERSION
 # SERVER_NAME SESSION_HISTORY SESSION_LIMIT SESSION_USER_LIMIT
 # SHARED_CONFS SSHD_PORT
 
@@ -420,7 +403,7 @@ open_dbe $$ && attach_db $sess_bd && init_sess_db
 [[ -z "$isdbs" && ( -d "$NX_SESS_DIR/closed" || \
 	-d "$NX_SESS_DIR/failed" ) ]] && drop_old_conf_dirs
 
-log 3 "-- NX SERVER START: $@ - ORIG_COMMAND=$SSH_ORIGINAL_COMMAND"
+log "-- NX SERVER START: $@ - ORIG_COMMAND=$SSH_ORIGINAL_COMMAND"
 
 # Get the hostname out of SSH_ORIGINAL_COMMAND
 preferred_host=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
@@ -460,13 +443,13 @@ preferred_host=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 				echo_x -n "NX> 102 Password: ";
 				oifs="$IFS"; export IFS=$'\n';
 				read -r -s PASS; export IFS=$oifs; echo_x ""
-				log 6 -n "Info: Auth method: "
+				log -n "Info: Auth method: "
 				# USER already logged in?
 				user=$user2
 
 				# SU based auth used ONLY
 				if [ "$login_success" = "0" ]; then
-					log 6 -n "su "
+					log -n "su "
 					LANG=C echo "$PASS" | \
 						/usr/bin/sudo -u $user -Svk -p "" >/dev/null 2>&1
 					if [ $? -eq 0 ]; then login_success="1"; login_method="SU"; fi
@@ -543,15 +526,15 @@ server_remove_usession() {
 server_nxnode_echo() {
 	if [ "$server_channel" = "1" ]; then
 		echo -e "$@"
-		log 6 "$FUNCNAME >&$server_channel: $@"
+		log "$FUNCNAME >&$server_channel: $@"
 	elif [ "$server_channel" = "2" ]; then
 		echo -e "$@" >&2
-		log 6 "$FUNCNAME >&$server_channel: $@"
+		log "$FUNCNAME >&$server_channel: $@"
 	fi
 }
 
 server_nxnode_exit_func() {
-	log 1 "$FUNCNAME: Info: Emergency-Shutting down due to kill signal ..."
+	log "$FUNCNAME: Info: Emergency-Shutting down due to kill signal ..."
 	session_fail $session_id
 	server_remove_usession
 	# remove lock file
@@ -560,7 +543,7 @@ server_nxnode_exit_func() {
 
 server_nxnode_start_wait() {
 # use uplevel: $server_wait_pid $user $session_id
-	local lp="$FUNCNAME:";
+	local lp=" $FUNCNAME:";
 	local server_channel=1 kill_wait_pid=1 shadowcookie fl_start="" to_send=""
 	open_dbe $BASHPID
 	[ "$1" = "--startsession" ] && fl_start="1";
@@ -605,35 +588,35 @@ server_nxnode_start_wait() {
 						if [ "$server_channel" = "1" ]; then
 							server_channel=2
 						fi
-						log 6 "$lp set status $session_id: Running"
+						log "$lp set status $session_id: Running"
 						session_change $session_id "status" "Running"
 					;;
 					*starting*)
-						log 6 "$lp set status $session_id: Starting"
+						log "$lp set status $session_id: Starting"
 						session_change $session_id "status" "Starting"
 						continue;
 					;;
 					*resuming*)
-						log 6 "$lp set status $session_id: Resuming"
+						log "$lp set status $session_id: Resuming"
 						session_change $session_id "status" "Resuming"
 						continue;
 					;;
 					*closed*)
 						if [ -n "$fl_start" ]; then
-							log 6 "$lp session_close $session_id"
+							log "$lp session_close $session_id"
 							session_close $session_id; break;
 						fi
 					;;
 					*suspended*)
 						if [ -n "$fl_start" ]; then
 							[ "$kill_wait_pid" = "1" ] && kill -INT $server_wait_pid 2>/dev/null
-							kill_wait_pid=0; log 6 "$lp session suspend $session_id"
+							kill_wait_pid=0; log "$lp session suspend $session_id"
 							session_change $session_id "status,userip" "Suspended&-"
 						fi
 					;;
 					*suspending*)
 						if [ -n "$fl_start" ]; then
-							log 6 "$lp set status $session_id: Suspending"
+							log "$lp set status $session_id: Suspending"
 							session_change $session_id "status" "Suspending"
 							# we need to stop sending to client as it will have already
 							# closed his side of the channel and this will lead to not
@@ -643,7 +626,7 @@ server_nxnode_start_wait() {
 					;;
 					*terminating*)
 						if [ -n "$fl_start" ]; then
-							log 6 "$lp set status $session_id: Terminating"
+							log "$lp set status $session_id: Terminating"
 							session_change $session_id "status" "Terminating"
 							# we need to stop sending to client as it will have already
 							# closed his side of the channel and this will lead to not
@@ -663,13 +646,13 @@ server_nxnode_start_wait() {
 				# want the session to be resumed again.
 				session_fail $session_id
 				server_nxnode_echo "NX> 596 Session startup failed."
-				log 4 "NX> 596 Session startup failed."
+				log "NX> 596 Session startup failed."
 				[ -z "$fl_start" ] && break; # on restore only?
 			;;
 			"NX> 1001"*)
 				if [ -z "$fl_start" ]; then
 					server_channel=0
-					log 6 "$lp nxnode finished (1001) on display $display"
+					log "$lp nxnode finished (1001) on display $display"
 					close_dbe $BASHPID; exit_proc 0
 				fi
 			;;
@@ -687,7 +670,7 @@ server_nxnode_start_wait() {
 		[ -e "/tmp/.nX$display-lock" ] && rm -f /tmp/.nX$display-lock
 	fi
 	close_dbe $BASHPID
-	log 6 "$lp $1 end on display $display"
+	log "$lp $1 end on display $display"
 }
 
 server_check_session_count() {
@@ -732,7 +715,7 @@ server_loadbalance_round_robin() {
 	done
 
 	if [ $i -ge 200 ]; then
-		log 1 "Load-Balancing: Round-Robin failed to gain lock file in 200 tries. Falling back to random."
+		log "Load-Balancing: Round-Robin failed to gain lock file in 200 tries. Falling back to random."
 		server_loadbalance_random
 		return
 	fi
@@ -788,7 +771,7 @@ server_loadbalance() {
 			esac
 		fi
 		[ -z "$server_host" ] && server_host="127.0.0.1"
-		[ -n "$server_host" ] && log 5 "Info: Load-Balancing (if possible) to $server_host ..."
+		[ -n "$server_host" ] && log "Info: Load-Balancing (if possible) to $server_host ..."
 	fi
 	echo "$server_host"
 }
@@ -881,9 +864,9 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 			echo_x "NX> 596 Session startup failed. (Missing SSH_CLIENT environment variable)"
 			return 1
 		else
-			log 2 "Warning: Failed to determine the client IP."
-			log 2 "Warning: The SSH_CLIENT or SSH2_CLIENT variable was not provided by SSHD."
-			log 2 "Warning: Please set SSHD_CHECK_IP=1 if you want to refuse the connection."
+			log "Warning: Failed to determine the client IP."
+			log "Warning: The SSH_CLIENT or SSH2_CLIENT variable was not provided by SSHD."
+			log "Warning: Please set SSHD_CHECK_IP=1 if you want to refuse the connection."
 		fi
 	fi
 	export ENCRYPTION=$encryption
@@ -924,14 +907,14 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 			# Check if there is already an agent running on that display on that host
 			((agent_display=display+6000))
 			if port_is_listening $agent_display "$server_host"; then
-				log 2 "Warning: Stray nxagent without .nX$display-lock found on host:port $server_host:$agent_display."
+				log "Warning: Stray nxagent without .nX$display-lock found on host:port $server_host:$agent_display."
 				((display++))
 				continue
 			fi
 
 			((proxy_display=display+4000))
 			if port_is_listening $proxy_display "$server_host"; then
-				log 2 "Warning: nxagent proxy without .nX$display-lock found on host:port $server_host:$agent_display."
+				log "Warning: nxagent proxy without .nX$display-lock found on host:port $server_host:$agent_display."
 				((display++))
 				continue
 			fi
@@ -940,7 +923,7 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 			((samba_display=display+3000))
 			if [ "$samba" = 1 ] && \
 					port_is_listening $samba_display "$server_host"; then
-				log 2 "Warning: Skipping $server_host:$agent_display as samba port is not free."
+				log "Warning: Skipping $server_host:$agent_display as samba port is not free."
 				((display++))
 				continue
 			fi
@@ -948,7 +931,7 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 			((media_display=display+7000))
 			if [ "$media" = 1 ] && \
 					port_is_listening $media_display "$server_host"; then
-				log 2 "Warning: Skipping $server_host:$agent_display as media port is not free."
+				log "Warning: Skipping $server_host:$agent_display as media port is not free."
 				((display++))
 				continue
 			fi
@@ -956,7 +939,7 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 			((cups_display=display+9000))
 			if [ "$cups" = 1 ] && \
 					port_is_listening $cups_display "$server_host"; then
-				log 2 "Warning: Skipping $server_host:$agent_display as cups port is not free."
+				log "Warning: Skipping $server_host:$agent_display as cups port is not free."
 				((display++))
 				continue
 			fi
@@ -977,7 +960,7 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 		session_id=${session_id%% *}; session_id=${session_id^^}
 		params+="&user=$user&userip=$userip&session_id=$session_id&\
 display=$display&host=$server_host"
-		log_secure "6" "$params"
+		log_secure "$params"
 
 		# now update the session listing
 		local time_now=$(date +%s)
@@ -1035,10 +1018,10 @@ while true; do
 	# Logging
 	case "$cmd" in
 		startsession*|restoresession*|addmount*|addprinter*)
-			echo_secure "$cmd"; log_secure "4" "$cmd"
+			echo_secure "$cmd"; log_secure "$cmd"
 		;;
 		*)
-			echo "$cmd"; log "4" "$cmd"
+			echo "$cmd"; log "> $cmd"
 		;;
 	esac
 
@@ -1059,7 +1042,7 @@ while true; do
 			if [ "$ENCRYPTION" = "1" ]; then
 				((proxy_display=display+4000))
 				$COMMAND_NETCAT $server_host $proxy_display 2>/dev/null; rc=$?
-				log 6 "Session stage: proxy display finished rc=$rc"
+				log "Session stage: proxy display finished rc=$rc"
 				kill $PPID 2>/dev/null # kill our parent sshd process
 				exit_proc $rc
 			else
@@ -1383,7 +1366,7 @@ cmd_terminate_or_send() {
 	done <<< "$cmd_params"
 }
 
-if [ "$NX_LOG_LEVEL" -ge "1" -a ! -f "$NX_LOGFILE" ]; then
+if [ "$NX_LOG_LEVEL" != "0" -a ! -f "$NX_LOGFILE" ]; then
 	touch "$NX_LOGFILE" >/dev/null 2>&1
 fi
 isdbs=""; [ -f $sess_bd ] && isdbs="1"

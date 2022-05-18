@@ -43,7 +43,7 @@ getparam() {
 
 nxlog() {
 # There is almost copy+paste code from nxnode... Ups! - Not almost.
-	[ $NX_LOG_LEVEL -ne 7 ] && return 0
+	[ "$NX_LOG_LEVEL" = "0" ] || return 0
 	UFH="$HOME/.nx"; mkdir -p "$UFH" # TODO FIX. How?
 	sessionid=$(getparam uniqueid)
 	[ -n "$sessionid" ] || sessionid=$(getparam session_id) # need in the future for shares control?

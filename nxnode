@@ -17,14 +17,9 @@ shopt -s extglob
 # Various helper functions
 # -----------------------------------------------------------------------------
 #
-echo_secure() {
-	[ "$NX_LOG_SECURE" = "0" ] && echo "$@" || \
-		echo "${@/password=+([^&])&/password=****&}"
-}
-
 nxlog() {
-	[ "$NX_LOG_LEVEL" -lt 6 ] && return 0
-	echo_secure "$(date "+%T.%3N"): $@" >> "$nxuser_logfile"
+	[ "$NX_LOG_LEVEL" != "0" ] || return
+	echo "$(date "+%T.%3N"): ${@/password=+([^&])&/password=*&}" >> "$nxuser_logfile"
 }
 
 cp_conv() {

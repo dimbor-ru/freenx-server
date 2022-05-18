@@ -132,7 +132,6 @@ NX_ACL_DIR=""
 
 # Logging directives
 NX_LOG_LEVEL=0
-NX_LOG_SECURE=1
 NX_LOGFILE=/var/log/nxserver.log
 SESSION_LOG_CLEAN=1
 SESSION_HISTORY=2592000
@@ -464,7 +463,7 @@ if [ "$CHECK" = "yes" ]; then
 	IFS=$OLD_IFS
 
 	# Logging directives
-	[ -z $(echo "$NX_LOG_LEVEL" | egrep "^[0-7]$") ] && \
+	[ -z $(echo "$NX_LOG_LEVEL" | egrep "^[0-1]$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"NX_LOG_LEVEL=$NX_LOG_LEVEL\""
 	[ "$NX_LOG_LEVEL" != "0" -a ! -e "$NX_LOGFILE" ] && \
 		WARNING="yes" && echo "Warning: Invalid value \"NX_LOGFILE=$NX_LOGFILE\"" \
