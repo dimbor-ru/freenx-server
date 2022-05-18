@@ -910,7 +910,7 @@ node_start_agent() {
 	[ -n "$kbtype" ] && k="-kbtype $kbtype"
 	# backingstore
 	b=""
-	if [ -n "$backingstore" -a "$ENABLE_1_5_0_BACKEND" = "1" ]; then
+	if [ -n "$backingstore" ]; then
 		[ "$backingstore" != 1 ] && b="-bs $backingstore"
 		[ "$backingstore" = 1 ] && b="+bs"
 	fi

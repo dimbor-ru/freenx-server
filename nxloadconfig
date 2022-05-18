@@ -87,9 +87,6 @@ NX_PPD_DIR=$NX_ETC_DIR/ppd
 SERVER_NAME="$(hostname)"
 EXTERNAL_PROXY_IP=""
 
-[ -f "/etc/openssh/sshd_config" ] && SSHD_CONFIG="/etc/openssh/sshd_config"
-[ -f "/etc/ssh/sshd_config" ] && SSHD_CONFIG="/etc/ssh/sshd_config"
-
 ENABLE_FORCE_ENCRYPTION="0"
 SSHD_CHECK_IP="0"
 
@@ -182,7 +179,6 @@ COMMAND_NXAGENT="$PATH_BIN/nxagent"
 
 
 # Misc directives
-ENABLE_1_5_0_BACKEND=""
 ENABLE_AUTORECONNECT="1"
 EXPORT_USERIP="1"
 EXPORT_SESSIONID="1"
@@ -206,33 +202,6 @@ NUMLOCKX="numlockx"
 NODE_APP_WAIT_TIMEOUT="5"
 SQ3_TIMEOUT=500
 APP_WAIT_MAP=""
-
-# OS specific directives
-OS="$(uname -sr)"
-case "$OS" in
-	"SunOS 5.10")
-		DEFAULT_X_WM=cdwm
-		DEFAULT_X_SESSION=/etc/X11/gdm/Xsession
-		COMMAND_XTERM=/usr/openwin/bin/xterm
-		COMMAND_XAUTH=/usr/openwin/bin/xauth
-		COMMAND_MD5SUM=gmd5sum
-		PATH=/usr/xpg4/bin:/usr/openwin/bin:$PATH
-		export PATH
-		;;
-esac
-# replace incompatible commands
-case "$OS" in
-	"SunOS 5.10")
-		function which() {
-			[ -e "$1" ] && echo $1 && return 0
-			[ -z "$1" ] && return 1
-			for i in  $(echo $PATH | tr ":" "\n"); do
-				[ -e $i/$1 ] && echo $i/$1 && return 0
-			done
-			return 1
-		}
-	;;
-esac
 
 # Utility functions
 function mywhich() { which $(echo "$*" | cut -d" " -f1); }
@@ -336,9 +305,6 @@ if [ "$CHECK" = "yes" ]; then
 	# Check for NX agents ...
 	[ ! -x "$COMMAND_NXAGENT" ] && \
 		ERROR="yes" && echo "Error: Could not find nxagent in $PATH_BIN. Please install some OSS components."
-	[ -n "$(which xdpyinfo 2>/dev/null)" ] || {
-	    ERROR="yes" && echo "Error: Could not find xdpyinfo in $PATH_BIN. Please install it!"
-	}
 
 	if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" ]; then
 		[ ! mywhich "$COMMAND_RDESKTOP" >/dev/null 2>&1 ] && \
@@ -468,18 +434,8 @@ if [ "$CHECK" = "yes" ]; then
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_XAUTH=$COMMAND_XAUTH\""
 	! mywhich "$COMMAND_SMBMOUNT" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBMOUNT=$COMMAND_SMBMOUNT\". You'll not be able to use SAMBA. "
-	mywhich "$COMMAND_SMBMOUNT" >/dev/null 2>&1 && {
-		perms=$(stat -c %a `mywhich "$COMMAND_SMBMOUNT"`)
-		[ $perms -ne 4711 -a $perms -ne 4755 ] && \
- 			WARNING="yes" && echo "Warning: Invalid permissions on \"$COMMAND_SMBMOUNT\". Valid permissions are \"4711\" or \"4755\". You'll not be able to use SAMBA. "
-	}
 	! mywhich "$COMMAND_SMBUMOUNT" >/dev/null 2>&1 && \
 		WARNING="yes" && echo "Warning: Invalid value \"COMMAND_SMBUMOUNT=$COMMAND_SMBUMOUNT\". You'll not be able to use SAMBA."
-	mywhich "$COMMAND_SMBUMOUNT" >/dev/null 2>&1 && {
-		perms=$(stat -c %a `mywhich "$COMMAND_SMBUMOUNT"`)
-		[ $perms -ne 4711 -a $perms -ne 4755 ] && \
-			WARNING="yes" && echo "Warning: Invalid permissions on \"$COMMAND_SMBUMOUNT\". Valid permission are \"4711\" or \"4755\". You'll not be able to use SAMBA. "
-	}
 	! mywhich "$COMMAND_NETCAT" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_NETCAT=$COMMAND_NETCAT\""
 	! mywhich "$COMMAND_SSH" >/dev/null 2>&1 && \
@@ -488,11 +444,6 @@ if [ "$CHECK" = "yes" ]; then
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_SSH_KEYGEN=$COMMAND_SSH_KEYGEN\""
 	! mywhich "$COMMAND_MD5SUM" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_MD5SUM=$COMMAND_MD5SUM\""
-
-	# Check for expect
-	COMMAND_EXPECT=$(head -n1 $PATH_BIN/nxnode-login | cut -d'!' -f2)
-	! mywhich "$COMMAND_EXPECT" >/dev/null 2>&1 && \
-		ERROR="yes" && echo "Error: expect necessary for $PATH_BIN/nxnode-login could not be found in '$COMMAND_EXPECT'. Please install it or change nxnode-login accordingly."
 
 	# Misc directives
 	[ -z $(echo "$ENABLE_AUTORECONNECT" | egrep "^[0|1]$") ] && \
