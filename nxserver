@@ -78,11 +78,6 @@ sqcols_sess="session_id, session, display, status, userip,\
  startTime, creationTime, endTime"
 sqcols_sess_c=15
 
-drop_old_conf_dirs() {
-	log "Info: Old sessions db dropped."
-	rm -rf $NX_SESS_DIR/{closed,failed,running} >/dev/null 2>&1
-}
-
 init_sess_db() {
 	local sess_cols="session_id TEXT PRIMARY KEY, session TEXT,\
  display TEXT, status TEXT, userip TEXT, rootless INT, type TEXT,\
@@ -391,17 +386,14 @@ session_fail() {
 declare -g cmd in_params proto login_success login_method
 declare -g server_mode preferred_host session_count session_count_user
 declare -g user2 ENCRYPTION proxy_display server_host
-declare -g oifs rc isdbs NODE_HOSTNAME user fl_send="1"
+declare -g oifs rc NODE_HOSTNAME user fl_send="1"
 
 server_mode="0"; [ "$USER" = "nx" ] && server_mode="1"
 
 if [ "$server_mode" = "1" ]; then
 
 # Start!
-isdbs=""; [ -f $sess_bd ] && isdbs="1"
 open_dbe $$ && attach_db $sess_bd && init_sess_db
-[[ -z "$isdbs" && ( -d "$NX_SESS_DIR/closed" || \
-	-d "$NX_SESS_DIR/failed" ) ]] && drop_old_conf_dirs
 
 log "-- NX SERVER START: $@ - ORIG_COMMAND=$SSH_ORIGINAL_COMMAND"
 
@@ -1369,10 +1361,7 @@ cmd_terminate_or_send() {
 if [ "$NX_LOG_LEVEL" != "0" -a ! -f "$NX_LOGFILE" ]; then
 	touch "$NX_LOGFILE" >/dev/null 2>&1
 fi
-isdbs=""; [ -f $sess_bd ] && isdbs="1"
 open_dbe $$ && attach_db $sess_bd && init_sess_db
-[[ -z "$isdbs" && ( -d "$NX_SESS_DIR/closed" || \
-	-d "$NX_SESS_DIR/failed" ) ]] && drop_old_conf_dirs
 if [ "$UID" -eq "0" ]; then
 	chown nx "$NX_LOGFILE" >/dev/null 2>&1; chmod 660 "$NX_LOGFILE"
 	chown nx "$sess_bd" >/dev/null 2>&1; chmod 660 "$sess_bd"
