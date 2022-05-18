@@ -133,8 +133,6 @@ LOAD_BALANCE_ALGORITHM="random"
 ENABLE_LOAD_BALANCE_PREFERENCE="0"
 
 # Services directives
-CUPS_BACKEND="/usr/lib/cups/backend"
-CUPS_IPP_BACKEND="$CUPS_BACKEND/ipp"
 CUPS_DEFAULT_SOCK="/var/run/cups/cups.sock"
 
 ENABLE_SAMBA_PRELOAD="0"
@@ -167,7 +165,6 @@ COMMAND_UNHIDE="$COMMAND_HIDE -d"
 COMMAND_NETCAT=netcat
 COMMAND_SSH=ssh
 COMMAND_SSH_KEYGEN=ssh-keygen
-COMMAND_CUPSD=/usr/sbin/cupsd
 COMMAND_MD5SUM="md5sum"
 COMMAND_RDESKTOP="rdesktop"
 COMMAND_VNCVIEWER="vncviewer"
@@ -218,7 +215,6 @@ case "$OS" in
 		DEFAULT_X_SESSION=/etc/X11/gdm/Xsession
 		COMMAND_XTERM=/usr/openwin/bin/xterm
 		COMMAND_XAUTH=/usr/openwin/bin/xauth
-		COMMAND_CUPSD=/opt/sfw/cups/sbin/cupsd
 		COMMAND_MD5SUM=gmd5sum
 		PATH=/usr/xpg4/bin:/usr/openwin/bin:$PATH
 		export PATH
@@ -253,8 +249,6 @@ if [ "$NXCONFIG_RETEST" = "1" ]; then
 		&& COMMAND_XAUTH=/usr/X11R6/bin/xauth
 	{ ! mywhich "$COMMAND_NETCAT" && which nc; } >/dev/null 2>&1 && \
 		COMMAND_NETCAT=$(which nc)
-	{ ! mywhich "$COMMAND_FOOMATIC" && which foomatic-ppdfile; } >/dev/null 2>&1 && \
-		COMMAND_FOOMATIC=$(which foomatic-ppdfile)
 	{ ! mywhich "$PATH_BIN/nxdesktop"; } >/dev/null 2>&1 && \
 		ENABLE_EXTERNAL_NXDESKTOP="1"
 	{ ! mywhich "$PATH_BIN/nxviewer"; } >/dev/null 2>&1 && \
@@ -288,19 +282,6 @@ SHARED_CONFS="/usr/share/freenx-server"
 #########################################################################
 # Additional conf options
 #########################################################################
-
-CUPSLogLevel="info"
-case "$CUPS_LogLevel" in
-	info)
-		CUPSLogLevel="info"
-	;;
-	debug)
-		CUPSLogLevel="debug"
-	;;
-	*)
-		CUPSLogLevel="info"
-	;;
-esac
 
 NUMLOCKX_STATUS="system"
 case "$NUMLOCK_METHOD" in
@@ -457,25 +438,6 @@ if [ "$CHECK" = "yes" ]; then
 	[ -z $(echo "$SESSION_HISTORY" | egrep "^-?[0-9]+$") ] && \
 		ERROR="yes" && echo "Error: Invalid value \"SESSION_HISTORY=$SESSION_HISTORY\""
 
-	# Services directives
-	[ ! -x "$CUPS_IPP_BACKEND" ] && \
-		WARNING="yes" && echo "Warning: \"$CUPS_IPP_BACKEND\" is not executable." \
-					&& echo "         Users will not be able to enable printing."
-	[ ! -x "$CUPS_BACKEND/smb" ] && \
-		WARNING="yes" && echo "Warning: \"$CUPS_BACKEND/smb\" is not executable." \
-					 && echo "         Users will not be able to enable printing."
-	[ -e "$CUPS_IPP_BACKEND" ] && {
-		perms=$(stat -c %a "$CUPS_IPP_BACKEND")
-		[ $perms -ne 711 -a $perms -ne 755 ] && \
-			WARNING="yes" && echo "Warning: Warning: Invalid permissions on \"$CUPS_IPP_BACKEND\". Valid permissions are 711 or 755." \
-					&& echo "         Users will not be able to enable printing."
-	}
-	[ -e "$CUPS_BACKEND/smb" ] && [ ! -L "$CUPS_BACKEND/smb" ] && {
-		perms=$(stat -c %a "$CUPS_BACKEND/smb")
-		[ $perms -ne 711 -a $perms -ne 755 ] && \
-			WARNING="yes" && echo "Warning: Warning: Invalid permissions on \"$CUPS_BACKEND/smb\". Valid permissions are 711 or 755." \
-					&& echo "         Users will not be able to enable printing."
-	}
 
 	# Path directives
 	[ -z $(echo "$SET_LD_LIBRARY_PATH" | egrep "^[0|1]$") ] && \
@@ -524,18 +486,6 @@ if [ "$CHECK" = "yes" ]; then
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_SSH=$COMMAND_SSH\""
 	! mywhich "$COMMAND_SSH_KEYGEN" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_SSH_KEYGEN=$COMMAND_SSH_KEYGEN\""
-	if [ ! -x "$COMMAND_CUPSD" ] ; then
-		WARNING="yes" ; echo "Warning: \"$COMMAND_CUPSD\". is not executable." \
-			&& echo "         Users will not be able to enable printing."
-	else
-		! mywhich "$COMMAND_CUPSD" >/dev/null 2>&1 && \
-			WARNING="yes" && echo "Warning: Invalid value \"COMMAND_CUPSD=$COMMAND_CUPSD\"" \
-				&& echo "         Users will not be able to enable printing."
-		mywhich "$COMMAND_CUPSD" >/dev/null 2>&1 && \
-			[ $(stat -c %a `mywhich "$COMMAND_CUPSD"`) -ne 755 ] && \
-				( WARNING="yes" ; echo "Warning: Invalid permissions on \"$COMMAND_CUPSD\". Valid permissions are \"755\"." \
-					&& echo "         Users will not be able to enable printing." )
-	fi
 	! mywhich "$COMMAND_MD5SUM" >/dev/null 2>&1 && \
 		ERROR="yes" && echo "Error: Invalid value \"COMMAND_MD5SUM=$COMMAND_MD5SUM\""
 
