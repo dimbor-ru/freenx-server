@@ -18,7 +18,7 @@ PATH_SHARE      ?= $(PREFIX)/share
 NX_VERSION=`cat VERSION 2>/dev/null`
 
 SUBDIRS=nxredir nxviewer-passwd nx-session-launcher
-PROGRAMS=nxacl.app nxcheckload.sample nxdesktop_helper nxdialog.freenx nxkeygen nxloadconfig nxnode nxnode-login nxserver nxsetup nxviewer_helper nx-session-launcher/nx-session-launcher
+PROGRAMS=nxacl.app nxcheckload.sample nxdesktop_helper nxdialog.freenx nxkeygen nxnode nxnode-login nxserver nxsetup nxviewer_helper nx-session-launcher/nx-session-launcher
 PROGRAMS_BIN=nxviewer-passwd/nxpasswd/nxpasswd nx-session-launcher/nx-session-launcher-suid
 
 all:
@@ -73,10 +73,6 @@ nxenv_install:
 	do\
 	        $(INSTALL_PROGRAM) -s $$i $(DESTDIR)/$(PATH_BIN)/ || exit 1;\
 	done
-	sed -i -e 's|NX_VERSION=.*|NX_VERSION='$(NX_VERSION)'|' \
-			 -e 's|^PATH_LIB=.*|PATH_LIB='$(PATH_LIB)'|' \
-			 -e 's|^SHARED_CONFS=.*|SHARED_CONFS='$(PATH_SHARE)/freenx-server'|' \
-				$(DESTDIR)/$(PATH_BIN)/nxloadconfig
 	$(MAKE) -C nxredir install
 	#$(MAKE) suid_install
 
