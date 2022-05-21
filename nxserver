@@ -17,10 +17,7 @@
 
 shopt -s extglob
 
-# Read the config file
-# dimbor: it's temporary
-. /usr/bin/nxloadconfig --userconf
-
+SHARED_CONFS="/usr/share/freenx-server"
 . $SHARED_CONFS/nxfuncs
 
 log() {
@@ -72,7 +69,6 @@ echo_x() { log "$@"; echo "$@"; }
 
 # =================== sqlite3 stuff =====================
 
-sess_bd="$NX_SESS_DIR/sessions.sq3"
 sqcols_sess="session_id, session, display, status, userip,\
  rootless, type, user, screeninfo, geometry, host, shadowcookie,\
  startTime, creationTime, endTime"
@@ -380,7 +376,6 @@ session_fail() {
 # NX_ETC_DIR NX_HOME_DIR NX_LICENSE NX_LOGFILE NX_LOG_LEVEL
 # NX_SESS_DIR NX_VERSION
 # SERVER_NAME SESSION_HISTORY SESSION_LIMIT SESSION_USER_LIMIT
-# SHARED_CONFS
 
 # declare global variables:
 declare -g cmd in_params proto login_success login_method
@@ -393,7 +388,14 @@ server_mode="0"; [ "$USER" = "nx" ] && server_mode="1"
 if [ "$server_mode" = "1" ]; then
 
 # Start!
-open_dbe $$ && attach_db $sess_bd && init_sess_db
+open_dbe $$
+attach_db "$sq_settings_fn" ro || {
+	echo "NX> 500 Error: Unable to attach db file $sq_settings_fn";
+	exit_proc 1;
+}
+set_vars_from_db
+sess_bd="$NX_SESS_DIR/sessions.sq3"
+attach_db $sess_bd && init_sess_db
 
 log "-- NX SERVER START: $@ - ORIG_COMMAND=$SSH_ORIGINAL_COMMAND"
 
@@ -443,14 +445,13 @@ preferred_host=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 				if [ "$login_success" = "0" ]; then
 					log -n "su "
 					LANG=C echo "$PASS" | \
-						/usr/bin/sudo -u $user -Svk -p "" >/dev/null 2>&1
+						$COMMAND_SUDO -u $user -Svk -p "" >/dev/null 2>&1
 					if [ $? -eq 0 ]; then login_success="1"; login_method="SU"; fi
 				fi
 
 				if [ "$login_success" = "1" ]; then
 					# Reread the config files (so that $USER.node.conf get sourced)
-					# dimbor: it's temporary
-					# . /usr/bin/nxloadconfig --userconf
+					set_vars_from_db "" $user "only"
 					break
 				else
 					echo_x "NX> 404 ERROR: wrong password or login"
@@ -499,7 +500,7 @@ server_nxnode_start() {
 	NODE_HOSTNAME=$host; [ -z "$NODE_HOSTNAME" ] && NODE_HOSTNAME="127.0.0.1"
 	export NODE_HOSTNAME
 	echo -e "$PASS\n$@" | \
-		/usr/bin/sudo -u $user -HSik -p "" $PATH_BIN/nxnode "$cmd" 2>&1 | \
+		$COMMAND_SUDO -u $user -HSik -p "" $PATH_BIN/nxnode "$cmd" 2>&1 | \
 			log_tee
 }
 
@@ -1358,15 +1359,21 @@ cmd_terminate_or_send() {
 	done <<< "$cmd_params"
 }
 
+open_dbe $$
+attach_db "$sq_settings_fn" ro || {
+	echo "NX> 500 Error: Unable to attach db file $sq_settings_fn";
+	exit_proc 1;
+}
+set_vars_from_db
+sess_bd="$NX_SESS_DIR/sessions.sq3"
 if [ "$NX_LOG_LEVEL" != "0" -a ! -f "$NX_LOGFILE" ]; then
 	touch "$NX_LOGFILE" >/dev/null 2>&1
 fi
-open_dbe $$ && attach_db $sess_bd && init_sess_db
 if [ "$UID" -eq "0" ]; then
 	chown nx "$NX_LOGFILE" >/dev/null 2>&1; chmod 660 "$NX_LOGFILE"
 	chown nx "$sess_bd" >/dev/null 2>&1; chmod 660 "$sess_bd"
 fi
-
+attach_db $sess_bd && init_sess_db
 #
 # normal user available functions
 if [ $UID -ne 0 ]; then

@@ -16,7 +16,12 @@
 # ========================================================================
 
 # Read the config file
-. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
+SHARED_CONFS="/usr/share/freenx-server"
+. $SHARED_CONFS/nxfuncs
+open_dbe $$
+attach_db "$sq_settings_fn" ro || {
+	echo "Unable to attach db file $sq_settings_fn"; exit 1;
+}
 
 [ -z "$NX_KEY_DIR" ] && NX_KEY_DIR="$NX_HOME_DIR/.ssh"
 DATE="`date '+%Y%m%d-%H%M%S'`"
@@ -75,3 +80,5 @@ if [ -f "${NX_SERVER_KEY}" -a -f "${NX_CLIENT_KEY}" -a \
 fi
 
 main "$@"
+
+close_dbe $$

@@ -7,10 +7,7 @@
 
 shopt -s extglob
 
-# Read the config file
-# dimbor: it's temporary
-. /usr/bin/nxloadconfig --userconf
-
+SHARED_CONFS="/usr/share/freenx-server"
 . $SHARED_CONFS/nxfuncs
 #
 # -----------------------------------------------------------------------------
@@ -185,7 +182,7 @@ uservice_configure() {
 		optstr="uid=$USER,gid=$egroup,ip=127.0.0.1,port=$3,username=$4"
 		[ -n "$5" ] && optstr+=",password=$5"
 		[ -n "$SMB_MOUNT_OPTIONS" ] && optstr+=",$SMB_MOUNT_OPTIONS"
-		cmdstr="$COMMAND_SMBMOUNT $2 $6 -o $optstr"
+		cmdstr="$COMMAND_SUDO $COMMAND_SMBMOUNT $2 $6 -o $optstr"
 		echo "$cmdstr"
 	;;
 	smb-prn|ipp-prn)
@@ -215,7 +212,7 @@ uservice_configure() {
 		[ "${1:0:3}" = "smb" ] && \
 			uri="nxsmb://$4:$5@127.0.0.1:$3/cifs/$8" || \
 			uri="ipp://$4:$5@127.0.0.1:$3/printers/$8"
-		cmdstr="$COMMAND_LPADMIN -p $svc -P $ppdfn -v $uri -E"
+		cmdstr="$COMMAND_SUDO $COMMAND_LPADMIN -p $svc -P $ppdfn -v $uri -E"
 		echo "$cmdstr"
 	;;
 	media-pa)
@@ -275,12 +272,12 @@ uservice_mount() {
 		# post-configure
 		local public=$(getparam "$6" "public" "" ';')
 		[ "$public" != "1" ] && {
-		errstr=$($COMMAND_LPADMIN -p $svc -u allow:$USER,guest,root 2>&1) || \
+		errstr=$($COMMAND_SUDO $COMMAND_LPADMIN -p $svc -u allow:$USER,guest,root 2>&1) || \
 			{ nxlog "$lp $2 ($3) printer set permission failed: $errstr"; }
 		}
 		local defp=$(getparam "$6" "defaultprinter" "" ';')
 		[ "$defp" = "1" ] && {
-		errstr=$($COMMAND_LPADMIN -d $svc 2>&1) || \
+		errstr=$($COMMAND_SUDO $COMMAND_LPADMIN -d $svc 2>&1) || \
 			{ nxlog "$lp $2 ($3) printer set to default failed: $errstr"; }
 		}
 		nxlog "$lp $2 ($3) printer installed"
@@ -361,7 +358,7 @@ uservice_umount() {
 		#}
 		for (( i=1; i<=ct; i++ )); do
 			(( i>=ct/2 )) && ffl="-f"
-			errstr+=$($COMMAND_SMBUMOUNT $ffl "$res" 2>&1) && \
+			errstr+=$($COMMAND_SUDO $COMMAND_SMBUMOUNT $ffl "$res" 2>&1) && \
 				{ ok="1"; break; }
 			sleep $step"s"
 		done
@@ -372,7 +369,7 @@ uservice_umount() {
 	;;
 	smb-prn|ipp-prn)
 		for (( i=1; i<=ct; i++ )); do
-			errstr+=$($COMMAND_LPADMIN -x "$2" 2>&1) && \
+			errstr+=$($COMMAND_SUDO $COMMAND_LPADMIN -x "$2" 2>&1) && \
 				{ ok="1"; break; }
 			sleep $step"s"
 		done
@@ -1193,8 +1190,8 @@ startsession() { # Start a new session.
 
 	[ "$1" = "start" ] && mkdir -p -m700 "$NXSESSION_DIRECTORY"
 	# Setup environment
-	[ -n "$SOURCE_SYS_PROFILE" ] && . "$SOURCE_SYS_PROFILE"
-	[ -n "$SOURCE_USER_PROFILE" ] && . "$SOURCE_USER_PROFILE"
+	[ -n "$SOURCE_SYS_PROFILE" ] && . $SOURCE_SYS_PROFILE
+	[ -n "$SOURCE_USER_PROFILE" ] && . ${SOURCE_USER_PROFILE@P}
 
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
 	[ "$ENABLE_ROOTLESS_MODE" = "0" ] && rootless=0
@@ -1366,6 +1363,11 @@ cmd_node_suspend() {
 # -----------------------------------------------------------------------------
 declare -g delim="NX>" CMDLINE="" nx_dir nxuser_logfile umask0=$(umask);
 open_dbe $$
+attach_db "$sq_settings_fn" ro || {
+	echo "$delim 500 Error: NXNODE: Unable to attach db file $sq_settings_fn";
+	exit_proc 1;
+}
+set_vars_from_db "" $USER
 
 [ -n "$2" ] && delim="NX-$2>"
 echo "$delim 1000 NXNODE - Version $NX_VERSION $NX_LICENSE"
