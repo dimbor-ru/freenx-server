@@ -53,7 +53,7 @@ nxenv_install:
 	$(INSTALL_FILE) conf/acls/* $(DESTDIR)/$(NX_ETC_DIR)/acls/
 	install -m775 -gusers -d  $(DESTDIR)/$(NX_ETC_DIR)/ppd/
 	$(INSTALL_DIR) $(DESTDIR)/$(PATH_SHARE)/freenx-server/node.conf.def
-	$(INSTALL_FILE) conf/conf.d/* $(DESTDIR)/$(PATH_SHARE)/freenx-server/node.conf.def/
+	$(INSTALL_FILE) node.conf.def/* $(DESTDIR)/$(PATH_SHARE)/freenx-server/node.conf.def/
 	$(INSTALL_FILE) nxfuncs $(DESTDIR)/$(PATH_SHARE)/freenx-server/
 	$(INSTALL_DIR) $(DESTDIR)/$(CUPS_BACKEND)/
 	$(INSTALL_DIR) $(DESTDIR)/etc/logrotate.d/

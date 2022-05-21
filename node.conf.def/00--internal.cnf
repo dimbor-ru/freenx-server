@@ -1,0 +1,62 @@
+#########################################################################
+# INTERNAL STUFF DEFAULTS
+# DO NOT TOUCH unless you REALLY know what you are doing
+#########################################################################
+
+#@ type: string
+#@ check: notempty error
+NX_VERSION=3.5.0-0.3-CE
+
+#@ type: string
+#@ check: advanced error
+NX_LICENSE="OS (GPL, using backend: %BACKEND%)"
+
+# Where can different nx components be found
+
+#@ type: string
+#@ check: dir error
+NX_DIR=/usr
+
+# if you change that, be sure to also change the public keys
+#@ type: string
+#@ check: dir error
+PATH_BIN=$NX_DIR/bin
+
+#@ type: string
+#@ check: dir error
+PATH_LIB=$NX_DIR/lib
+
+#@ type: string
+#@ check: dir nx:nx 770 perform
+NX_SESS_DIR=/var/lib/nxserver/db
+
+#@ type: string
+#@ check: dir nx:nx 700 perform
+NX_HOME_DIR=/var/lib/nxserver/home
+
+# Advanced users ONLY
+
+#@ type: string
+#@ depend: SET_LD_LIBRARY_PATH
+#@ check: dir error
+AGENT_LIBRARY_PATH="$PATH_LIB"
+
+#@ type: string
+#@ depend: SET_LD_LIBRARY_PATH
+#@ check: dir error
+PROXY_LIBRARY_PATH="$PATH_LIB"
+
+#@ type: string
+#@ depend: SET_LD_LIBRARY_PATH
+#@ check: dir error
+APPLICATION_LIBRARY_PATH="$PATH_LIB"
+
+#@ type: string
+#@ depend: SET_LD_LIBRARY_PATH
+#@ check: advanced
+APPLICATION_LIBRARY_PRELOAD=""
+
+# the name of the authorized keys file for ssh
+#@ type: string
+#@ check: advanced
+SSH_AUTHORIZED_KEYS="authorized_keys2"
