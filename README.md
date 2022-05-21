@@ -28,6 +28,9 @@ internal customizable map;
 
 - Reduced connection time.
 
+- Used nxsetting sqlite db (nxsetup --mkdb for update). Everything
+got even a little faster
+
 - ...
 
 Thats all worked with [opennx ce](https://github.com/dimbor-ru/opennx) liux/windows client, but original nxclient
@@ -64,4 +67,4 @@ ln -s /usr/lib/x86_64-linux-gnu/libXcomp.so.3 /usr/NX/lib/libXcomp.so
 
 Archives of old nx stuff you can find [here](http://ftp.disconnected-by-peer.at/NX/)
 
-dimbor. 2020
+dimbor. 2022
