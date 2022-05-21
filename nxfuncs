@@ -133,23 +133,36 @@ lock_dbe() {
 
 unlock_dbe() { rmdir "$DBE_PIDS_FILE.lock" &>/dev/null; return 0; }
 
+q_dbe0() {
+	local rc
+	echo -e "$@" >/proc/$DBE_PID/fd/0; rc=$?
+	return $rc
+}
+
 q_dbe() {
 	local rc; lock_dbe || return 1
-	echo -e "$@" >/proc/$DBE_PID/fd/0; rc=$?
+	q_dbe0 "$@"; rc=$?
 	unlock_dbe; return $rc
 }
 
-qa_dbe() {
+qa_dbe0() {
 #args: <query_string> ...
-	lock_dbe || return 1
 	local qstr="$@" r res=""; qstr+="SELECT '{end}';"
-	echo -e "$qstr" >/proc/$DBE_PID/fd/0 || { unlock_dbe; return 1; }
+	echo -e "$qstr" >/proc/$DBE_PID/fd/0
 	while read r </proc/$DBE_PID/fd/1; do
 		r=$(trim "$r")
 		[ "${r:(-5)}" = "{end}" ] && break
 		res+="${res:+$'\n'}$r"
 	done
-	echo "$res"; unlock_dbe
+	echo "$res";
+}
+
+qa_dbe() {
+#args: <query_string> ...
+	local rc
+	lock_dbe || return 1
+	local res=$(qa_dbe0 "$@"); rc=$?
+	echo "$res"; unlock_dbe; return $rc
 }
 
 ctl_dbe() {
