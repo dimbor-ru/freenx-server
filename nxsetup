@@ -122,17 +122,19 @@ SHARED_CONFS="/usr/share/freenx-server"
 
 ex_rules_cols="val_type,val_depend,val_check"; acl_user="#ACL#"
 conf_buf=""; txt_err=""; txt_warn=""; txt_info="";
-qs_create_settings="CREATE TABLE IF NOT EXISTS nxsettings.settings(\
+#qs_create_settings="CREATE TABLE IF NOT EXISTS nxsettings.settings(\
+# case of in-memory db
+qs_create_settings="CREATE TABLE settings(\
  user TEXT, key TEXT NOT NULL, value, val_type TEXT, \
  val_depend TEXT, val_check TEXT, PRIMARY KEY(user,key));"
+
 keyslst_for_user() {
 #arg: [username]
 #ret: keynames delimited by '\n'
-	local wstr="" qstr res;
-#	[ -n "$1" ] && wstr="WHERE $(colval_set_or_cond "user" "$1" "OR")"
-	[ -n "$1" ] && wstr="WHERE $(colval_set_or_cond "user" "$1" "OR")"
+	local qstr res wstr;
+	[ -n "$1" ] && wstr="WHERE user='$1'" || wstr="WHERE user IS NULL"
 	qstr="SELECT key FROM settings $wstr;"
-	res=$(qa_dbe "$qstr"); echo "$res"
+	res=$(qa_dbe0 "$qstr"); echo "$res"
 }
 
 values_str_from_db() {
@@ -141,7 +143,7 @@ values_str_from_db() {
 	ucond=" IS NULL"; [ -n "$3" -a "$3" != "NULL" ] && ucond="='$3'"
 	table="settings"; [ -n "$4" ] && table="$4"
 	qstr="SELECT $2 FROM $table WHERE user$ucond AND key='$1' LIMIT 1;"
-	r=$(qa_dbe "$qstr"); OIFS="$IFS"; IFS='&'; local a=($r)
+	r=$(qa_dbe0 "$qstr"); OIFS="$IFS"; IFS='&'; local a=($r)
 	res="${a[*]}"; IFS="$OIFS"
 	echo "${res//\"/}"
 }
@@ -157,7 +159,7 @@ values_update_db() {
 	qstr=$(colval_set_or_cond "$2" "$3" "INS"); ik=${qstr%&*}; iv=${qstr#*&}
 	ins_s="INSERT INTO $table($ik0""key,$ik) SELECT $iv0""'$1',$iv WHERE (SELECT Changes()=0);"
 	#echo "$upd_s" "$ins_s"
-	q_dbe "$upd_s" "$ins_s"
+	q_dbe0 "$upd_s" "$ins_s"
 }
 
 # ===========================================================================
@@ -194,7 +196,7 @@ parse_conf_buf() {
 		[ -n "$1" ] && { uk0="user='$1' AND "; ik0="user,"; iv0="'$1',"; }
 		upd_s="UPDATE settings SET value='$val'""$ukv WHERE $uk0""key='$key';"
 		ins_s="INSERT INTO settings($ik0""key,value""$ik) SELECT $iv0""'$key','$val'$iv WHERE (SELECT Changes()=0);"
-		q_dbe "$upd_s" "$ins_s"
+		q_dbe0 "$upd_s" "$ins_s"
 		ukv=""; ik=""; iv=""
 	done <<< "$conf_buf"
 }
@@ -376,11 +378,12 @@ check_value_advanced() {
 
 check_keyvals() {
 #args: [username] [ro=""]
+	#echo "$(date "+%T.%3N"): $FUNCNAME" #debug
 	local keys=$(keyslst_for_user "$1") r a ad;
 	local value val_type val_depend val_check;
 	local err_log dep_for_null vdep tdep nval;
 	for key in $keys; do
-		#echo "$(date "+%T.%3N"): ----- $key"
+		#echo "$(date "+%T.%3N"): ----- $key" #debug
 		r=$(values_str_from_db $key "value,$ex_rules_cols" $1)
 		OIFS="$IFS"; IFS='&'; a=($r); IFS="$OIFS";
 		value=${a[0]//%26/&};	val_type=${a[1]};
@@ -474,7 +477,7 @@ parse_users_settings() {
 			echo -n " $key ..."
 			qstr="SELECT $ex_rules_cols FROM settings"
 			qstr+=" WHERE user IS NULL AND key='$key' LIMIT 1;"
-			exvals=$(qa_dbe "$qstr"); exvals=${exvals//\"/}
+			exvals=$(qa_dbe0 "$qstr"); exvals=${exvals//\"/}
 			values_update_db $key "$ex_rules_cols" "$exvals" $un
 		done
 	done
@@ -487,17 +490,16 @@ open_dbe $$
 if [ "$MKDB" = "yes" ]; then
 	echo "$(date "+%T.%3N"): nxsettings mkdb starting"
 	rm -f $sq_settings_fn &>/dev/null
-  attach_db "$sq_settings_fn"|| {
-		echo "Unable to create $sq_settings_fn"; exit_proc 1; }
-	q_dbe "$qs_create_settings";
-
+	# this is commented in case of in-memory db
+	#attach_db "$sq_settings_fn"|| {
+	#	echo "Unable to create $sq_settings_fn"; exit_proc 1; }
+	q_dbe0 "$qs_create_settings";
 	parse_defaults;
 	parse_settings;
 	parse_users_settings;
-	check_keyvals "NULL"
+	check_keyvals
 	[ -n "$txt_warn" ] && { echo; echo "Checking results:"; echo "$txt_warn"; }
 	[ -n "$txt_err" ] && { echo; echo "!!! ERRORS !!!"; echo "$txt_err"; }
-	echo "$(date "+%T.%3N"): nxsettings mkdb stop"
 	txt_err=""; txt_warn=""; txt_info="";
 else
 	attach_db "$sq_settings_fn" ro || {
@@ -745,4 +747,8 @@ elif [ "$UNINSTALL" = "yes" ]; then
 		echo "freenx at a later time. To remove them, please run 'nxsetup --uninstall --purge'"
 	fi
 fi
+[ "$MKDB" = "yes" ] && {
+	q_dbe0 ".save $sq_settings_fn"
+	echo "$(date "+%T.%3N"): nxsettings mkdb stop"
+}
 exit_proc 0
