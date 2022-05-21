@@ -9,6 +9,10 @@
 ip4_pattern='[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+'
 num_pattern='[+-]?[0-9]+([.][0-9]+)?'
 
+# setup NX_ETC_DIR here because we allways should to read settings first
+NX_ETC_DIR="/etc/nxserver"
+sq_settings_fn="$NX_ETC_DIR/nxsettings.sq3"
+
 # following two functions are Copyright by Klaus Knopper
 stringinstring() { case "$2" in *$1*) return 0;; esac; return 1; }
 
@@ -193,9 +197,10 @@ open_dbe() {
 }
 
 attach_db() {
-#args: <filename>
+#args: <filename> [ro=""]
 	local dbname=${1##*\/}; dbname=${dbname%.*}
-	q_dbe "ATTACH DATABASE '$1' AS $dbname;"
+	local db=$1; [ -n "$2" ] && db="file:$1?mode=ro"
+	q_dbe "ATTACH DATABASE '$db' AS $dbname;"
 }
 
 close_dbe() {
@@ -309,4 +314,39 @@ qtxt2cmdstrs() {
 		res+="$k=$v&"
 	done <<< "$@"
 	echo "$res"
+}
+
+# ===========================================================================
+# functions to read settings
+
+set_vars_from_db() {
+#args: [varnames_list_delimited_by_commas] [[username] [only_users_vars=""]]
+# if varnames is empty str rquests all variables
+# if username is empty str rquests all variables for NULL
+# if username is not empty str rquests all variables user over NULL
+# if username and only_users_vars are not empty str rquests users variables only
+	local qstr0 qs_keys0="" qs_keys="" ts a qstr var value;
+	local keylist
+	[ -n "$1" ] && {
+		keylist="'${1//,/\',\'}'"
+		qs_keys0=" AND key IN ($keylist)"
+		qs_keys=" AND rs.key IN ($keylist)"
+	}
+	if [ -n "$2" ]; then
+		[ -n "$3" ] && \
+			qstr="SELECT key,value FROM settings WHERE user='$2' $qs_keys0;" || \
+			qstr="SELECT rs.key,coalesce(us.value,rs.value) \
+ as value FROM settings AS rs LEFT JOIN settings AS us ON us.key=rs.key \
+ AND us.user='$2' WHERE rs.user IS NULL $qs_keys;"
+	else
+		qstr="SELECT key,value FROM settings WHERE user IS NULL $qs_keys0;"
+	fi
+	#echo "$qstr" #debug
+	ts=$(qa_dbe "$qstr"); #echo "$ts" #debug
+	while read line; do
+		local OIFS="$IFS"; local IFS='&'; a=($line); IFS="$OIFS"
+		var=${a[0]}; value=${a[1]}; value=${value//\"/}; value=${value//%26/&}
+		declare -g $var="$value";
+		#echo "$var=\"$value\"" #debug
+	done <<< "$ts"
 }

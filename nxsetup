@@ -2,29 +2,22 @@
 
 # Coypright (c) 2004-2005 by Fabian Franz <freenx@fabian-franz.de>.
 #                    2005 by Jon Severinsson <jonno@users.berlios.de>.
+#                    2022 by Dmitry Borisov <i@dimbor.ru>
 #
 # License: GNU GPL, version 2
 #
 # SVN: $Id: nxsetup 512 2008-03-10 23:01:03Z fabianx $
 #
 
-HELP="no"
-INSTALL="no"
-SETUP_NOMACHINE_KEY="no"
-SETUP_UID=""
-SETUP_GID=""
-LOCAL_USER_OPTION=""
+HELP="no"; INSTALL="no"; SETUP_NOMACHINE_KEY="no"
+SETUP_UID=""; SETUP_GID=""; LOCAL_USER_OPTION=""
 # luseradd / luserdel are only available on RedHat
 [ -f /etc/redhat-release ] && LOCAL_USER_OPTION="yes"
 # altlinux have /etc/redhat-release file but don't have luseradd / luserdel commands
 [ -f /etc/altlinux-release ] && LOCAL_USER_OPTION="no"
-SETUP_LOCAL_USER="no"
-CLEAN="no"
-UNINSTALL="no"
-PURGE="no"
-BUILD_KNOWN_HOSTS="yes"
-AUTOMATIC="no"
-IGNORE_ERRORS="no"
+SETUP_LOCAL_USER="no"; CLEAN="no"; UNINSTALL="no"
+PURGE="no"; BUILD_KNOWN_HOSTS="yes"; AUTOMATIC="no"
+IGNORE_ERRORS="no"; MKDB="no"
 
 if [ $UID -ne 0 ]; then
 	echo "You need to be root to use this program."
@@ -36,6 +29,7 @@ parse_cmdline() {
 		case "$1" in
 			--help) HELP="yes"; shift ;;
 			--install) INSTALL="yes"; shift ;;
+			--mkdb|mkdb) MKDB="yes"; shift ;;
 			--ignore-errors) IGNORE_ERRORS="yes"; shift;;
 			--setup-nomachine-key) SETUP_NOMACHINE_KEY="yes"; shift ;;
 			--dont-build-known-hosts) BUILD_KNOWN_HOSTS="no"; shift;;
@@ -52,7 +46,7 @@ parse_cmdline() {
 		esac
 	done
 
-	[ "$TEST" = "yes" ] && return         # If we just test, we can return directly
+	[ "$TEST" = "yes" ] && MKDB="yes" && return # If we just test, we can return directly
 
 	#Check for invalid combinations:
 	[ "$SETUP_LOCAL_USER" = "yes" -a -z "$LOCAL_USER_OPTION" ] && HELP="yes"
@@ -63,29 +57,23 @@ parse_cmdline() {
 	[ "$UNINSTALL" = "yes" -a "$CLEAN" = "yes" ] && HELP="yes"
 
 	if [ "$INSTALL" = "no" -a "$UNINSTALL" = "no" -a \
-		"$AUTOMATIC" = "no" -a "$HELP" = "no" ]; then
-		echo "------> You did select no action."
-		echo "        FreeNX guesses that you want to _install_ the server."
-		echo "        Type \"y\" to abort the installation at this point in time."
-		echo "        \"N\" is the default and continues installation."
-		echo "        Use \"${0} --help\" to get more detailed help hints."
-		echo ""
-		echo -n " Do you want to abort now? [y/N] "
-		read -n 1 CHOICE
-		echo
-		[ "$CHOICE" = "y" ] || INSTALL="yes"
+		"$AUTOMATIC" = "no" -a "$HELP" = "no" -a "$MKDB" = "no" ]; then
+		HELP="yes"
 	fi
 
 	[ "$INSTALL" = "no" -a "$UNINSTALL" = "no" ] && HELP="yes"
+	[ "$INSTALL" = "yes" -o "$AUTOMATIC" = "yes" ] && MKDB="yes"
 
 	if [ "$HELP" = "yes" ]; then
 		echo "nxsetup - Setup the FreeNX server."
 		echo "Syntax: nxsetup --help"
+		echo "        nxsetup --mkdb"
 		echo "        nxsetup --test [--ignore-errors]"
 		echo "        nxsetup --install [--setup-nomachine-key] [--uid <nummber>] [--clean [--purge]]"
 		echo "        nxsetup --uninstall [--purge]"
 		echo
 		echo "  --help                 Display this help message."
+		echo "  --mkdb                 (Re)create nxsettings db."
 		echo "  --test                 Test the configuration and connection to localhost NX Server."
 		echo "  --install              Install necessary files and add the special user \"nx\"."
 		echo "  --ignore-errors        Check for false configuration, but don't complain."
@@ -129,9 +117,396 @@ parse_cmdline() {
 }
 
 parse_cmdline "$@"
+#======================= nxsettings db manipulatios =========================
+SHARED_CONFS="/usr/share/freenx-server"
+. $SHARED_CONFS/nxfuncs
 
-# Read the config file
-. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --
+ex_rules_cols="val_type,val_depend,val_check"; acl_user="#ACL#"
+conf_buf=""; txt_err=""; txt_warn=""; txt_info="";
+qs_create_settings="CREATE TABLE IF NOT EXISTS nxsettings.settings(\
+ user TEXT, key TEXT NOT NULL, value, val_type TEXT, \
+ val_depend TEXT, val_check TEXT, PRIMARY KEY(user,key));"
+keyslst_for_user() {
+#arg: [username]
+#ret: keynames delimited by '\n'
+	local wstr="" qstr res;
+#	[ -n "$1" ] && wstr="WHERE $(colval_set_or_cond "user" "$1" "OR")"
+	[ -n "$1" ] && wstr="WHERE $(colval_set_or_cond "user" "$1" "OR")"
+	qstr="SELECT key FROM settings $wstr;"
+	res=$(qa_dbe "$qstr"); echo "$res"
+}
+
+values_str_from_db() {
+#args: key <col1,col2...> [username] [table='settings']
+	local ucond table qstr r a res;
+	ucond=" IS NULL"; [ -n "$3" -a "$3" != "NULL" ] && ucond="='$3'"
+	table="settings"; [ -n "$4" ] && table="$4"
+	qstr="SELECT $2 FROM $table WHERE user$ucond AND key='$1' LIMIT 1;"
+	r=$(qa_dbe "$qstr"); OIFS="$IFS"; IFS='&'; local a=($r)
+	res="${a[*]}"; IFS="$OIFS"
+	echo "${res//\"/}"
+}
+
+values_update_db() {
+#args: key <col1,col2...> <val1&val2...> [username] [table='settings']
+	local ucond table qstr upd_s ins_s ik0="" iv0="" ik iv;
+	ucond=" IS NULL"; [ -n "$4" -a "$4" != "NULL" ] && ucond="='$4'"
+	table="settings"; [ -n "$5" ] && table="$5"
+	qstr=$(colval_set_or_cond "$2" "$3"); [ -n "$qstr" ] || return
+	upd_s="UPDATE $table SET $qstr WHERE user$ucond AND key='$1';"
+	[ -n "$4" ] && { ik0="user,"; iv0="'$4',"; }
+	qstr=$(colval_set_or_cond "$2" "$3" "INS"); ik=${qstr%&*}; iv=${qstr#*&}
+	ins_s="INSERT INTO $table($ik0""key,$ik) SELECT $iv0""'$1',$iv WHERE (SELECT Changes()=0);"
+	#echo "$upd_s" "$ins_s"
+	q_dbe "$upd_s" "$ins_s"
+}
+
+# ===========================================================================
+
+parse_conf_buf() {
+#args: user [is_defs]
+	local ex_vals="type depend check" l0 l ukv="" ik="" iv="";
+	local key val a0 a first cn cv upd_s ins_s;
+	while read l0; do
+ 		[ -n "$l0" ] || continue
+		l=($l0); first=${l[0]:0:1}
+		if [ "$first" = "#" ]; then
+			[ -z "$2" ] && continue
+			# parse comment for extras
+			l[0]=${l[0]:1}
+			[ "${l[0]}" = "@" ] && { # set extra column
+				unset l[0];
+				a0="${l[@]}"; OIFS="$IFS"; IFS=':'; a=($a0); IFS="$OIFS"
+				cn=$(trim "${a[0]}"); stringinstring "$cn" "$ex_vals" || continue
+				#cv=$(trim "${a[@]:1}"); # this kills all colons :(
+				cv=$(trim "${l0#*:}"); cv=${cv//&/%26}
+				ukv="$ukv,val_$cn='$cv'";
+				ik="$ik,val_$cn"; iv="$iv,'$cv'"
+				#echo "!$cn !$cv"
+			}
+			continue
+		fi
+		[[ "${l[0]:0:1}" =~ [[:upper:]] ]] || continue
+		# there can be more than one char '=' per line
+		key=$(trim "${l%%=*}"); [ "$l" = "$key" ] && continue
+		val=$(trim "${l[@]#*=}"); val=${val//\"/}; val=${val//&/%26}
+		# fake upsert to db
+		uk0="user IS NULL AND "; ik0=""; iv0="";
+		[ -n "$1" ] && { uk0="user='$1' AND "; ik0="user,"; iv0="'$1',"; }
+		upd_s="UPDATE settings SET value='$val'""$ukv WHERE $uk0""key='$key';"
+		ins_s="INSERT INTO settings($ik0""key,value""$ik) SELECT $iv0""'$key','$val'$iv WHERE (SELECT Changes()=0);"
+		q_dbe "$upd_s" "$ins_s"
+		ukv=""; ik=""; iv=""
+	done <<< "$conf_buf"
+}
+
+check_value() {
+#args: <key> <value> <type> <cond> <user> [err_log] [ro=""]
+	local err_log="" msg="" key=$1 val="$2" cond="$4" nval="$2" umsg="";
+	local mpref="! $umsg""$key = \"$val\" " notempty="" act="";
+	local nump='^'"$num_pattern"'$' cl min max a OIFS;
+	local cnd cval lst nexe ug local mode mask;
+	local ma set_ug set_mode res st;
+	[ -n "$6" ] && err_log=$6; [ -n "$5" -a "$5" != "NULL" ] && umsg="[$5] "
+	stringinstring "notempty" "$cond" && \
+		{ notempty="1"; cond=$(trim "${cond/notempty/}"); }
+	stringinstring "perform" "$cond" && \
+		{ act="1"; cond=$(trim "${cond/perform/}"); }
+	case "$3" in
+		bool) [ "$val" = "0" -o "$val" = "1" ] || {
+				msg="$mpref must be 0/1, forced to;"$'\n'
+				[ -n "$val" ] && nval="1" || nval="0"
+			} ;;
+		int)
+			[[ $val =~ $nump ]] || {
+				msg="$mpref must be the number, forced to 0;"$'\n'; nval="0";
+			}
+			[ -n "$cond" ] && {
+				cl=($cond); min="${cl[0]}"; max="${cl[1]}";
+				[ -n "$min" ] && {
+					if ! [[ $min =~ $nump ]]; then
+						min="${!min}"; [[ $min =~ $nump ]] || min=""
+					fi
+				}
+				[ -n "$max" ] && {
+					if ! [[ $max =~ $nump ]]; then
+						max="${!max}"; [[ $max =~ $nump ]] || max=""
+					fi
+				}
+				[ -n "$min" ] && ((val<min)) && \
+					msg="$mpref is less than MIN value $min;"$'\n'
+				[ -n "$max" ] && ((val>max)) && \
+					msg="$mpref is greater than MAX value $max;"$'\n'
+			} ;;
+		string)
+			if [ -n "$notempty" ]; then
+				[ -z "$val" ] && \
+					msg="$mpref. Is empty! Set it please;"$'\n'
+			elif [ -n "$cond" ]; then
+				cnd=($cond); cval=($val);
+				[ "${cnd[0]}" = "path" ] && { cval[0]=${cval[0]%/*}; cnd[0]="dir"; }
+				if [ "${cnd[0]}" = "list:" ]; then
+					OIFS="$IFS"; local IFS='%'; a=($cond); IFS="$OIFS"; lst=${a[1]}
+					stringinstring "${cval[0]}" "$lst" || \
+						msg="! $umsg""$key = \"${cval[0]}\" value is not in ($lst);"$'\n'
+				elif stringinstring "${cnd[0]}" "dir,exe,file";  then
+					if [ -z "${cval[0]}" ]; then
+						msg="$mpref. Is empty! Set it;"$'\n'
+					else
+						if [ "${cnd[0]}" = "exe" -a ! -x "${cval[0]}" ]; then
+							nexe="$(which ${cval[0]} 2>/dev/null)"
+							[ -n "$nexe" ] && {
+								cval[0]=$nexe; nval="${cval[@]}"; err_log=""
+							} || \
+								msg="! $umsg""$key = \"${cval[0]}\": file is not executable;"$'\n'
+						elif [ "${cnd[0]}" = "dir" ]; then
+							[ -d "${cval[0]}" ] || \
+								msg="! $umsg""$key = \"${cval[0]}\": dir is not found;"$'\n'
+						elif [ "${cnd[0]}" = "file" ]; then
+							[ -f "${cval[0]}" ] || \
+								msg="! $umsg""$key = \"${cval[0]}\": file is not found;"$'\n'
+						fi
+						ug=""; mode=""; mask="";
+						if [ -n "${cnd[1]}" ]; then
+							for ((i=1; i<${#cnd[*]}; i++)) do # to collect attrs
+								if [ "${cnd[$i]:0:1}" = "&" ]; then
+									cnd[$i]=${cnd[$i]:1}; mask="1";
+								fi
+								if [[ ${cnd[$i]:0:1} =~ $nump ]]; then
+									mode=${cnd[$i]};
+									while [ "${mode:0:1}" = "0" ]; do mode=${mode:1}; done
+								else ug=${cnd[$i]}
+								fi
+							done
+							ma=($(stat -c '%U:%G %a' "${cval[0]}" 2>/dev/null));
+							set_ug=""; set_mode=""; res="";
+							if [ -n "$msg" -a -n "$act" -a "${cnd[0]}" != "exe" ]; then
+								if [ "${cnd[0]}" = "dir" ]; then
+									mkdir -p "${cval[0]}" 2>/dev/null
+									[ -d "${cval[0]}" ] && { set_mode="1"; set_ug="1"; }
+								else
+									touch "${cval[0]}" 2>/dev/null
+									[ -f "${cval[0]}" ] && { set_mode="1"; set_ug="1"; }
+								fi
+								[ -n "$set_mode" ] && \
+									msg="  $umsg""$key = \"${cval[0]}\": ${cnd[0]} is not found > Created;"$'\n'
+							else # check file attrs
+								ma=($(stat -c '%U:%G %a' "${cval[0]}"));
+								if [ -n "$ug" -a "$ug" != "${ma[0]}" ]; then
+									msg+="! $umsg""$key = \"${cval[0]}\": owners [${ma[0]}] is not \"$ug\";"$'\n'
+									[ -n "$act" ] && set_ug="1"
+								fi
+								if [ -n "$mode" ]; then
+									if [ -n "$mask" ]; then
+										res=$(printf '%o' $(( 0$mode & 0${ma[1]} )))
+										[ "$res" = "$mode" ] || {
+											msg+="! $umsg""$key = \"${cval[0]}\": mode [${ma[1]}] does not match the mask \"$mode\";"$'\n'
+											[ -n "$act" ] && set_mode="1"
+										}
+									elif [ "${ma[1]}" != "$mode" ]; then
+										msg+="! $umsg""$key = \"${cval[0]}\": mode [${ma[1]}] is not equal \"$mode\";"$'\n'
+										[ -n "$act" ] && set_mode="1"
+									fi
+								fi
+							fi
+							if [ -n "$set_ug" -a -n "$ug" ]; then
+								msg+="$umsg""  $key = \"${cval[0]}\" < owners change to \"$ug\""
+								chown $ug "${cval[0]}" 2>/dev/null && st="OK" || st="FAILED"
+								msg+=" > $st;"$'\n'
+							fi
+							if [ -n "$set_mode" -a -n "$mode" ]; then
+								[ -n "$mask" ] && \
+									mode=$(printf '%o' $(( 0$mode | 0${ma[1]} )))
+								msg+="$umsg""  $key = \"${cval[0]}\" < mode change to \"$mode\""
+								[ "${#mode}" = "3" ] && mode="00$mode"
+								chmod $mode "${cval[0]}" 2>/dev/null && st="OK" || st="FAILED"
+								msg+=" > $st;"$'\n'
+							fi
+						fi
+					fi
+
+				fi
+			fi
+			#msg="$umsg"" key $key ($3)=\"$val\" checking: \"$cond\""$'\n'
+		;;
+	esac
+	[ "$val" = "$nval" ] || {
+		[ -n "$7" ] || \
+			values_update_db $key "value" "${nval//&/%26}" $5
+		msg+="    $key < \"$nval\";"$'\n'; val="$nval"
+	}
+	[ -n "$5" ] || declare -g $key="$val" # expand not user's vals only ???
+	[ -n "$msg" ] && {
+		[ -n "$err_log" ] && txt_err+="$msg" || txt_warn+="$msg"
+	}
+}
+
+check_value_advanced() {
+#args: <key> <value> <type> <cond> <user> [err_log] [ro=""]
+	local err_log=""; [ -n "$6" ] && err_log=$6
+	local msg="" key=$1 val="$2" nval="$2"
+	local umsg=""; [ -n "$5" ] && umsg="[$5] "
+	local mpref="! $umsg""$key = \"$val\"" ver;
+	case "$1" in
+		NX_LICENSE)
+			ver=$(rematchfn 'NXAGENT - Version ([[:digit:][:punct:]]+)' \
+				"$($COMMAND_NXAGENT -version 2>&1)") #'
+				# it was "$(strings $COMMAND_NXAGENT)"
+			if [ -n "$ver" ]; then
+				nval=${NX_LICENSE/\%BACKEND\%/$ver}; err_log=""
+			else msg="$mpref: backend version is not found;"$'\n'
+			fi
+		;;
+		COMMAND_GDM_X_SESSION)
+			[ ! -x "${val%% *}" ] && {
+				nval="/etc/X11/Xsession"; err_log=""
+			}
+		;;
+	esac
+	#echo "# $1($3)=\"$2\" advanced checking." #debug
+	[ "$val" = "$nval" ] || {
+		[ -n "$7" ] || \
+			values_update_db $key "value" "${nval//&/%26}" $5
+		msg+="    $key < \"$nval\";"$'\n'; val="$nval"
+	}
+	[ -n "$4" ] || declare -g $key="$val" # expand not user's vals only ???
+	[ -n "$msg" ] && {
+		[ -n "$err_log" ] && txt_err+="$msg" || txt_warn+="$msg"
+	}
+}
+
+check_keyvals() {
+#args: [username] [ro=""]
+	local keys=$(keyslst_for_user "$1") r a ad;
+	local value val_type val_depend val_check;
+	local err_log dep_for_null vdep tdep nval;
+	for key in $keys; do
+		#echo "$(date "+%T.%3N"): ----- $key"
+		r=$(values_str_from_db $key "value,$ex_rules_cols" $1)
+		OIFS="$IFS"; IFS='&'; a=($r); IFS="$OIFS";
+		value=${a[0]//%26/&};	val_type=${a[1]};
+		val_depend=${a[2]}; val_check=${a[3]//%26/&};
+		err_log=""; stringinstring "error" "$val_check" && \
+			{ err_log="1"; val_check=$(trim "${val_check/error/}"); }
+		# don't check if depend condition is set and not match
+		dep_for_null=""
+		[ -n "$val_depend" ] && {
+			local first=${val_depend:0:1}
+			[ "$first" = "!" ] && { val_depend=${val_depend:1}; dep_for_null="1"; }
+			r=$(values_str_from_db $val_depend "value,val_type" $1)
+			OIFS="$IFS"; IFS='&'; ad=($r); IFS="$OIFS"
+			vdep=${ad[0]}; tdep=${ad[1]}
+			[ -z "$dep_for_null" ] && {
+				case "$tdep" in
+					bool)		[ "$vdep" = "1" ] || continue ;;
+					string)	[ -n "$vdep" ] || continue ;;
+					int)		[ "$vdep" -ne "0" ] || continue ;;
+				esac
+			} || {
+				case "$tdep" in
+					bool)		[ "$vdep" = "1" ] && continue ;;
+					string)	[ -n "$vdep" ] && continue ;;
+					int)		[ "$vdep" -ne "0" ] && continue ;;
+				esac
+			}
+			#echo "$key -> $val_depend ($tdep): \"$vdep\"  $dep_for_null"
+		}
+		if stringinstring "rt_expand" "$val_check"; then
+			val_check=$(trim "${val_check/rt_expand/}")
+		elif [ "$val_type" = "string" ]; then # expand if no rt_expand only
+			#nval="${value@P}" # value from db (need to "ORDER BY rowid" in keylist)
+			nval="${!key}" # expands/chg defaults by means 'bash source *.conf'
+			[ -n "$nval"  -a "$value" != "$nval" ] && {
+				[ -n "$2" ] || \
+					values_update_db $key "value" "${nval//&/%26}" "$1"
+				#txt_warn+="  $key [\"$value\"] < \"$nval\";"$'\n'
+				txt_warn+="    $key < \"$nval\";"$'\n'
+				value="$nval"
+			}
+		fi
+		stringinstring "advanced" "$val_check" && {
+			val_check=$(trim "${val_check/advanced/}")
+			check_value_advanced $key "$value" "$val_type" \
+				"$val_check" "$1" $err_log "$2"
+			continue
+		}
+		check_value "$key" "$value" "$val_type" "$val_check" "$1" $err_log "$2"
+		#echo "$key ($val_type) /$val_check/: $value"
+	done
+}
+
+parse_defaults() {
+	local confd=$SHARED_CONFS/node.conf.def curd=$(pwd)
+	echo "Parse default settings in $confd:"; cd $confd
+	for fn in *.{cnf,conf}; do [ -r $fn ] && . $fn; done
+	for fn in *.{cnf,conf}; do
+		[ -r $fn ] || continue; echo -n "  $fn ..";
+		conf_buf="$(< $fn)"; parse_conf_buf "" 1; echo " done."
+	done
+	cd $curd
+}
+
+parse_settings() {
+	local confd="node.conf.d" fn;
+	echo "Parse system settings in $NX_ETC_DIR:"; curd=$(pwd)
+	cd $NX_ETC_DIR
+	for fn in $confd/*.conf node.conf; do [ -r $fn ] && . $fn; done
+	for fn in $confd/*.conf node.conf; do
+		[ -r $fn ] || continue; echo -n "  $fn ...";
+		conf_buf="$(< $fn)"; parse_conf_buf "";
+		echo " done."
+	done
+	cd $curd
+}
+
+parse_users_settings() {
+	local fn un qstr ukeys key exvals;
+	echo "Parse users settings:"; curd=$(pwd)
+	cd $NX_ETC_DIR
+	for fn in *.conf; do
+		[ -r $fn ] || continue; un=${fn//.conf/}
+		getent passwd "$un" >/dev/null || continue
+		echo -n "  $fn ...";
+		. $fn; conf_buf="$(< $fn)"; parse_conf_buf $un
+		echo -n " check rules for $un ..."
+		# user extras setup scrutch
+		ukeys=$(keyslst_for_user $un)
+		for key in $ukeys; do
+			echo -n " $key ..."
+			qstr="SELECT $ex_rules_cols FROM settings"
+			qstr+=" WHERE user IS NULL AND key='$key' LIMIT 1;"
+			exvals=$(qa_dbe "$qstr"); exvals=${exvals//\"/}
+			values_update_db $key "$ex_rules_cols" "$exvals" $un
+		done
+	done
+	echo " done."
+	cd $curd
+}
+
+open_dbe $$
+[ ! -f $sq_settings_fn ] && MKDB="yes"
+if [ "$MKDB" = "yes" ]; then
+	echo "$(date "+%T.%3N"): nxsettings mkdb starting"
+	rm -f $sq_settings_fn &>/dev/null
+  attach_db "$sq_settings_fn"|| {
+		echo "Unable to create $sq_settings_fn"; exit_proc 1; }
+	q_dbe "$qs_create_settings";
+
+	parse_defaults;
+	parse_settings;
+	parse_users_settings;
+	check_keyvals "NULL"
+	[ -n "$txt_warn" ] && { echo; echo "Checking results:"; echo "$txt_warn"; }
+	[ -n "$txt_err" ] && { echo; echo "!!! ERRORS !!!"; echo "$txt_err"; }
+	echo "$(date "+%T.%3N"): nxsettings mkdb stop"
+	txt_err=""; txt_warn=""; txt_info="";
+else
+	attach_db "$sq_settings_fn" ro || {
+		echo "Unable to attach db file $sq_settings_fn"; exit_proc 1;
+	}
+	set_vars_from_db
+fi
+#============================================================================
 
 run_nscd() {
 	NSCD="nscd"
@@ -243,11 +618,6 @@ EOF
 
 test_nx() {
 	echo ""
-	echo "----> Testing your nxserver configuration ..."
-	[ "$IGNORE_ERRORS" = "yes" ] && NO_ERRORS="--ignore-errors"
-	. $(PATH=$(cd $(dirname $0) && pwd):$PATH which nxloadconfig) --check $NO_ERRORS
-	echo "<---- done"
-	echo ""
 	echo "----> Testing your nxserver connection ..."
 
 	CONNECTION=""
@@ -291,7 +661,7 @@ test_nx() {
 		echo "      -the iptables. add to it:"
 		echo "         $ iptables -A INPUT  -i lo -j ACCEPT"
 		echo "         $ iptables -A OUTPUT -o lo -j ACCEPT"
-		exit 1
+		exit_proc 1
 	fi
 	echo "<--- done"
 	echo ""
@@ -300,7 +670,6 @@ test_nx() {
 uninstall_nx() {
 	if [ -e "$NX_SESS_DIR" ]; then
 		echo -n "Removing session database ..."
-		rm -f -r $NX_SESS_DIR/closed $NX_SESS_DIR/running $NX_SESS_DIR/failed 2>/dev/null
 		rmdir -p $NX_SESS_DIR 2>/dev/null
 		echo "done"
 	fi
@@ -333,7 +702,7 @@ uninstall_nx() {
 
 if [ "$TEST" = "yes" ]; then
 	test_nx
-	exit 0
+	exit_proc 0
 fi
 
 if [ "$INSTALL" = "yes" ]; then
@@ -377,3 +746,4 @@ elif [ "$UNINSTALL" = "yes" ]; then
 		echo "freenx at a later time. To remove them, please run 'nxsetup --uninstall --purge'"
 	fi
 fi
+exit_proc 0
