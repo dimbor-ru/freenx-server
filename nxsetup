@@ -61,7 +61,6 @@ parse_cmdline() {
 		HELP="yes"
 	fi
 
-	[ "$INSTALL" = "no" -a "$UNINSTALL" = "no" ] && HELP="yes"
 	[ "$INSTALL" = "yes" -o "$AUTOMATIC" = "yes" ] && MKDB="yes"
 
 	if [ "$HELP" = "yes" ]; then
