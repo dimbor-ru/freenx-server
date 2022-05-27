@@ -672,28 +672,22 @@ node_find_application() {
 	#nxlog "$lp starting with args \"$@\"" #debug
 	local node_startx=""
 	case $1 in
-		shadow|windows|vnc)
-			:
+		shadow|windows|vnc) return
 		;;
-		unix-kde)
-			node_startx=$COMMAND_START_KDE
+		unix-kde) node_startx=$COMMAND_START_KDE
 		;;
-		unix-gnome)
-			node_startx=$COMMAND_START_GNOME
+		unix-gnome) node_startx=$COMMAND_START_GNOME
 		;;
-		unix-cde)
-			node_startx=$COMMAND_START_CDE
+		unix-cde) node_startx=$COMMAND_START_CDE
 		;;
 		windows-helper)
-			application="$PATH_BIN/nxdesktop_helper"
-			node_startx=$application
+			application="$PATH_BIN/nxdesktop_helper"; node_startx=$application
 		;;
 		unix-application|vnc-helper)
 			[ "$application" = "xterm" ] && application=$COMMAND_XTERM
 			node_startx=$application
 		;;
-		unix-console)
-			node_startx=$COMMAND_XTERM
+		unix-console) node_startx=$COMMAND_XTERM
 		;;
 		unix-default|*)
 			if [ -x "$HOME/$USER_X_STARTUP_SCRIPT" ]; then
@@ -706,13 +700,44 @@ node_find_application() {
 	esac
 
 	# dimbor: another personalyzed way to ACLS control and replace X-application
-	[ -d "$NX_ACL_DIR" -a -x "$PATH_BIN/nxacl.app" ] && {
-		#nxlog "$lp !!! call nxacl.app with source node_startx='$node_startx'" #debug
-		node_startx=$($PATH_BIN/nxacl.app "$node_startx" "$CMDLINE")
-	}
+	[ -n "$NX_ACL_DIR"  ] || { echo "$node_startx"; return; }
 
-	echo "$node_startx"
-	#nxlog "$lp return node_startx='$node_startx', type='$1'" #debug
+	local ucond=$(groups); ucond="'#$USER','*${ucond// /\',\'\*}','@all'"
+	local qstr="SELECT key,value,val_depend FROM settings WHERE user IN ($ucond) \
+ ORDER BY user ASC,	val_check ASC;"
+	local ts=$(qa_dbe "$qstr")
+	local l tpl inv pm l2="" app_match="" app_rep="$COMMAND_XMSG '$NX_ACL_WARN'"
+	while read l; do
+		tpl="${l%%&*}"; tpl="$(sq2s "$tpl")"
+		inv=0; [ "${tpl:0:1}" = "!" ] && { tpl="${tpl:1}"; inv=1; }
+		pm=0; [[ "$node_startx" =~ $tpl ]] && pm=1
+		#nxlog "$lp $node_startx -> \"$l\" -> $tpl $inv $pm" #debug
+		((inv+pm==1)) && { l2=${l#*&}; app_match=1; break; }
+	done <<< "$ts"
+	if [ -n "$l2" ]; then
+		tpl="${l2%%&*}"; tpl="$(sq2s "$tpl")"
+		[ -n "$tpl" ] && { # process list checking
+			app_match=""
+			inv=0; [ "${tpl:0:1}" = "!" ] && { tpl="${tpl:1}"; inv=1; }
+			local psall=""; [ "${tpl:0:2}" = "@@" ] && { tpl="${tpl:2}"; psall=1; }
+			local psl;
+			[ -n "$psall" ] && psl="$(ps ax -o cmd=)" || psl="$(ps -o cmd= -U $USER)"
+			pm=0; rematchfn "($tpl)" "$psl" &>/dev/null && pm=1
+			((inv+pm==1)) && app_match=1
+			#nxlog "$lp $l - $tpl $inv $pm" #debug
+		}
+		tpl="${l2##*&}"; tpl="$(sq2s "$tpl")"
+		[ -n "$tpl" ] && { # exe/msg checking
+			# need absolute path here?
+			[ -x "${tpl%% *}" ] && app_rep="$tpl" || app_rep="$COMMAND_XMSG '$tpl'"
+		}
+	fi
+	if [ -n "$app_match" ]; then
+		echo "$node_startx";
+	else
+		nxlog "$lp App '$node_startx' replaced to '$app_rep'"
+		echo "$app_rep"
+	fi
 }
 
 node_start_applications() {
@@ -721,12 +746,11 @@ node_start_applications() {
 # Used config vars: <several>
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	#nxlog "$lp starting" #debug
-	local node_app mmport i;
+	local app node_app i;
 	local second_app="" sapp_pids0="" napp;
 	local spid node_app_pid sapp_pids="" sapp_pids1 node_wm_pid;
 	local ok step timeo
-	# close input and output file descriptors
-	exec 0<&-; exec 1>&-; exec 2>&-
+	local q=0 s l=$appp
 
 	# Prepare application startup
 	export DISPLAY=:$display
@@ -748,20 +772,10 @@ node_start_applications() {
 	fi
 
 	# Which application do we start?
-	node_app=$(node_find_application "$type")
+	app=$(node_find_application "$type")
 	# For rdesktop/VNC, there is no application to start
-	if [ -n "$node_app" ]; then
-		#nxlog "$lp Got node_app is \"$node_app\"" #debug
-		:
-	else
-		#nxlog "$lp node_app is empty" #debug
-		return
-	fi
+	[ -n "$app" ] || return
 
-	[ "$cups" = "1" -o "$samba" = "1" ] && {
-		#nxlog "$lp export CUPS_SERVER=$CUPS_DEFAULT_SOCK" #debug
-		export CUPS_SERVER=$CUPS_DEFAULT_SOCK
-	}
 	if [ "$ENABLE_SAMBA_PRELOAD" = "1" ]; then
 		NXSAMBA_PORT=$(usess_get "$session_id" "smbport")
 		((NXSAMBA_PORT>0)) && {
@@ -772,9 +786,50 @@ node_start_applications() {
 SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 		}
 	fi
+	#nxlog "$lp app is $app" #debug
+
+	# do fake eval for params
+	q=0; l=$app; node_app=()
+	while [ -n "$l" ]; do
+		s=${l%%[\'\"]*}; l=${l#*[\'\"]}
+		[ "$s" = "$l" ] && l=""
+		[ -n "$s" ] || continue
+		((q==0)) && { node_app+=($s); q=1; } || { node_app+=("$s"); q=0; }
+	done
+	#nxlog "$lp ${#node_app[@]}" #debug
+	#for ((i=0; i<${#node_app[@]}; i++)); do nxlog "$lp ${node_app[$i]}"; done #debug
+
+	[ "$cups" = "1" -o "$samba" = "1" ] && {
+		#nxlog "$lp export CUPS_SERVER=$CUPS_DEFAULT_SOCK" #debug
+		export CUPS_SERVER=$CUPS_DEFAULT_SOCK
+	}
+
+	# Use Xsession to execute the Desktop session
+	case $type in
+		unix-gnome)
+			export STARTUP="${node_app[@]}"
+			[ "$BOOTSTRAP_X_SESSION" = "1" ] && node_app=($COMMAND_GDM_X_SESSION)
+		;;
+		unix-kde|unix-cde)
+			export STARTUP="${node_app[@]}"
+			[ "$BOOTSTRAP_X_SESSION" = "1" ] && node_app=($DEFAULT_X_SESSION)
+		;;
+	esac
+
+	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1" ] && {
+		napp=${node_app[0]}; napp=$(cutfn "$napp" -1 '/')
+		second_app=$(rematchfn "$napp:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
+		[ -n "$second_app" ] && {
+			sapp_pids0=$($COMMAND_PS -wo pid= -C $(cutfn "$second_app" -1 '/'))
+			#nxlog "$lp PID of $second_app will be waiting too. Initial: \"$sapp_pids0\"" #debug
+		}
+	}
 
 	# Do we need to PRELOAD any libraries?
 	[ "$virtualdesktop" = "0" -a "$rootless" != "1" ] && export LD_PRELOAD="$APPLICATION_LIBRARY_PRELOAD:$LD_PRELOAD"
+
+	# close input and output file descriptors
+	exec 0<&-; exec 1>&-; exec 2>&-
 
 	# Should we start a window manager?
 	if [ "$virtualdesktop" = "1" -a "$type" = "unix-application" -a \
@@ -785,33 +840,12 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 		#nxlog "$lp node_wm_pid='$node_wm_pid'" #debug
 	fi
 
-	# Use Xsession to execute the Desktop session
-	case $type in
-		unix-gnome)
-			export STARTUP="$node_app"
-			[ "$BOOTSTRAP_X_SESSION" = "1" ] && node_app=$COMMAND_GDM_X_SESSION
-		;;
-		unix-kde|unix-cde)
-			export STARTUP="$node_app"
-			[ "$BOOTSTRAP_X_SESSION" = "1" ] && node_app=$DEFAULT_X_SESSION
-		;;
-	esac
-
-	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1" ] && {
-		napp=$(cutfn "$node_app" 0); napp=$(cutfn "$napp" -1 '/')
-		second_app=$(rematchfn "$napp:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
-		[ -n "$second_app" ] && {
-			sapp_pids0=$($COMMAND_PS -wo pid= -C $(cutfn "$second_app" -1 '/'))
-			#nxlog "$lp PID of $second_app will be waiting too. Initial: \"$sapp_pids0\"" #debug
-		}
-	}
-
 	# Startup the application
 	#nxlog "$lp Starting node_app with /etc/nxserver/Xsession" #debug
-	DISPLAY=:$display /etc/nxserver/Xsession $node_app >> \
+	DISPLAY=:$display /etc/nxserver/Xsession "${node_app[@]}" >> \
 		"$NXSESSION_DIRECTORY/session" 2>&1 &
 	node_app_pid=$!
-	nxlog "$lp Start $node_app successful. Waiting for node_app_pid='$node_app_pid'"
+	nxlog "$lp Start '${node_app[@]}'. Waiting for node_app_pid='$node_app_pid'"
 	wait $node_app_pid
 	nxlog "$lp node_app_pid finished"
 
