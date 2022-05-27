@@ -766,7 +766,7 @@ node_start_applications() {
 		return 1; }
 
 	#numlockx
-	if [ "$NUMLOCKX_STATUS" != "system" ]; then
+	if [ "$NUMLOCKX_METHOD" != "system" ]; then
 		#nxlog "$lp Run \"$NUMLOCKX $NUMLOCKX_STATUS\"" #debug
 		"$NUMLOCKX" "$NUMLOCKX_STATUS"
 	fi
