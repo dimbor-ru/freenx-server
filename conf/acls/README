@@ -1,8 +1,8 @@
 # nxacl.app v1.0. Copyleft by dimbor at unixforum.org <akadown@pisem.net>
-# Script parse ACLS-files in NX_ACL_DIR and search user/group permissions for given
-# cmdstr. ACLS filenames are usernames, groupnames and "all". Permissions search order:
-# user - group - all. ACL contain one or more strings of regexp-patterns. See examples at
-# existing ACLS. Format:
+# Freenx parse ACL-files in NX_ACL_DIR and search user/group permissions
+# for given cmdstr. ACL filenames are usernames, groupnames and "all".
+# Permissions search order: user - group - all. ACL contain one or more
+# strings of regexp-patterns. See examples at existing ACL. Format:
 #
 # # some comment-string
 # [!]CmdTpl [%%% [[!][@@]OnceAppTpl] %%% Prog|"Msg"]
