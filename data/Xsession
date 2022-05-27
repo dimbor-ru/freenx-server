@@ -203,10 +203,9 @@ CMD=""
 #ssh-agent doesnt start
 [ -z "$SSH_AGENT_PID" ] && CMD="$CMD /usr/bin/ssh-agent"
 [ -z "$DBUS_SESSION_BUS_ADDRESS" ] && CMD="$CMD /usr/bin/dbus-launch --exit-with-session"
-CMD="$CMD $@"
 
 if [ $# -ge 1 ]; then
-	$CMD
+	$CMD "$@"
 else
 	# Try user defined action.
 	RunIfExecutable "$HOME/.xsession"
