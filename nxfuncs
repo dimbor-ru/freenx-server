@@ -167,6 +167,7 @@ qa_dbe() {
 
 ctl_dbe() {
 #arg: <pid_of_parent>
+	#coproc /usr/bin/stdbuf -i0 -o0 $sq_cmd -batch 2>/tmp/dbe_stderr-$$.log
 	coproc /usr/bin/stdbuf -i0 -o0 $sq_cmd -batch 2>/dev/null
 	echo "$COPROC_PID" > "$DBE_PIDS_FILE"
 	wait $COPROC_PID
@@ -241,6 +242,19 @@ close_dbe() {
 
 exit_proc() {
 	close_dbe $$; exit $1;
+}
+
+s2sq() {
+	local res="$1" v
+	v=${res:0:1}; stringinstring "$v" "'\"" && res=${res:1:-1}
+	res=${res//&/%26}; res="${res//\"/%22}"; res="${res//\'/%27}"
+	echo "$res"
+}
+
+sq2s() {
+	local res="$1"
+	res=${res//%26/&}; res="${res//%22/\"}"; res="${res//%27/\'}"
+	echo "$res"
 }
 
 colval_set_or_cond() {
@@ -358,7 +372,7 @@ set_vars_from_db() {
 	ts=$(qa_dbe "$qstr"); #echo "$ts" #debug
 	while read line; do
 		local OIFS="$IFS"; local IFS='&'; a=($line); IFS="$OIFS"
-		var=${a[0]}; value=${a[1]}; value=${value//\"/}; value=${value//%26/&}
+		var=${a[0]}; value=${a[1]}; value=${value//\"/}; value=$(sq2s "$value")
 		declare -g $var="$value";
 		#echo "$var=\"$value\"" #debug
 	done <<< "$ts"
