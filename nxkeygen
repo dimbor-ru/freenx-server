@@ -22,6 +22,7 @@ open_dbe $$
 attach_db "$sq_settings_fn" ro || {
 	echo "Unable to attach db file $sq_settings_fn"; exit 1;
 }
+set_vars_from_db
 
 [ -z "$NX_KEY_DIR" ] && NX_KEY_DIR="$NX_HOME_DIR/.ssh"
 DATE="`date '+%Y%m%d-%H%M%S'`"
