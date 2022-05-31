@@ -571,23 +571,6 @@ run_nscd() {
 
 install_nx() {
 
-# FIXME!!!
-#	if [ "$(pidof sshd 2>/dev/null)" = "" ]; then
-#		echo -n "Starting ssh service ..."
-#		# Generate Host keys if they are not available, yet
-#		[ -e /etc/ssh/ssh_host_rsa_key ] || $COMMAND_SSH_KEYGEN -q -t rsa -f /etc/ssh/ssh_host_rsa_key -C '' -N ''
-#		[ -e /etc/ssh/ssh_host_dsa_key ] || $COMMAND_SSH_KEYGEN -q -t dsa -f /etc/ssh/ssh_host_dsa_key -C '' -N ''
-#		[ -x /etc/init.d/sshd ] && /etc/init.d/sshd start
-#		[ -x /etc/init.d/ssh ] && /etc/init.d/ssh start
-#		echo "done"
-#	fi
-
-	echo -n "Setting up $NX_ETC_DIR ..."
-	mkdir -p $NX_ETC_DIR
-	touch $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	chmod 600 $NX_ETC_DIR/passwords $NX_ETC_DIR/passwords.orig
-	echo "done"
-
 	if [ ! -f $NX_ETC_DIR/users.id_dsa ]; then
 		$COMMAND_SSH_KEYGEN -f $NX_ETC_DIR/users.id_dsa -t dsa -N ""
 	fi
@@ -743,8 +726,7 @@ uninstall_nx() {
 
 	if [ "$PURGE" = "yes" -a -e "$NX_ETC_DIR" ]; then
 		echo -n "Removing configuration files ..."
-		rm -f "$NX_ETC_DIR/passwords" "\
-			$NX_ETC_DIR/passwords.orig" "$NX_ETC_DIR/users.id_dsa" \
+		rm -f "$NX_ETC_DIR/users.id_dsa" \
 			"$NX_ETC_DIR/users.id_dsa.pub" 2>/dev/null
 		for i in `ls $NX_ETC_DIR/*.node.conf 2>/dev/null`; do
 			rm -f "$i" 2>/dev/null;
