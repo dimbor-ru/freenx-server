@@ -30,7 +30,7 @@ log() {
 
 # Log in a way that is secure for passwords / cookies / ...
 echo_secure() {
-	[ -n "$1" ] &&
+	[ -n "$1" ] && \
 		echo -n "[$(date "+%d.%m %T.%3N")] " >> "$NX_LOGFILE"
 	local res=${@/password=+([^&])&/password=****&}
 	#res=${res//--cookie=\"+([^\"])\"/--cookie=\"****\"}
