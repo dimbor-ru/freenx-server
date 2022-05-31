@@ -552,6 +552,8 @@ if [ "$MKDB" = "yes" ]; then
 	[ -n "$txt_warn" ] && { echo; echo "Checking results:"; echo "$txt_warn"; }
 	[ -n "$txt_err" ] && { echo; echo "!!! ERRORS !!!"; echo "$txt_err"; }
 	txt_err=""; txt_warn=""; txt_info="";
+	q_dbe0 ".save $sq_settings_fn"
+	echo "$(date "+%T.%3N"): nxsettings mkdb stop"
 else
 	attach_db "$sq_settings_fn" ro || {
 		echo "Unable to attach db file $sq_settings_fn"; exit_proc 1;
@@ -661,7 +663,6 @@ EOF
 	echo -n "Setting up permissions ..."
 	chown -R nx:nx /var/lib/nxserver
 	chown -R nx:nx $NX_SESS_DIR
-	chown -R nx:nx $NX_ETC_DIR
 	chown -R nx:nx $NX_HOME_DIR
 	chown nx:nx "$NX_LOGFILE"
 
@@ -798,8 +799,4 @@ elif [ "$UNINSTALL" = "yes" ]; then
 		echo "freenx at a later time. To remove them, please run 'nxsetup --uninstall --purge'"
 	fi
 fi
-[ "$MKDB" = "yes" ] && {
-	q_dbe0 ".save $sq_settings_fn"
-	echo "$(date "+%T.%3N"): nxsettings mkdb stop"
-}
 exit_proc 0
