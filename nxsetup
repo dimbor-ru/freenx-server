@@ -46,7 +46,7 @@ parse_cmdline() {
 		esac
 	done
 
-	[ "$TEST" = "yes" ] && MKDB="yes" && return # If we just test, we can return directly
+	[ "$TEST" = "yes" ] && return # If we just test, we can return directly
 
 	#Check for invalid combinations:
 	[ "$SETUP_LOCAL_USER" = "yes" -a -z "$LOCAL_USER_OPTION" ] && HELP="yes"
