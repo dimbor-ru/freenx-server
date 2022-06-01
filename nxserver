@@ -32,9 +32,8 @@ log() {
 echo_secure() {
 	[ -n "$1" ] && \
 		echo -n "[$(date "+%d.%m %T.%3N")] " >> "$NX_LOGFILE"
-	local res=${@/password=+([^&])&/password=****&}
-	#res=${res//--cookie=\"+([^\"])\"/--cookie=\"****\"}
-	res=${res//--password=\"+([^\"])\"/--password=\"****\"}
+	local res=${@/password=+([^&])&/password=*&}
+	res=${res//password=\"+([^\"])\"/password=\"*\"}
 	echo "$res"
 }
 
