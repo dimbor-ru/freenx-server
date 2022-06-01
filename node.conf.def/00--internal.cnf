@@ -5,7 +5,7 @@
 
 #@ type: string
 #@ check: notempty error
-NX_VERSION=3.5.0-0.3-CE
+NX_VERSION=3.5.0-2.0-CE
 
 #@ type: string
 #@ check: advanced error

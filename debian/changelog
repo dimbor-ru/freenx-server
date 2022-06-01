@@ -1,3 +1,9 @@
+freenx-server (2.0.0) UNRELEASED; urgency=low
+
+  * Release with sqlite3 db engine.
+
+ -- Dmitry Borisov <i@dimbor.ru>  Fri, 27 May 2022 20:04:11 +0300
+
 freenx-server (1.0.0) UNRELEASED; urgency=low
 
   * Initial release.
