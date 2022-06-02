@@ -683,7 +683,18 @@ node_find_application() {
 		windows-helper)
 			application="$PATH_BIN/nxdesktop_helper"; node_startx=$application
 		;;
-		unix-application|vnc-helper)
+		vnc-helper)
+			if [ ! -x "$COMMAND_VNCVIEWER" ]; then
+				echo "$COMMAND_XMSG 'vncviwer not found'"
+			else
+				mkdir -p "$NXSESSION_DIRECTORY/scripts/"
+				echo "$agent_password" | \
+					$COMMAND_VNCPASSWD $NXSESSION_DIRECTORY/scripts/.passwd doit
+				node_startx="$COMMAND_VNCVIEWER -passwd \
+ $NXSESSION_DIRECTORY/scripts/.passwd $EXTRA_OPTIONS_RFB $agent_server"
+ 			fi
+		;;
+		unix-application)
 			[ "$application" = "xterm" ] && application=$COMMAND_XTERM
 			node_startx=$application
 		;;
@@ -954,9 +965,6 @@ node_start_agent() {
 	r="-D"; [ "$rootless" = "1" ] && r="-R"
 
 	# Setup fullscreen parameters
-	vncfullscreen=""
-	[ "$geometry" = "fullscreen" -a "$type" = "vnc" ] && \
-		vncfullscreen="-fullscreen" && g=""
 	[ "$geometry" = "fullscreen" -a "$type" = "windows" ] && \
 		g="-geometry $(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $screeninfo)"
 
@@ -976,45 +984,6 @@ node_start_agent() {
 			-name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" \
 			-option "$NXSESSION_DIRECTORY/options" \
 			$k $g $u $p $d $agent_server $AGENT_EXTRA_OPTIONS_RDP 2>&3 &
-
-	elif [ "$type" = "vnc" ]; then
-		nxlog "$lp Type \"vnc\""
-		# nxviewer session (VNC RFB)
-		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
-			export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
-		# Setup password
-		mkdir -p "$NXSESSION_DIRECTORY/scripts/"
-		echo "$agent_password" | $PATH_BIN/nxpasswd \
-			"$NXSESSION_DIRECTORY/scripts/.passwd" doit
-		# Start x11vnc
-		if [ -n "$shadowdisplay" ]; then
-			(
-				viewonly=""
-				[ "$ENABLE_INTERACTIVE_SESSION_SHADOWING" != "1" ] && \
-					viewonly="-viewonly"
-				DISPLAY="$shadowhost:$shadowdisplay" x11vnc -localhost \
-					$viewonly -timeout 120 -rfbauth \
-					"$NXSESSION_DIRECTORY/scripts/.passwd" \
-					>"$NXSESSION_DIRECTORY/scripts/.vnc_port" 2>&3 &
-			)
-			local cntr="40"
-			while [ ! -f $NXSESSION_DIRECTORY/scripts/.vnc_port ]; do
-				sleep 0.05s; ((cntr--)); ((cntr<=0)) && break
-			done
-			agent_port=$(< $NXSESSION_DIRECTORY/scripts/.vnc_port)
-			agent_port=$(rematchfn '^PORT=[[:space:]]*([[:digit:]]+)' $agent_port) #'
-			[ -z "agent_port" ] && agent_port="0"
-			# note the :: is not a mistake, but rather a hint for nxviewer
-			# to use this as a port and not interpret it as a display.
-			agent_server="127.0.0.1::$agent_port"
-			rm -f "$NXSESSION_DIRECTORY/scripts/.vnc_port"
-		fi
-		# Start the agent
-		$PATH_BIN/nxviewer -encodings tight hextile copyrect raw \
-			-passwd "$NXSESSION_DIRECTORY/scripts/.passwd" \
-			-name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" \
-			-option "$NXSESSION_DIRECTORY/options" $vncfullscreen \
-			$g $k $agent_server $AGENT_EXTRA_OPTIONS_RFB 2>&3 &
 	elif [ "$r" = "-R" -a "$rootless" != "1" ]; 	then
 		#nxlog "$lp Start nxproxy for single application session mode" #debug
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
@@ -1243,15 +1212,7 @@ startsession() { # Start a new session.
 	[ "$EXPORT_USERIP" = "1" ] && export NXUSERIP="$userip"
 	[ "$EXPORT_SESSIONID" = "1" ] && export NXSESSIONID="$sess_id"
 	export SHADOW_XAUTHORITY="$NXSESSION_DIRECTORY/authority"
-	# export the agent_* options for the helper scripts
-	if [ "$freenx_export_agents" = "1" ]; then
-		local export_vars="agent_user agent_password export agent_server\
- agent_domain windows_app agent_keyboard NXSESSION_DIRECTORY\
- AGENT_EXTRA_OPTIONS_RFB AGENT_EXTRA_OPTIONS_RDP COMMAND_RDESKTOP\
- COMMAND_VNCVIEWER COMMAND_VNCPASSWD COMMAND_X11VNC PATH_BIN shadowdisplay\
- shadowhost shadowuser shadowcookie ENABLE_SESSION_SHADOWING_AUTHORIZATION\
- ENABLE_INTERACTIVE_SESSION_SHADOWING"
-		for vn in $export_vars; do export "$vn"; done
+	if [ "$type" = "vnc-helper" -o  "$type" = "windows-helper" ]; then
 		# We do not want to suspend such a session
 		# as RDP/RFB are both suspendable as well
 		ENABLE_PERSISTENT_SESSION=""

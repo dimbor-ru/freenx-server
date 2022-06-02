@@ -841,13 +841,7 @@ shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 			type="windows-helper"
 			params+="&type=$type&freenx_export_agents=1"
 		fi
-
-		if [ "$ENABLE_EXTERNAL_NXVIEWER" = "1" -a \
-				"$type" = "vnc" ]; then
-			type="vnc-helper"
-			application="$PATH_BIN/nxviewer_helper"
-			params+="&type=$type&application=$application&freenx_export_agents=1"
-		fi
+		[ "$type" = "vnc" ] && { type="vnc-helper"; params+="&type=$type"; }
 	fi
 	# If we can't get the userip and SSHD_CHECK_IP is set to 1
 	# we bail out.

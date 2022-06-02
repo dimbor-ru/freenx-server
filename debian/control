@@ -23,7 +23,7 @@ Depends:
  x11-utils,
  gettext,
  sqlite3
-Recommends: cups, samba, pulseaudio
+Recommends: cups, samba, pulseaudio, tigervnc-viewer
 Description: Evolution of Freenx application/thin-client server
  Freenx is an application/thin-client server based on nx technology.
  NoMachine nx is the next-generation X compression and roundtrip suppression
