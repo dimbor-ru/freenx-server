@@ -368,7 +368,6 @@ session_fail() {
 # COMMAND_MD5SUM COMMAND_NETCAT COMMAND_NXSHADOWACL
 # ENABLE_NXSHADOWACL COMMAND_SESSREG COMMAND_SSH COMMAND_XAUTH
 # ENABLE_AUTORECONNECT
-# ENABLE_EXTERNAL_NXDESKTOP ENABLE_EXTERNAL_NXVIEWER
 # ENABLE_LOAD_BALANCE_PREFERENCE ENABLE_LOG_FAILED_LOGINS
 # ENABLE_MIRROR_VIA_VNC ENABLE_SESSION_SHADOWING_AUTHORIZATION
 # ENABLE_USESSION LOAD_BALANCE_SERVERS
@@ -834,15 +833,11 @@ server_startrestore_session() {
 		params+="&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost&\
 shadowcookie=$shadowcookie&shadowuser=$shadowuser"
 	fi
-	if [ "$action" = "start" ]; then
 
-		# Hack for external RDP/RFB agents
-		if [ "$ENABLE_EXTERNAL_NXDESKTOP" = "1" -a "$type" = "windows" ]; then
-			type="windows-helper"
-			params+="&type=$type&freenx_export_agents=1"
-		fi
-		[ "$type" = "vnc" ] && { type="vnc-helper"; params+="&type=$type"; }
-	fi
+	[ "$action" = "start" ] && \
+		[ "$type" = "windows" -o "$type" = "vnc" ] && \
+			params=${params//&type=$type&/&type=$type'-helper'&}
+
 	# If we can't get the userip and SSHD_CHECK_IP is set to 1
 	# we bail out.
 	if [ -z "$SSH_CLIENT" -a -z "$SSH2_CLIENT" ]; then

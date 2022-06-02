@@ -681,7 +681,11 @@ node_find_application() {
 		unix-cde) node_startx=$COMMAND_START_CDE
 		;;
 		windows-helper)
-			application="$PATH_BIN/nxdesktop_helper"; node_startx=$application
+			node_startx="$COMMAND_RDESKTOP /v:$agent_server /u:$agent_user"
+			[ -n "$agent_domain" ] && node_startx+=" /d:$agent_domain"
+			node_startx+=" /t:$agent_server@$agent_user /p:$agent_password"
+			node_startx+=" /size:$(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $screeninfo)"
+			node_startx+=" $EXTRA_OPTIONS_RDP"
 		;;
 		vnc-helper)
 			if [ ! -x "$COMMAND_VNCVIEWER" ]; then
@@ -965,26 +969,11 @@ node_start_agent() {
 	r="-D"; [ "$rootless" = "1" ] && r="-R"
 
 	# Setup fullscreen parameters
-	[ "$geometry" = "fullscreen" -a "$type" = "windows" ] && \
+	[ "$geometry" = "fullscreen" ] && \
+		[ "$type" = "vnc-helper" -o "$type" = "windows-helper" ] && \
 		g="-geometry $(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $screeninfo)"
 
-	# Start the wanted nxagent
-	if [ "$type" = "windows" ]; then
-		nxlog "$lp Type \"windows\""
-		# nxdesktop session (Windows RDP)
-		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
-			export LD_LIBRARY_PATH="$AGENT_LIBRARY_PATH:$LD_LIBRARY_PATH"
-		# Setup optional parameters
-		u=""; p=""; d=""
-		[ -n "$agent_user" ] && u="-u $agent_user"
-		[ -n "$agent_password" ] && p="-p -"
-		[ -n "$agent_domain" ] && d="-d $agent_domain"
-		# Start the agent
-		echo "$agent_password" | $PATH_BIN/nxdesktop \
-			-name "NX - $user@$SERVER_NAME:$display - $session (GPL Edition)" \
-			-option "$NXSESSION_DIRECTORY/options" \
-			$k $g $u $p $d $agent_server $AGENT_EXTRA_OPTIONS_RDP 2>&3 &
-	elif [ "$r" = "-R" -a "$rootless" != "1" ]; 	then
+	if [ "$r" = "-R" -a "$rootless" != "1" ]; 	then
 		#nxlog "$lp Start nxproxy for single application session mode" #debug
 		[ "$SET_LD_LIBRARY_PATH" = "1" ] && \
 			export LD_LIBRARY_PATH="$PROXY_LIBRARY_PATH:$LD_LIBRARY_PATH"
@@ -1201,8 +1190,6 @@ startsession() { # Start a new session.
 	[ -z "$samba" ] && samba=0; [ -z "$media" ] && media=0
 	[ -z "$shmem" ] && shmem=0; [ -z "$shpix" ] && shpix=0
 	[ "$geometry" = "fullscreen" ] && fullscreen="1" || fullscreen="0"
-	[ "$ENABLE_EXTERNAL_NXDESKTOP_KEYBOARD" = "1" ] && \
-		agent_keyboard=$(cutfn "$keyboard" 1 '/') || agent_keyboard=""
 	[ -z "$nodelay" ] && nodelay=1 # ???
 	cleanup=10; product=LFE/None/LFEN/None; id=$sess_id;
 	clipboard="$ENABLE_CLIPBOARD"; menu="$ENABLE_PULLDOWN_MENU"
