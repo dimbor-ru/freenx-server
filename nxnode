@@ -684,8 +684,7 @@ node_find_application() {
 			node_startx="$COMMAND_RDESKTOP /v:$agent_server /u:$agent_user"
 			[ -n "$agent_domain" ] && node_startx+=" /d:$agent_domain"
 			node_startx+=" /t:$agent_server@$agent_user /p:$agent_password"
-			node_startx+=" /size:$(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $screeninfo)"
-			node_startx+=" $EXTRA_OPTIONS_RDP"
+			node_startx+=" /size:$geometry $EXTRA_OPTIONS_RDP"
 		;;
 		vnc-helper)
 			if [ ! -x "$COMMAND_VNCVIEWER" ]; then
