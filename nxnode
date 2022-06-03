@@ -589,22 +589,22 @@ node_terminate_session() {
 # Used config vars: COMMAND_XAUTH, SESSION_LOG_CLEAN SERVER_NAME
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	#nxlog "$lp Start terminating session_id='$1' with status '$2'" #debug
-	local status=$(usess_get "$1" "status")
-	stringinstring "$status" "Terminating|Finished|Failed" && {
-		nxlog "$lp Session status is already '$status'. Bye."; return;
-	}
-	usess_set "$1" "status" "Terminating"
-
-	local qs=$(usess_get "$1" "display,agent_pid,tail_pid")
+	local qs=$(usess_get "$1" "display,agent_pid,tail_pid,status")
 	[ -z "$qs" ] && {
 		nxlog "$lp session_id='$1' not found in usess db. Bye."; return;
 	}
+	local status=$(cutfn "$qs" 3 '&')
+	stringinstring "$status" "Terminating|Finished|Failed" && {
+		nxlog "$lp Session status is already '$status'. Bye."; return;
+	}
 	local display=$(cutfn "$qs" 0 '&'); local sess_id="$SERVER_NAME-$display-$1"
-	local agent_pid=$(cutfn "$qs" 1 '&') tail_pid=$(cutfn "$qs" 2 '&')
-	local t_status="$2"; [ -z "$2" ] && t_status="Finished"
 	[ -d "$nx_dir/C-$sess_id" ] || {
 		nxlog "$lp Session dir '$nx_dir/C-$sess_id' not found. Bye."; return;
 	}
+	usess_set "$1" "status" "Terminating"
+
+	local agent_pid=$(cutfn "$qs" 1 '&') tail_pid=$(cutfn "$qs" 2 '&')
+	local t_status="$2"; [ -z "$2" ] && t_status="Finished"
 	node_stop_services
 	kill -0 $agent_pid 2>/dev/null && {
 		#nxlog "$lp start killing of nxagent ($agent_pid)" #debug
