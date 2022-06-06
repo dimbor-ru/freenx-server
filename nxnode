@@ -760,11 +760,11 @@ node_start_applications() {
 # Used config vars: <several>
 	local lp="$FUNCNAME ($$/$BASHPID):";
 	#nxlog "$lp starting" #debug
-	local app node_app i;
-	local second_app="" sapp_pids0="" napp;
-	local spid node_app_pid sapp_pids="" sapp_pids1 node_wm_pid;
+	local app node_app napp;
+	local slave_apps psess sess_ps sapp;
+	local node_app_pid node_wm_pid;
 	local ok step timeo
-	local q=0 s l=$appp
+	local q=0 i s l
 
 	# Prepare application startup
 	export DISPLAY=:$display
@@ -831,12 +831,10 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 	esac
 
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1" ] && {
-		napp=${node_app[0]}; napp=$(cutfn "$napp" -1 '/')
-		second_app=$(rematchfn "$napp:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
-		[ -n "$second_app" ] && {
-			sapp_pids0=$($COMMAND_PS -wo pid= -C $(cutfn "$second_app" -1 '/'))
-			#nxlog "$lp PID of $second_app will be waiting too. Initial: \"$sapp_pids0\"" #debug
-		}
+		psess=$($COMMAND_PS -wo sess= -p $$)
+		napp=${node_app[0]}; napp=${napp##*/}
+		slave_apps=$(rematchfn "$napp:(.+)" "${APP_WAIT_MAP//;/$'\n'}") #"
+		#nxlog "$lp slave(s) will be waiting too. Initial apps: '$slave_apps'" #debug
 	}
 
 	# Do we need to PRELOAD any libraries?
@@ -873,23 +871,29 @@ SMB ports 139 and 445 to port $NXSAMBA_PORT." >> "$NXSESSION_DIRECTORY/session"
 		[ "$KILL_DEFAULT_X_WM" = "1" ] || { nxlog "$lp wait for $node_wm_pid is dead"
 			wait $node_wm_pid; }
 	}
-	#sleep "$NODE_APP_WAIT_TIMEOUT"
+	sleep "$NODE_APP_WAIT_TIMEOUT"s
 
 	[ $ENABLE_ROOTLESS_TERMINATE_SESSION = "1" -a "$rootless" = "1"  ] && {
-		if [ -n "$second_app" ] ; then
-			sapp_pids1=$($COMMAND_PS -wo pid= -C $(cutfn "$second_app" -1 '/'))
-			while read spid; do
-				stringinstring "$spid" "$sapp_pids0" && continue
-				sapp_pids+="${sapp_pids:+$' '}$spid"
-			done <<< "$sapp_pids1"
-			#nxlog "$lp Waiting for $second_app PID(S) \"$sapp_pids\"" #debug
-			while [ -n "$($COMMAND_PS -o pid= -p $sapp_pids 2>/dev/null)" ]; do
-				sleep 1s
+		if [ -n "$slave_apps" ] ; then
+			nxlog "$lp slave(s) will be waiting too. Initial: '$slave_apps'"
+			sapp=$napp
+			while [ -n "$sapp" ]; do
+				sess_ps=$($COMMAND_PS -wo user=,cmd= -s $psess); sapp=""
+				#nxlog "$lp '$sess_ps'" #debug
+				while read l; do
+					[ "$(cutfn "$l" 0)" = "$USER" ] || continue
+					s=$(cutfn "$l" 1); s=${s##*/}
+					stringinstring "$s," "$slave_apps," && {
+						sapp=$s;
+						#nxlog "$lp >> $sapp '$l'" #debug
+						break;
+					}
+				done <<< "$sess_ps"
+				sleep "$NODE_APP_WAIT_TIMEOUT"s
 			done
-			nxlog "$lp PID(S) \"$sapp_pids\" finished"
-			node_terminate_session "$session_id"
-		else  node_terminate_session "$session_id"
+			nxlog "$lp Session app(s) are finished"
 		fi
+	  node_terminate_session "$session_id"
 	}
 
 	# Do not terminate agent in case of rootless agent mode.
