@@ -252,7 +252,7 @@ s2sq() {
 }
 
 sq2s() {
-	local res="$1"
+	local res="$1"; [ "$res" = "\"\"" ] && return
 	res=${res//%26/&}; res="${res//%22/\"}"; res="${res//%27/\'}"
 	echo "$res"
 }

@@ -719,31 +719,35 @@ node_find_application() {
 	local ucond=$(groups); ucond="'#$USER','*${ucond// /\',\'\*}','@all'"
 	local qstr="SELECT key,value,val_depend FROM settings WHERE user IN ($ucond) \
  ORDER BY user ASC,	val_check ASC;"
+	#nxlog "$lp qstr='$qstr'" #debug
 	local ts=$(qa_dbe "$qstr")
+	#nxlog "$lp ts='$ts'" #debug
 	local l tpl inv pm l2="" app_match="" app_rep="$COMMAND_XMSG '$NX_ACL_WARN'"
 	while read l; do
 		tpl="${l%%&*}"; tpl="$(sq2s "$tpl")"
 		inv=0; [ "${tpl:0:1}" = "!" ] && { tpl="${tpl:1}"; inv=1; }
 		pm=0; [[ "$node_startx" =~ $tpl ]] && pm=1
 		#nxlog "$lp $node_startx -> \"$l\" -> $tpl $inv $pm" #debug
-		((inv+pm==1)) && { l2=${l#*&}; app_match=1; break; }
+		((inv+pm==1)) && { l2=$l; app_match=1; break; }
 	done <<< "$ts"
-	if [ -n "$l2" ]; then
-		tpl="${l2%%&*}"; tpl="$(sq2s "$tpl")"
+	if [ -n "$app_match" ]; then
+		tpl=$(cutfn "$l2" 1 '&'); tpl=$(sq2s "$tpl")
 		[ -n "$tpl" ] && { # process list checking
 			app_match=""
 			inv=0; [ "${tpl:0:1}" = "!" ] && { tpl="${tpl:1}"; inv=1; }
 			local psall=""; [ "${tpl:0:2}" = "@@" ] && { tpl="${tpl:2}"; psall=1; }
 			local psl;
-			[ -n "$psall" ] && psl="$(ps ax -o cmd=)" || psl="$(ps -o cmd= -U $USER)"
+			if [ -n "$psall" ]; then psl="$(ps ax -o cmd=)"
+			else psl="$(ps -o cmd= -U $USER)"
+			fi
 			pm=0; rematchfn "($tpl)" "$psl" &>/dev/null && pm=1
 			((inv+pm==1)) && app_match=1
 			#nxlog "$lp $l - $tpl $inv $pm" #debug
 		}
-		tpl="${l2##*&}"; tpl="$(sq2s "$tpl")"
-		[ -n "$tpl" ] && { # exe/msg checking
+		local msg=$(cutfn "$l2" 2 '&'); msg=$(sq2s "$msg")
+		[ -n "$msg" ] && { # exe/msg checking
 			# need absolute path here?
-			[ -x "${tpl%% *}" ] && app_rep="$tpl" || app_rep="$COMMAND_XMSG '$tpl'"
+			[ -x "${msg%% *}" ] && app_rep="$msg" || app_rep="$COMMAND_XMSG '$msg'"
 		}
 	fi
 	if [ -n "$app_match" ]; then
