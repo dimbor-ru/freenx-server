@@ -29,7 +29,7 @@ parse_cmdline() {
 		case "$1" in
 			--help) HELP="yes"; shift ;;
 			--install) INSTALL="yes"; shift ;;
-			--mkdb|mkdb) MKDB="yes"; shift ;;
+			--mkdb|mkdb|--reload) MKDB="yes"; shift ;;
 			--ignore-errors) IGNORE_ERRORS="yes"; shift;;
 			--setup-nomachine-key) SETUP_NOMACHINE_KEY="yes"; shift ;;
 			--dont-build-known-hosts) BUILD_KNOWN_HOSTS="no"; shift;;
@@ -66,13 +66,15 @@ parse_cmdline() {
 	if [ "$HELP" = "yes" ]; then
 		echo "nxsetup - Setup the FreeNX server."
 		echo "Syntax: nxsetup --help"
+		echo "        nxsetup --reload"
 		echo "        nxsetup --mkdb"
 		echo "        nxsetup --test [--ignore-errors]"
 		echo "        nxsetup --install [--setup-nomachine-key] [--uid <nummber>] [--clean [--purge]]"
 		echo "        nxsetup --uninstall [--purge]"
 		echo
 		echo "  --help                 Display this help message."
-		echo "  --mkdb                 (Re)create nxsettings db."
+		echo "  --reload               Reload nxsettings db."
+		echo "  --mkdb                 Reload nxsettings db."
 		echo "  --test                 Test the configuration and connection to localhost NX Server."
 		echo "  --install              Install necessary files and add the special user \"nx\"."
 		echo "  --ignore-errors        Check for false configuration, but don't complain."

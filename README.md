@@ -28,8 +28,8 @@ internal customizable map;
 
 - Reduced connection time.
 
-- Used nxsetting sqlite db (nxsetup --mkdb for update). Everything
-got even a little faster
+- Used nxsetting sqlite db (nxsetup --reload or nxsetup --mkdb for update).
+Everything got even a little faster
 
 - ...
 
