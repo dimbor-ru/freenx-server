@@ -121,19 +121,19 @@ SHARED_CONFS="/usr/share/freenx-server"
 . $SHARED_CONFS/nxfuncs
 
 ex_rules_cols="val_type,val_depend,val_check"; acl_user="#ACL#"
+all_cols="user,key,value,$ex_rules_cols"
 conf_buf=""; txt_err=""; txt_warn=""; txt_info="";
-#qs_create_settings="CREATE TABLE IF NOT EXISTS nxsettings.settings(\
-# case of in-memory db
-qs_create_settings="CREATE TABLE settings(\
+qs_create_settings="CREATE TABLE IF NOT EXISTS nxsettings.settings(\
  user TEXT, key TEXT NOT NULL, value, val_type TEXT, \
  val_depend TEXT, val_check TEXT, PRIMARY KEY(user,key));"
 
 keyslst_for_user() {
-#arg: [username]
+#arg: [username] [table='settings']
 #ret: keynames delimited by '\n'
-	local qstr res wstr;
+	local qstr res wstr table;
 	[ -n "$1" ] && wstr="WHERE user='$1'" || wstr="WHERE user IS NULL"
-	qstr="SELECT key FROM settings $wstr;"
+	table="settings"; [ -n "$2" ] && table="$2"
+	qstr="SELECT key FROM $table $wstr;"
 	res=$(qa_dbe0 "$qstr"); echo "$res"
 }
 
@@ -165,9 +165,10 @@ values_update_db() {
 # ===========================================================================
 
 parse_conf_buf() {
-#args: user [is_defs]
+#args: user [is_defs] [table='settings']
 	local ex_vals="type depend check" l0 l ukv="" ik="" iv="";
 	local key val a0 a first cn cv upd_s ins_s v;
+	local table="settings"; [ -n "$3" ] && table="$3"
 	while read l0; do
  		[ -n "$l0" ] || continue
 		l=($l0); first=${l[0]:0:1}
@@ -194,21 +195,22 @@ parse_conf_buf() {
 		# fake upsert to db
 		uk0="user IS NULL AND "; ik0=""; iv0="";
 		[ -n "$1" ] && { uk0="user='$1' AND "; ik0="user,"; iv0="'$1',"; }
-		upd_s="UPDATE settings SET value='$val'""$ukv WHERE $uk0""key='$key';"
-		ins_s="INSERT INTO settings($ik0""key,value""$ik) SELECT $iv0""'$key','$val'$iv WHERE (SELECT Changes()=0);"
+		upd_s="UPDATE $table SET value='$val'""$ukv WHERE $uk0""key='$key';"
+		ins_s="INSERT INTO $table($ik0""key,value""$ik) SELECT $iv0""'$key','$val'$iv WHERE (SELECT Changes()=0);"
 		q_dbe0 "$upd_s" "$ins_s"
 		ukv=""; ik=""; iv=""
 	done <<< "$conf_buf"
 }
 
 check_value() {
-#args: <key> <value> <type> <cond> <user> [err_log] [ro=""]
+#args: <key> <value> <type> <cond> <user> [err_log] [ro=""] [table='settings']
 	local err_log="" msg="" key=$1 val="$2" cond="$4" nval="$2" umsg="";
 	local mpref="! $umsg""$key = '$val' " notempty="" act="";
 	local nump='^'"$num_pattern"'$' cl min max a OIFS;
 	local cnd cval lst nexe ug local mode mask;
-	local ma set_ug set_mode res st;
+	local ma set_ug set_mode res st table;
 	[ -n "$6" ] && err_log=$6; [ -n "$5" -a "$5" != "NULL" ] && umsg="[$5] "
+	table="settings"; [ -n "$8" ] && table="$8"
 	stringinstring "notempty" "$cond" && \
 		{ notempty="1"; cond=$(trim "${cond/notempty/}"); }
 	stringinstring "perform" "$cond" && \
@@ -333,7 +335,7 @@ check_value() {
 	esac
 	[ "$val" = "$nval" ] || {
 		[ -n "$7" ] || \
-			values_update_db $key "value" "$(s2sq "$nval")" $5
+			values_update_db $key "value" "$(s2sq "$nval")" "$5" "$table"
 		msg+="    $key < '$nval';"$'\n'; val="$nval"
 	}
 	[ -n "$5" ] || declare -g $key="$val" # expand not user's vals only ???
@@ -343,10 +345,11 @@ check_value() {
 }
 
 check_value_advanced() {
-#args: <key> <value> <type> <cond> <user> [err_log] [ro=""]
+#args: <key> <value> <type> <cond> <user> [err_log] [ro=""] [table='settings']
 	local err_log=""; [ -n "$6" ] && err_log=$6
 	local msg="" key=$1 val="$2" nval="$2"
 	local umsg=""; [ -n "$5" ] && umsg="[$5] "
+	local table="settings"; [ -n "$8" ] && table="$8"
 	local mpref="! $umsg""$key = '$val'" ver;
 	case "$1" in
 		NX_LICENSE)
@@ -367,7 +370,7 @@ check_value_advanced() {
 	#echo "# $1($3)='$2' advanced checking." #debug
 	[ "$val" = "$nval" ] || {
 		[ -n "$7" ] || \
-			values_update_db $key "value" "$(s2sq "$nval")" $5
+			values_update_db $key "value" "$(s2sq "$nval")" "$5" "$table"
 		msg+="    $key < '$nval';"$'\n'; val="$nval"
 	}
 	[ -n "$4" ] || declare -g $key="$val" # expand not user's vals only ???
@@ -377,14 +380,15 @@ check_value_advanced() {
 }
 
 check_keyvals() {
-#args: [username] [ro=""]
+#args: [username] [ro=""] [table='settings']
 	#echo "$(date "+%T.%3N"): $FUNCNAME" #debug
-	local keys=$(keyslst_for_user "$1") r a ad;
+	local table="settings"; [ -n "$3" ] && table="$3"
+	local keys=$(keyslst_for_user "$1" "$table") r a ad;
 	local value val_type val_depend val_check;
 	local err_log dep_for_null vdep tdep nval;
 	for key in $keys; do
 		#echo "$(date "+%T.%3N"): ----- $key" #debug
-		r=$(values_str_from_db $key "value,$ex_rules_cols" $1)
+		r=$(values_str_from_db $key "value,$ex_rules_cols" "$1" "$table")
 		OIFS="$IFS"; IFS='&'; a=($r); IFS="$OIFS";
 		value=$(sq2s "${r%%&*}"); val_type=$(sq2s "${a[1]}");
 		val_depend=$(sq2s "${a[2]}"); val_check=$(sq2s "${a[3]}");
@@ -395,7 +399,7 @@ check_keyvals() {
 		[ -n "$val_depend" ] && {
 			local first=${val_depend:0:1}
 			[ "$first" = "!" ] && { val_depend=${val_depend:1}; dep_for_null="1"; }
-			r=$(values_str_from_db $val_depend "value,val_type" $1)
+			r=$(values_str_from_db $val_depend "value,val_type" "$1" "$table")
 			OIFS="$IFS"; IFS='&'; ad=($r); IFS="$OIFS"
 			vdep=${ad[0]}; tdep=${ad[1]}
 			[ -z "$dep_for_null" ] && {
@@ -420,7 +424,7 @@ check_keyvals() {
 			nval="${!key}" # expands/chg defaults by means 'bash source *.conf'
 			[ -n "$nval"  -a "$value" != "$nval" ] && {
 				[ -n "$2" ] || \
-					values_update_db $key "value" "$(s2sq "$nval")" "$1"
+					values_update_db $key "value" "$(s2sq "$nval")" "$1" "$table"
 				#txt_warn+="  $key ['$value'] < '$nval';"$'\n'
 				txt_warn+="    $key < '$nval';"$'\n'
 				value="$nval"
@@ -429,39 +433,46 @@ check_keyvals() {
 		stringinstring "advanced" "$val_check" && {
 			val_check=$(trim "${val_check/advanced/}")
 			check_value_advanced $key "$value" "$val_type" \
-				"$val_check" "$1" $err_log "$2"
+				"$val_check" "$1" "$err_log" "$2" "$table"
 			continue
 		}
-		check_value "$key" "$value" "$val_type" "$val_check" "$1" $err_log "$2"
+		check_value "$key" "$value" "$val_type" \
+			"$val_check" "$1" "$err_log" "$2" "$table"
 		#echo "$key ($val_type) /$val_check/: $value"
 	done
 }
 
 parse_defaults() {
+#arg: [table='settings']
+	local table="settings"; [ -n "$1" ] && table="$1"
 	local confd=$SHARED_CONFS/node.conf.def curd=$(pwd)
 	echo "Parse default settings in $confd:"; cd $confd
 	for fn in *.{cnf,conf}; do [ -r $fn ] && . $fn; done
 	for fn in *.{cnf,conf}; do
 		[ -r $fn ] || continue; echo -n "  $fn ..";
-		conf_buf="$(< $fn)"; parse_conf_buf "" 1; echo " done."
+		conf_buf="$(< $fn)"; parse_conf_buf "" 1 "$table"; echo " done."
 	done
 	cd $curd
 }
 
 parse_settings() {
+#arg: [table='settings']
+	local table="settings"; [ -n "$1" ] && table="$1"
 	local confd="node.conf.d" fn;
 	echo "Parse system settings in $NX_ETC_DIR:"; curd=$(pwd)
 	cd $NX_ETC_DIR
 	for fn in $confd/*.conf node.conf; do [ -r $fn ] && . $fn; done
 	for fn in $confd/*.conf node.conf; do
 		[ -r $fn ] || continue; echo -n "  $fn ...";
-		conf_buf="$(< $fn)"; parse_conf_buf "";
+		conf_buf="$(< $fn)"; parse_conf_buf "" "" "$table";
 		echo " done."
 	done
 	cd $curd
 }
 
 parse_users_settings() {
+#arg: [table='settings']
+	local table="settings"; [ -n "$1" ] && table="$1"
 	local fn un qstr ukeys key exvals;
 	echo "Parse users settings:"; curd=$(pwd)
 	cd $NX_ETC_DIR
@@ -469,16 +480,16 @@ parse_users_settings() {
 		[ -r $fn ] || continue; un=${fn//.conf/}
 		getent passwd "$un" >/dev/null || continue
 		echo -n "  $fn ...";
-		. $fn; conf_buf="$(< $fn)"; parse_conf_buf $un
+		. $fn; conf_buf="$(< $fn)"; parse_conf_buf "$un" "" "$table"
 		echo -n " check rules for $un ..."
 		# user extras setup scrutch
-		ukeys=$(keyslst_for_user $un)
+		ukeys=$(keyslst_for_user "$un" "$table")
 		for key in $ukeys; do
 			echo -n " $key ..."
-			qstr="SELECT $ex_rules_cols FROM settings"
+			qstr="SELECT $ex_rules_cols FROM "$table""
 			qstr+=" WHERE user IS NULL AND key='$key' LIMIT 1;"
 			exvals=$(qa_dbe0 "$qstr"); exvals=${exvals//\"/}
-			values_update_db $key "$ex_rules_cols" "$exvals" $un
+			values_update_db $key "$ex_rules_cols" "$exvals" "$un" "$table"
 		done
 	done
 	echo " done."
@@ -486,12 +497,13 @@ parse_users_settings() {
 }
 
 parse_acl() {
-#args: filename userlist grouplist
+#args: filename [table='settings'] userlist grouplist
+	local table="settings"; [ -n "$2" ] && table="$2"
 	local un=${1##*/} user; un=${un%%\.*}; user="#$un" # user
 	local buf l key val val_dep val_chk ns=0 upd_s ins_s v;
 	if [ "$un" = "all" ]; then user="@$un"
-	elif  ! stringinstring "$un" "$2"; then
-		stringinstring "$un" "$3" && user="*$un" # group
+	elif  ! stringinstring "$un" "$3"; then
+		stringinstring "$un" "$4" && user="*$un" # group
 	fi
 	buf="$(< $1)"
 	#echo $1
@@ -508,9 +520,9 @@ parse_acl() {
 		val_chk=$(printf "%04d" $ns)
 		#echo "$user; $key; $val; $val_dep; $val_chk"; #continue #debug
 		# fake upsert to db
-		upd_s="UPDATE settings SET value='$val',val_depend='$val_dep', \
+		upd_s="UPDATE $table SET value='$val',val_depend='$val_dep', \
  val_check='$val_chk' WHERE user='$user' AND key='$key';"
-		ins_s="INSERT INTO settings(user,key,value,val_depend,val_check) \
+		ins_s="INSERT INTO $table(user,key,value,val_depend,val_check) \
  SELECT '$user','$key','$val','$val_dep','$val_chk' WHERE (SELECT Changes()=0);"
 		q_dbe "$upd_s" "$ins_s"
 		#echo "$upd_s" "$ins_s" #debug
@@ -519,6 +531,8 @@ parse_acl() {
 }
 
 parse_acl_dir() {
+#arg: [table='settings']
+	local table="settings"; [ -n "$1" ] && table="$1"
 	local ffn str ulist="" glist=""
 	while read str; do
 		str=${str%%:*}; ulist+="${ulist:+$' '}$str"
@@ -530,7 +544,7 @@ parse_acl_dir() {
 	for ffn in $NX_ACL_DIR/*; do
 		stringinstring "README" "$ffn" && continue
 		[ -r $ffn ] || continue; echo -n " ${ffn##*/} ...";
-		parse_acl "$ffn" "$ulist" "$glist";
+		parse_acl "$ffn" "$table" "$ulist" "$glist";
 	done
 	echo " done."
 }
@@ -538,21 +552,23 @@ parse_acl_dir() {
 open_dbe $$
 [ ! -f $sq_settings_fn ] && MKDB="yes"
 if [ "$MKDB" = "yes" ]; then
-	echo "$(date "+%T.%3N"): nxsettings mkdb starting"
-	rm -f $sq_settings_fn &>/dev/null
-	# this is commented in case of in-memory db
-	#attach_db "$sq_settings_fn"|| {
-	#	echo "Unable to create $sq_settings_fn"; exit_proc 1; }
-	q_dbe0 "$qs_create_settings";
-	parse_defaults;
-	parse_settings;
-	parse_users_settings;
-	check_keyvals
-	[ -d "$NX_ACL_DIR" ] && parse_acl_dir
+	table="mem.settings"
+	echo "$(date "+%T.%3N"): mem.settings mkdb starting"
+	q_dbe0 "ATTACH DATABASE ':memory:' AS mem;" \
+		"${qs_create_settings/nxsettings/mem}";
+	parse_defaults "$table";
+	parse_settings "$table";
+	parse_users_settings "$table";
+	check_keyvals "" "" "$table"
+	[ -d "$NX_ACL_DIR" ] && parse_acl_dir "$table"
 	[ -n "$txt_warn" ] && { echo; echo "Checking results:"; echo "$txt_warn"; }
 	[ -n "$txt_err" ] && { echo; echo "!!! ERRORS !!!"; echo "$txt_err"; }
 	txt_err=""; txt_warn=""; txt_info="";
-	q_dbe0 ".save $sq_settings_fn"
+	echo "$(date "+%T.%3N"): nxsettings mkdb attach"
+	attach_db "$sq_settings_fn"|| {
+		echo "Unable to attach $sq_settings_fn"; exit_proc 1; }
+	q_dbe0 "DROP TABLE IF EXISTS nxsettings.settings;" "$qs_create_settings" \
+		"INSERT INTO nxsettings.settings($all_cols) SELECT $all_cols FROM $table;"
 	echo "$(date "+%T.%3N"): nxsettings mkdb stop"
 else
 	attach_db "$sq_settings_fn" ro || {
