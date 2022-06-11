@@ -64,7 +64,7 @@ echo_x() { log "$@"; echo "$@"; }
 
 # Needed global vars: NX_SESS_DIR session_count session_count_user
 # COMMAND_MD5SUM SESSION_USER_LIMIT SESSION_LIMIT SESSION_HISTORY
-# COMMAND_NXSHADOWACL user ENABLE_MIRROR_VIA_VNC ENABLE_NXSHADOWACL
+# user
 
 # =================== sqlite3 stuff =====================
 
@@ -188,11 +188,11 @@ session_count_user() {
 }
 
 _session_list_user_suspended() {
-# use conf vars: COMMAND_NXSHADOWACL ENABLE_MIRROR_VIA_VNC COMMAND_MD5SUM
-# ENABLE_NXSHADOWACL
+# args: <user> <status,> [geometry] <type>
+# use conf vars: COMMAND_MD5SUM
 # use glob: user
 	local p pstrs pattern geom depth render udepth urender mode;
-	local options available session_id geo2 displays;
+	local options available session_id geo2 displays disp2;
 	local puser pshadowcookie pscreeninfo prootless pgeometry pstatus;
 	local ptype pdisplay psession_id psession
 	echo "NX> 127 Sessions list of user '$1' for reconnect:"
@@ -214,9 +214,7 @@ _session_list_user_suspended() {
 		psession_id=$(getparam "$p" session_id); psession=$(getparam "$p" session)
 		if [ "$4" = "shadow" -a "$puser" != "$1" ]; then
 			[ -z "$pshadowcookie" ] && continue
-			if [ "$ENABLE_NXSHADOWACL" = "1" ]; then
-				$COMMAND_NXSHADOWACL "$puser" "$1" || continue
-			fi
+			[ "$ENABLE_SESSION_SHADOWING" = "1" ] || continue
 		fi
 
 		pattern='^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)'
@@ -234,12 +232,7 @@ _session_list_user_suspended() {
 		if [ -z "$4" -a "$available" != "N/A" ]; then
 			available="Yes"
 		fi
-		# We automatically offer VNC shadowed sessions for "remote" support
-		if [ "$4" = "vnc" -a "$ENABLE_MIRROR_VIA_VNC" = "1" ] \
-					&& stringinstring "unix-" "$ptype"; then
-			available=$pstatus
-			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$pdisplay" "vnc-shadowed" "$psession_id" "$options" "$depth" "$geom" "$available" "$psession (Mirrored)"
-		elif [ "$4" = "shadow" ]; then
+		if [ "$4" = "shadow" ]; then
 			available=$pstatus
 			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$pdisplay" "$ptype" "$psession_id" "$options" "$depth" "$geom" "$available" "$psession ($puser) (Shadowed)"
 		else
@@ -249,18 +242,22 @@ _session_list_user_suspended() {
 		fi
 	done <<< "$pstrs"
 
-	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]; then
-		export DESKTOP_SHARING_IDS=""
-		geo2=$(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $3) #'
-		displays=$(LC_ALL=C netstat -ln --protocol=unix)
-		displays=$(rematchfn 'X11-unix/X([0-9]+)' "$displays" "all")  #'
-		for i in $displays; do
-			psession_id=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
-			psession_id=${psession_id%% *}; psession_id=${psession_id^^}
-			DESKTOP_SHARING_IDS="$DESKTOP_SHARING_IDS $psession_id=$i"
-			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$psession_id" "--------" "$udepth" "$geo2" "Running" "X$i (Local)"
-		done
-	fi
+# do we need this if allways direct set connections via vnc?
+#	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]; then
+#		DESKTOP_SHARING_IDS=""
+#		geo2=$(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $3) #'
+#		disp2=""; displays=$(LC_ALL=C netstat -ln --protocol=unix)
+#		displays=$(rematchfn 'X11-unix/X([0-9]+)' "$displays" "all")  #'
+#		for i in $displays; do
+#			stringinstring "$i:" "$disp2" && continue
+#			disp2+="$i:"
+#			psession_id=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
+#			psession_id=${psession_id%% *}; psession_id=${psession_id^^}
+#			DESKTOP_SHARING_IDS+=" $psession_id=$i"
+#			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$psession_id" "--------" "$udepth" "$geo2" "Running" "X$i (Local)"
+#		done
+#		#export DESKTOP_SHARING_IDS
+#	fi
 	echo ""
 	echo ""
 
@@ -274,7 +271,7 @@ _session_list_user_suspended() {
 }
 
 session_list_user_suspended() {
-	local slcd=$(_session_list_user_suspended $@)
+	local slcd=$(_session_list_user_suspended "$@")
 	echo "$slcd" | log_tee
 }
 
@@ -365,11 +362,11 @@ session_fail() {
 #
 
 # config variables in use:
-# COMMAND_MD5SUM COMMAND_NETCAT COMMAND_NXSHADOWACL
-# ENABLE_NXSHADOWACL COMMAND_SESSREG COMMAND_SSH COMMAND_XAUTH
+# COMMAND_MD5SUM COMMAND_NETCAT
+# COMMAND_SESSREG COMMAND_SSH COMMAND_XAUTH
 # ENABLE_AUTORECONNECT
 # ENABLE_LOAD_BALANCE_PREFERENCE ENABLE_LOG_FAILED_LOGINS
-# ENABLE_MIRROR_VIA_VNC ENABLE_SESSION_SHADOWING_AUTHORIZATION
+# ENABLE_SESSION_SHADOWING_AUTHORIZATION
 # ENABLE_USESSION LOAD_BALANCE_SERVERS
 # NX_ETC_DIR NX_HOME_DIR NX_LICENSE NX_LOGFILE NX_LOG_LEVEL
 # NX_SESS_DIR NX_VERSION
@@ -550,14 +547,10 @@ server_nxnode_start_wait() {
 				server_channel=0; to_send="$cmd"
 			;;
 			"NX> 706"*)
-				if [ "$ENABLE_NXSHADOWACL" = "1" ]; then
-					$COMMAND_NXSHADOWACL "$user" # check if we should save the cookie
-					if [ $? -eq 0 ]; then
-						shadowcookie=$(cutfn "$cmd" 1 ':')
-						shadowcookie=${shadowcookie// /}
-						session_change "$session_id" "shadowcookie" "$shadowcookie"
-					fi
-				fi
+				[ "$ENABLE_SESSION_SHADOWING" = "1" ] && {
+					shadowcookie=$(cutfn "$cmd" 1 ':'); shadowcookie=${shadowcookie// /}
+					session_change "$session_id" "shadowcookie" "$shadowcookie"
+				}
 				to_send+="\n$cmd"
 			;;
 			"NX> 70"*)
@@ -776,15 +769,16 @@ server_startrestore_session() {
 	params+="&clientproto=$proto&login_method=$login_method"
 	echo_x
 	# special shadowed type
-	[ "$action" != "start" -a "$type" = "vnc" ] && action="shadow"
+	#[ "$action" != "start" -a "$type" = "vnc" ] && action="shadow"
 
 	if [ "$action" = "shadow" ]; then
-		action="start"
-		session_id=$restore
-		db_params=$(session_get "$session_id" 2>/dev/null)
-		set_vars_from_ampstr "$db_params"
+		action="start"; params=$(delparam "$params" "display");
+		params=$(delparam "$params" "session_id");
+		db_params=$(session_get "$in_session_id" 2>/dev/null)
+		set_vars_from_ampstr "$db_params" "db_"
 
-		shadowdisplay=$display; shadowhost=$host; shadowuser=$user
+		shadowdisplay=$in_display; shadowhost=$db_host;
+		shadowuser=$db_user; shadowcookie=$db_shadowcookie
 		[ "$shadowcookie" = "none" ] && shadowcookie=""
 		if [ -z "$shadowdisplay"  ]; then
 			# check for DESKTOP_SHARING_IDS
@@ -793,42 +787,42 @@ server_startrestore_session() {
 		fi
 		if [ -z "$shadowdisplay" ]; then
 			echo_x "NX> 596 Could not find shadowed session $session_id. Session failed."
-			echo_x "NX> 596 Sharing: $DESKTOP_SHARING_IDS"
+			#echo_x "NX> 596 Sharing: $DESKTOP_SHARING_IDS"
 			return 1
 		fi
 		[ "$shadowhost" = "127.0.0.1" ] && shadowhost=""
 
 		# not the same user? So we have a shadow cookie, we add to xauth
-		if [ -n "$shadowcookie" -a \
-				"$ENABLE_SESSION_SHADOWING_AUTHORIZATION" = "1" ]; then
-			# Ask for permission first:
-			echo_x "NX> 726 Asking user for authorization to attach to session"
-			export XAUTHORITY=".Xauthority-$RANDOM-$$"
-			$COMMAND_XAUTH add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 \
-				"$shadowcookie" >/dev/null 2>&1
-			permission=$(
-				$PATH_BIN/nxdialog -display $shadowhost:$shadowdisplay \
-					-dialog yesno -caption "Authorization Request" \
-					-message "Do you want to allow $user to shadow your session?" 2>/dev/null &
-				shadow_dialog_pid=$!
-				i=0
-				while kill -0 $shadow_dialog_pid 2>/dev/null; do
-					((i++))
-					[ $I -gt "$AGENT_STARTUP_TIMEOUT" ] && \
-						kill $shadow_dialog_pid 2>/dev/null
-					sleep 1
-				done
-				echo "no"
-			)
-			$COMMAND_XAUTH remove "$shadowhost:$shadowdisplay"
-			rm -f "$XAUTHORITY"
+#		if [ -n "$shadowcookie" -a \
+#				"$ENABLE_SESSION_SHADOWING_AUTHORIZATION" = "1" ]; then
+#			# Ask for permission first:
+#			echo_x "NX> 726 Asking user for authorization to attach to session"
+#			export XAUTHORITY=".Xauthority-$RANDOM-$$"
+#			$COMMAND_XAUTH add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 \
+#				"$shadowcookie" >/dev/null 2>&1
+#			permission=$(
+#				$PATH_BIN/nxdialog -display $shadowhost:$shadowdisplay \
+#					-dialog yesno -caption "Authorization Request" \
+#					-message "Do you want to allow $user to shadow your session?" 2>/dev/null &
+#				shadow_dialog_pid=$!
+#				i=0
+#				while kill -0 $shadow_dialog_pid 2>/dev/null; do
+#					((i++))
+#					[ $i -gt "$AGENT_STARTUP_TIMEOUT" ] && \
+#						kill $shadow_dialog_pid 2>/dev/null
+#					sleep 1
+#				done
+#				echo "no"
+#			)
+#			$COMMAND_XAUTH remove "$shadowhost:$shadowdisplay"
+#			rm -f "$XAUTHORITY"
 
-			if [ "$permission" = "no" ]; then
-				# User answered NO
-				echo_x "NX> 596 Error: Authorization refused by user: $shadowuser."
-				return 1
-			fi
-		fi
+#			if [ "$permission" = "no" ]; then
+#				# User answered NO
+#				echo_x "NX> 596 Error: Authorization refused by user: $shadowuser."
+#				return 1
+#			fi
+#		fi
 
 		params+="&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost&\
 shadowcookie=$shadowcookie&shadowuser=$shadowuser"

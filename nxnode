@@ -1258,6 +1258,7 @@ startsession() { # Start a new session.
  fullscreen menu"
 	opt_str="nx/nx";
 	for vn in $opt_vars; do [ -n "${!vn}" ] && opt_str+=",$vn=${!vn}"; done
+	#[ "$type" = "shadow" ] && opt_str+=",shadow=1"
 	opt_str+=":$display"
 	# write options file
 	umask 0077;	echo "$opt_str" > "$NXSESSION_DIRECTORY/options"; umask $umask0
