@@ -777,6 +777,7 @@ server_startrestore_session() {
 		db_params=$(session_get "$in_session_id" 2>/dev/null)
 		set_vars_from_ampstr "$db_params" "db_"
 
+		encryption=$in_encryption
 		shadowdisplay=$in_display; shadowhost=$db_host;
 		shadowuser=$db_user; shadowcookie=$db_shadowcookie
 		[ "$shadowcookie" = "none" ] && shadowcookie=""
@@ -1016,6 +1017,7 @@ while true; do
 			echo_x "NX> 999 Bye" 1>&2
 			if [ "$ENCRYPTION" = "1" ]; then
 				((proxy_display=display+4000))
+				log "Session stage: proxy display starting $server_host:$proxy_display"
 				$COMMAND_NETCAT $server_host $proxy_display 2>/dev/null; rc=$?
 				log "Session stage: proxy display finished rc=$rc"
 				kill $PPID 2>/dev/null # kill our parent sshd process
