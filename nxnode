@@ -1011,6 +1011,7 @@ node_start_agent() {
 	# Wait for the agent
 	agent_pid=$!
 	usess_set "$session_id" "agent_pid" "$agent_pid"
+	echo "NX> 733 Agent pid: $agent_pid:"
 	nxlog "$lp Waiting for agent_pid='$agent_pid'"
 	wait $agent_pid; agent_exit_status=$?
 	nxlog "$lp agent_exit_status='$agent_exit_status'"

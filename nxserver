@@ -70,14 +70,15 @@ echo_x() { log "$@"; echo "$@"; }
 
 sqcols_sess="session_id, session, display, status, userip,\
  rootless, type, user, screeninfo, geometry, host, shadowcookie,\
- startTime, creationTime, endTime"
+ startTime, creationTime, endTime, agent_pid"
 sqcols_sess_c=15
 
 init_sess_db() {
 	local sess_cols="session_id TEXT PRIMARY KEY, session TEXT,\
  display TEXT, status TEXT, userip TEXT, rootless INT, type TEXT,\
  user TEXT, screeninfo TEXT, geometry TEXT, host TEXT,\
- shadowcookie TEXT, startTime INT, creationTime INT, endTime INT"
+ shadowcookie TEXT, startTime INT, creationTime INT, endTime INT,\
+ agent_pid TEXT"
 	local qstr="CREATE TABLE IF NOT EXISTS sessions.sess($sess_cols);"
 	qstr+="CREATE INDEX IF NOT EXISTS sessions.idx_status_user ON\
  sess(status,user);"
@@ -532,7 +533,8 @@ server_nxnode_exit_func() {
 server_nxnode_start_wait() {
 # use uplevel: $server_wait_pid $user $session_id
 	local lp=" $FUNCNAME:";
-	local server_channel=1 kill_wait_pid=1 shadowcookie fl_start="" to_send=""
+	local server_channel=1 kill_wait_pid=1 shadowcookie agent_pid
+	local fl_start="" to_send=""
 	open_dbe $BASHPID
 	[ "$1" = "--startsession" ] && fl_start="1";
 	if [ -n "$fl_start" ]; then
@@ -552,6 +554,10 @@ server_nxnode_start_wait() {
 					session_change "$session_id" "shadowcookie" "$shadowcookie"
 				}
 				to_send+="\n$cmd"
+			;;
+			"NX> 733"*)
+				agent_pid=$(cutfn "$cmd" 1 ':'); agent_pid=${agent_pid// /}
+				session_change "$session_id" "agent_pid" "$agent_pid"
 			;;
 			"NX> 70"*)
 				to_send+="\n$cmd"
