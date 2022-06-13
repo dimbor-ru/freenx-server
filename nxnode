@@ -1190,7 +1190,12 @@ startsession() { # Start a new session.
 	[ "$1" = "start" ] && mkdir -p -m700 "$NXSESSION_DIRECTORY"
 	# Setup environment
 	[ -n "$SOURCE_SYS_PROFILE" ] && . $SOURCE_SYS_PROFILE
-	[ -n "$SOURCE_USER_PROFILE" ] && . ${SOURCE_USER_PROFILE@P}
+	[ -n "$SOURCE_USER_PROFILE" ] && {
+		if [ "${SOURCE_USER_PROFILE:0:1}" != "/" ]; then
+			. $HOME/$SOURCE_USER_PROFILE
+		else . $SOURCE_USER_PROFILE
+		fi
+	}
 
 	[ "$PROXY_TCP_NODELAY" = "0" ] && nodelay=0
 	[ "$ENABLE_ROOTLESS_MODE" = "0" ] && rootless=0
