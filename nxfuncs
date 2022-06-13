@@ -362,6 +362,7 @@ set_vars_from_db() {
 # if username is empty str rquests all variables for NULL
 # if username is not empty str rquests all variables user over NULL
 # if username and only_users_vars are not empty str rquests users variables only
+	local mode=".mode csv settings\n.separator '&'\n"
 	local qstr0 qs_keys0="" qs_keys="" ts a qstr var value;
 	local keylist
 	[ -n "$1" ] && {
@@ -379,7 +380,7 @@ set_vars_from_db() {
 		qstr="SELECT key,value FROM settings WHERE user IS NULL $qs_keys0;"
 	fi
 	#echo "$qstr" #debug
-	ts=$(qa_dbe "$qstr"); #echo "$ts" #debug
+	ts=$(qa_dbe "$mode" "$qstr"); #echo "$ts" #debug
 	while read line; do
 		local OIFS="$IFS"; local IFS='&'; a=($line); IFS="$OIFS"
 		var=${a[0]}; value=${a[1]}; value=${value//\"/}; value=$(sq2s "$value")
