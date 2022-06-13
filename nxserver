@@ -98,7 +98,7 @@ session_list() {
 	} || { # original order of fields
 		fls=$sqcols_sess;
 	}
-	res=$(qa_dbe $sqcols_sess_c ".mode line sess\n" \
+	res=$(qa_dbe ".mode line sess\n" \
 		"SELECT $fls FROM sess WHERE session_id='$1' LIMIT 1;")
 	[ -n "$2" ] && { 	echo "$res"; return; }
 	local line k v;
