@@ -242,23 +242,6 @@ _session_list_user_suspended() {
 			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$pdisplay" "$ptype" "$psession_id" "$options" "$depth" "$geom" "$available" "$psession"
 		fi
 	done <<< "$pstrs"
-
-# do we need this if allways direct set connections via vnc?
-#	if [ "$4" = "vnc" -o "$4" = "shadow" -a "$ENABLE_DESKTOP_SHARING" = "1" ]; then
-#		DESKTOP_SHARING_IDS=""
-#		geo2=$(rematchfn '^([[:digit:]]+x[[:digit:]]+)' $3) #'
-#		disp2=""; displays=$(LC_ALL=C netstat -ln --protocol=unix)
-#		displays=$(rematchfn 'X11-unix/X([0-9]+)' "$displays" "all")  #'
-#		for i in $displays; do
-#			stringinstring "$i:" "$disp2" && continue
-#			disp2+="$i:"
-#			psession_id=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)
-#			psession_id=${psession_id%% *}; psession_id=${psession_id^^}
-#			DESKTOP_SHARING_IDS+=" $psession_id=$i"
-#			printf "%-7s %-16s %32s %8s %5s %-14s %-11s %s\n" "$i" "Local" "$psession_id" "--------" "$udepth" "$geo2" "Running" "X$i (Local)"
-#		done
-#		#export DESKTOP_SHARING_IDS
-#	fi
 	echo ""
 	echo ""
 
@@ -774,8 +757,6 @@ server_startrestore_session() {
 
 	params+="&clientproto=$proto&login_method=$login_method"
 	echo_x
-	# special shadowed type
-	#[ "$action" != "start" -a "$type" = "vnc" ] && action="shadow"
 
 	if [ "$action" = "shadow" ]; then
 		action="start"; params=$(delparam "$params" "display");
@@ -787,49 +768,38 @@ server_startrestore_session() {
 		shadowdisplay=$in_display; shadowhost=$db_host;
 		shadowuser=$db_user; shadowcookie=$db_shadowcookie
 		[ "$shadowcookie" = "none" ] && shadowcookie=""
-		if [ -z "$shadowdisplay"  ]; then
-			# check for DESKTOP_SHARING_IDS
-			shadowdisplay=$(rematchfn "$session_id=([^ ]*)" "$DESKTOP_SHARING_IDS") #"
-			shadowhost="127.0.0.1"
-		fi
 		if [ -z "$shadowdisplay" ]; then
 			echo_x "NX> 596 Could not find shadowed session $session_id. Session failed."
-			#echo_x "NX> 596 Sharing: $DESKTOP_SHARING_IDS"
-			return 1
+			exit_proc 1
 		fi
 		[ "$shadowhost" = "127.0.0.1" ] && shadowhost=""
 
 		# not the same user? So we have a shadow cookie, we add to xauth
-#		if [ -n "$shadowcookie" -a \
-#				"$ENABLE_SESSION_SHADOWING_AUTHORIZATION" = "1" ]; then
-#			# Ask for permission first:
-#			echo_x "NX> 726 Asking user for authorization to attach to session"
-#			export XAUTHORITY=".Xauthority-$RANDOM-$$"
-#			$COMMAND_XAUTH add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 \
-#				"$shadowcookie" >/dev/null 2>&1
-#			permission=$(
-#				$PATH_BIN/nxdialog -display $shadowhost:$shadowdisplay \
-#					-dialog yesno -caption "Authorization Request" \
-#					-message "Do you want to allow $user to shadow your session?" 2>/dev/null &
-#				shadow_dialog_pid=$!
-#				i=0
-#				while kill -0 $shadow_dialog_pid 2>/dev/null; do
-#					((i++))
-#					[ $i -gt "$AGENT_STARTUP_TIMEOUT" ] && \
-#						kill $shadow_dialog_pid 2>/dev/null
-#					sleep 1
-#				done
-#				echo "no"
-#			)
-#			$COMMAND_XAUTH remove "$shadowhost:$shadowdisplay"
-#			rm -f "$XAUTHORITY"
+		if [ "$user" !=  "$shadowuser" -a \
+				"$ENABLE_SESSION_SHADOWING_AUTHORIZATION" = "1" ]; then
+			# Ask for permission first:
+			echo_x "NX> 726 Asking user for authorization to attach to session"
 
-#			if [ "$permission" = "no" ]; then
-#				# User answered NO
-#				echo_x "NX> 596 Error: Authorization refused by user: $shadowuser."
-#				return 1
-#			fi
-#		fi
+			$COMMAND_XAUTH add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 \
+				"$shadowcookie"
+			DISPLAY=:$shadowdisplay $PATH_BIN/nxdialog \
+				--display $shadowhost:$shadowdisplay --parent $db_agent_pid \
+				--dialog yesno --caption "Authorization Request" \
+				--message "Do you want to allow $user to shadow your session?" \
+				2>/dev/null &
+			dlg_pid=$!
+			# make a simple watchdog for nxdialog
+			( sleep $AGENT_STARTUP_TIMEOUT"s"
+				kill -0 $dlg_pid &>/dev/null && kill $dlg_pid &>/dev/null; ) &
+			wait $dlg_pid
+			rc=$?
+			$COMMAND_XAUTH remove "$shadowhost:$shadowdisplay"
+			if [ "$rc" != "1" ]; then
+				# User answered NO or time out
+				echo_x "NX> 596 Error: Authorization refused by user: $shadowuser."
+				exit_proc 1
+			fi
+		fi
 
 		params+="&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost&\
 shadowcookie=$shadowcookie&shadowuser=$shadowuser"
