@@ -281,15 +281,15 @@ session_history() {
 	local wstr=""
 	echo "NX> 127 Session list:"
 	echo
-	echo "Display Username		Remote IP	   Session ID					   Date				Status"
-	echo "------- --------------- --------------- -------------------------------- ------------------- -----------"
+ 	echo "User    Remote IP       Status          Start           Stop           "
+	echo "------- --------------- --------------- --------------  ---------------"
 	[ -n "$1" -a "$1" != "all" ] && wstr="$(str_eq_cond "user" "$1")"
 	[ -n "$wstr" -a -n "$2" ] && wstr+=" AND "
 	[ -n "$2" ] && wstr+=" session_id='$2'"
 	[ -n "$wstr" ] && wstr="WHERE $wstr"
-	qa_dbe ".mode tabs sess\n SELECT display,user,userip,session_id,\
- datetime(startTime,'unixepoch','localtime'),status\
- FROM sess $wstr ORDER BY startTime;" # ! check order !
+	qa_dbe ".mode tabs sess\n SELECT user,userip,status,strftime('%d.%m-%H:%M:%S',startTime,'unixepoch','localtime'),\
+ strftime('%d.%m-%H:%M:%S',endTime,'unixepoch','localtime')\
+ FROM sess $wstr ORDER BY endTime;"
 }
 
 # remove all sessions older than $SESSION_HISTORY seconds in failed/closed.
