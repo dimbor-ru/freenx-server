@@ -340,6 +340,31 @@ session_fail() {
 # end of library
 #
 
+msg2agentdisplay() {
+#args: <dlg_type> <message> <[host]:display> <cookie> <agent_pid>
+#	[window_caption] [timeo=$AGENT_STARTUP_TIMEOUT]
+# return exit code of nxdialog
+	local capt="FREENX server"; [ -n "$6" ] && capt=$6
+	local timeo=$AGENT_STARTUP_TIMEOUT; [ -n "$7" ] && timeo=$7
+	local rc=0
+	$COMMAND_XAUTH add "$3" MIT-MAGIC-COOKIE-1 "$4" &>/dev/null
+	DISPLAY="$3" $PATH_BIN/nxdialog --display "$3" --parent $5 \
+				--dialog "$1" --caption "$capt" --message "$2" &>/dev/null &
+	local dlg_pid=$!
+	if [ $timeo -gt 0 ]; then # make a simple watchdog for nxdialog
+		( sleep $timeo"s"
+			kill -0 $dlg_pid &>/dev/null && kill $dlg_pid &>/dev/null; ) &
+	fi
+	if stringinstring "$1" "ok|error|panic"; then
+		sleep 0.5s # don't remove xauthority cookie right now
+	else # wait for anwers only
+		wait $dlg_pid
+		rc=$?
+	fi
+	$COMMAND_XAUTH remove "$3" &>/dev/null
+	return $rc
+}
+
 
 #
 # Main nxserver <-> nxclient communication module
@@ -750,7 +775,7 @@ server_loadbalance() {
 }
 
 server_startrestore_session() {
-	local action="$1" params="$2" permission shadow_dialog_pid sess_lockfile
+	local action="$1" params="$2" rc sess_lockfile
 	local agent_display samba_display cups_display media_display restore
 	local server_pid server_wait_pid new_params db_params
 	local pass enc_pass new_pass1 new_pass2 real_pass
@@ -780,21 +805,11 @@ server_startrestore_session() {
 			# Ask for permission first:
 			echo_x "NX> 726 Asking user for authorization to attach to session"
 
-			$COMMAND_XAUTH add "$shadowhost:$shadowdisplay" MIT-MAGIC-COOKIE-1 \
-				"$shadowcookie"
-			DISPLAY=:$shadowdisplay $PATH_BIN/nxdialog \
-				--display $shadowhost:$shadowdisplay --parent $db_agent_pid \
-				--dialog yesno --caption "Authorization Request" \
-				--message "Do you want to allow $user to shadow your session?" \
-				2>/dev/null &
-			dlg_pid=$!
-			# make a simple watchdog for nxdialog
-			( sleep $AGENT_STARTUP_TIMEOUT"s"
-				kill -0 $dlg_pid &>/dev/null && kill $dlg_pid &>/dev/null; ) &
-			wait $dlg_pid
-			rc=$?
-			$COMMAND_XAUTH remove "$shadowhost:$shadowdisplay"
-			if [ "$rc" != "1" ]; then
+			msg2agentdisplay "yesno" \
+				"Do you want to allow $user to shadow your session?" \
+				$shadowhost:$shadowdisplay $shadowcookie $db_agent_pid \
+				"Authorization Request"
+			if [ "$?" != "1" ]; then
 				# User answered NO or time out
 				echo_x "NX> 596 Error: Authorization refused by user: $shadowuser."
 				exit_proc 1
@@ -1270,7 +1285,7 @@ cmd_execute() {
 }
 
 cmd_terminate_or_send() {
-	local cmd="$1" cmd_params lineamp;
+	local cmd="$1" cmd_params lineamp cmd_shadowcookie cmd_agent_pid;
 	local cmd_session_id cmd_display cmd_user cmd_type cmd_status cmd_host;
 	if [ "$cmd" = "--broadcast" ]; then
 		cmd_params=$(session_find_all)
@@ -1311,9 +1326,12 @@ cmd_terminate_or_send() {
 			;;
 			--send|--broadcast)
 				# is it a "good" session?
-				if [ "$cmd_status" = "Running" ] && stringinstring "unix-" "$cmd_type"
-				then
-					cmd_execute "$cmd_host" "$cmd_user" "$PATH_BIN/nxdialog --dialog ok --caption \"NX Administrator Message\" --message \"$@\" -display \":$cmd_display\" &"
+				if [ "$cmd_status" = "Running" ]; then
+					cmd_agent_pid=$(getparam "$lineamp" agent_pid)
+					cmd_shadowcookie=$(getparam "$lineamp" shadowcookie)
+					msg2agentdisplay "ok" "$(date "+%d.%m %H:%M"): $@" \
+						:$cmd_display $cmd_shadowcookie $cmd_agent_pid \
+						"NX Admin Message" 0
 				fi
 			esac
 	done <<< "$cmd_params"
