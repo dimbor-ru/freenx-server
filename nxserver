@@ -778,7 +778,6 @@ server_startrestore_session() {
 	local action="$1" params="$2" rc sess_lockfile
 	local agent_display samba_display cups_display media_display restore
 	local server_pid server_wait_pid new_params db_params
-	local pass enc_pass new_pass1 new_pass2 real_pass
 
 	params+="&clientproto=$proto&login_method=$login_method"
 	echo_x
@@ -1161,21 +1160,6 @@ cmd_abort_success() {
 	echo "NX> 999 Bye" 1>&2
 	exit_proc 0
 }
-
-cmd_user_passwd() {
-	echo "NX> 100 NXSERVER - Version $NX_VERSION $NX_LICENSE"
-	echo "Sorry: Password changing for user is _not_ implemented, yet."
-	echo "Please login to NX-Server to change password"
-	echo "or ask your local system administrator."
-	#echo "NX> 113 Changing password of user '$user'"
-	#echo "Old password:"
-	#read -s OLDPASS
-	#echo "New password:"
-	#read -s NEWPASS1
-	#echo "Repeat:"
-	#read -s NEWPASS2
-}
-
 
 cmd_start() {
 	[ -f $NX_HOME_DIR/.ssh/$SSH_AUTHORIZED_KEYS ] && \
