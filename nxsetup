@@ -503,6 +503,7 @@ parse_acl() {
 	local table="settings"; [ -n "$2" ] && table="$2"
 	local un=${1##*/} user; un=${un%%\.*}; user="#$un" # user
 	local buf l key val val_dep val_chk ns=0 upd_s ins_s v;
+	lical val_type i ca ans s ov a
 	if [ "$un" = "all" ]; then user="@$un"
 	elif  ! stringinstring "$un" "$3"; then
 		stringinstring "$un" "$4" && user="*$un" # group
@@ -516,16 +517,30 @@ parse_acl() {
 		#echo "$l" #debug
 		key="$(trim "${l%%\%\%\%*}")"; key=$(s2sq "$key");
 		stringinstring "%%%" "$l" && l="$(trim "${l#*\%\%\%}")" || l=""
-		val="$(trim "${l%%\%\%\%*}")"; val=$(s2sq "$val");
-		stringinstring "%%%" "$l" && l="$(trim "${l#*\%\%\%}")" || l=""
-		val_dep="$(trim "${l%%\%\%\%*}")"; val_dep=$(s2sq "$val_dep")
+		val="$(trim "${l%%\%\%\%*}")";
+		if [ "$key" != "@shadow@" ]; then
+			val=$(s2sq "$val"); val_type=""
+			stringinstring "%%%" "$l" && l="$(trim "${l#*\%\%\%}")" || l=""
+			val_dep="$(trim "${l%%\%\%\%*}")"; val_dep=$(s2sq "$val_dep")
+		else # parse shadow acl
+			val=$(trim "${val//\,/ }"); ans=($val); ca=${#ans[@]}
+			val=""; val_type=""; val_dep="";
+			for ((i=0; i<$ca; i++)) {
+				s=${ans[i]}
+				[ "${s:0:1}" != "#" ] && ov=0 || { ov=1; s=${s:1}; }
+				[ "${s:(-1):1}" != "!" ] && a=1 || { a=0; s=${s::-1}; }
+				val+="${val:+,}$s"; val_type+="${val_type:+,}$ov";
+				val_dep+="${val_dep:+,}$a";
+		}
+		fi
 		val_chk=$(printf "%04d" $ns)
 		#echo "$user; $key; $val; $val_dep; $val_chk"; #continue #debug
 		# fake upsert to db
-		upd_s="UPDATE $table SET value='$val',val_depend='$val_dep', \
- val_check='$val_chk' WHERE user='$user' AND key='$key';"
-		ins_s="INSERT INTO $table(user,key,value,val_depend,val_check) \
- SELECT '$user','$key','$val','$val_dep','$val_chk' WHERE (SELECT Changes()=0);"
+		upd_s="UPDATE $table SET value='$val',val_type='$val_type', \
+ val_depend='$val_dep', val_check='$val_chk' WHERE user='$user' AND key='$key';"
+		ins_s="INSERT INTO $table(user,key,value,val_type,val_depend,val_check) \
+ SELECT '$user','$key','$val','$val_type','$val_dep','$val_chk' \
+ WHERE (SELECT Changes()=0);"
 		q_dbe "$upd_s" "$ins_s"
 		#echo "$upd_s" "$ins_s" #debug
 		val=""; val_dep=""; val_chk=""

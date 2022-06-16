@@ -1,4 +1,4 @@
-# nxacl.app v1.0. Copyleft by dimbor at unixforum.org <akadown@pisem.net>
+# nxacl.app v1.1 Copyleft by dimbor at unixforum.org <i@dimbor.ru>
 # Freenx parse ACL-files in NX_ACL_DIR and search user/group permissions
 # for given cmdstr. ACL filenames are usernames, groupnames and "all".
 # Permissions search order: user - group - all. ACL contain one or more
@@ -17,4 +17,14 @@
 #
 # Attention!!! Spec-symbols (like ".","$","^") must be escaped twice vs once
 # ('\\.' vs '\.'), sorry.
-
+#
+# In acl file for any user0 may be addded special CmdTpl named '@shadow@'.
+# Format:
+#
+# @shadow@ %%% user1[,user2[,user3...]]
+#
+# It means that user0 have permissions to shadow connect to sessions running
+# of the users listed in the second field.
+#
+# user may be described as [#]user[!]
+# where '#' means view only mode, '!' - don't ask user for authorization
