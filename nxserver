@@ -557,10 +557,8 @@ server_nxnode_start_wait() {
 				server_channel=0; to_send="$cmd"
 			;;
 			"NX> 706"*)
-				[ "$ENABLE_SESSION_SHADOWING" = "1" ] && {
-					shadowcookie=$(cutfn "$cmd" 1 ':'); shadowcookie=${shadowcookie// /}
-					session_change "$session_id" "shadowcookie" "$shadowcookie"
-				}
+				shadowcookie=$(cutfn "$cmd" 1 ':'); shadowcookie=${shadowcookie// /}
+				session_change "$session_id" "shadowcookie" "$shadowcookie"
 				to_send+="\n$cmd"
 			;;
 			"NX> 733"*)
