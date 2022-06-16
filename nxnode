@@ -444,7 +444,11 @@ uservice_start() {
 	done
 	[ -n "$ok" ] || {
 		nxlog "$lp service $svc ($port) still set in \"$st\" state after $((timeo/4)) s";
-		return 1; }
+		# FIXME!
+		[ "$st" = "stopping" ] || return 1;
+		nxlog "$lp service $svc ($port) set state 'off' ultimately";
+		usvcs_set $svc "status" "off"; $st="off"
+	}
 
 	[ -z "$type" -a -z "$st" ] && {
 		nxlog "$lp '$svc': params for service are not found in usess db";
