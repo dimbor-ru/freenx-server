@@ -447,7 +447,7 @@ uservice_start() {
 		# FIXME!
 		[ "$st" = "stopping" ] || return 1;
 		nxlog "$lp service $svc ($port) set state 'off' ultimately";
-		usvcs_set $svc "status" "off"; $st="off"
+		usvcs_set $svc "status" "off"; st="off"
 	}
 
 	[ -z "$type" -a -z "$st" ] && {
