@@ -19,19 +19,26 @@ their substitution for users and groups;
 client's computer try shares leave while there is at least one running
 session;
 
-- Pulseaudio sound: direct, tunnelled, with or without resampling;
+- Pulseaudio sound: tunnelled, with or without resampling;
 
 - Localization of windows sharenames;
 
 - Control of rootles sessions ending: based on application-process
 internal customizable map;
 
-- Reduced connection time.
+- Reduced connection time;
 
 - Used nxsetting sqlite db (nxsetup --reload or nxsetup --mkdb for update).
-Everything got even a little faster
+Everything got even a little faster;
 
-- ...
+- vnc and rdp over nx modes running;
+
+- Shadow mode worked also;
+
+- nxshadowacl script functionality moved to existing acl.
+
+
+Many thanks to Djelf for long consultations on sqlite.
 
 Thats all worked with [opennx ce](https://github.com/dimbor-ru/opennx) liux/windows client, but original nxclient
 basicaly alive too (with restrictions).

@@ -1,3 +1,10 @@
+freenx-server (2.1.0) UNRELEASED; urgency=low
+
+  * Shadow mode is worked now.
+  * Readd nxshadowacl functionality.
+
+ -- Dmitry Borisov <i@dimbor.ru>  Thu, 16 Jun 2022 22:39:43 +0300
+
 freenx-server (2.0.0) UNRELEASED; urgency=low
 
   * Release with sqlite3 db engine.
