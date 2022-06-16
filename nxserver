@@ -188,6 +188,22 @@ session_count_user() {
 	return 0
 }
 
+session_user_acl_load() {
+#arg: <user>
+# load nx shadow acl for given user and store it to
+# shadow_users shadow_oviews shadow_uauths variables
+	local s ucond=$(groups); ucond="'#$1','*${ucond// /\',\'\*}','@all'"
+	local mode=".mode csv settings\n.separator '&'\n"
+	local qstr="SELECT value,val_type,val_depend FROM settings WHERE user IN ($ucond) \
+ AND key='@shadow@' ORDER BY user ASC, val_check DESC LIMIT 1;"
+	#log "$FUNCNAME: qstr='$qstr'" #debug
+	local ts=$(qa_dbe "$mode" "$qstr")
+	#log "$lp ts='$ts'" #debug
+	shadow_users=$(cutfn "$ts" 0 '&')
+	s=$(cutfn "$ts" 1 '&'); shadow_oviews=(${s//,/ })
+	s=$(cutfn "$ts" 2 '&'); shadow_uauths=(${s//,/ })
+}
+
 _session_list_user_suspended() {
 # args: <user> <status,> [geometry] <type>
 # use conf vars: COMMAND_MD5SUM
@@ -214,8 +230,11 @@ _session_list_user_suspended() {
 		ptype=$(getparam "$p" type); pdisplay=$(getparam "$p" display)
 		psession_id=$(getparam "$p" session_id); psession=$(getparam "$p" session)
 		if [ "$4" = "shadow" -a "$puser" != "$1" ]; then
-			[ -z "$pshadowcookie" ] && continue
 			[ "$ENABLE_SESSION_SHADOWING" = "1" ] || continue
+			[ -n "$NX_ACL_DIR" ] && {
+				#log "in nxacl present CHECK ,$puser, ; ,$shadow_users," #debug
+				stringinstring ",$puser," ",$shadow_users," || continue
+			}
 		fi
 
 		pattern='^([0-9]*x[0-9]*)x([0-9]*)\+?([^+]*)'
@@ -335,7 +354,6 @@ session_fail() {
 		session_change "$1" "status,endTime" "Failed&$(date +%s)"
 	fi
 }
-
 #
 # end of library
 #
@@ -386,6 +404,7 @@ declare -g cmd in_params proto login_success login_method
 declare -g server_mode preferred_host session_count session_count_user
 declare -g user2 ENCRYPTION proxy_display server_host
 declare -g oifs rc NODE_HOSTNAME user fl_send="1"
+declare -g shadow_users shadow_oviews shadow_uauths shadowviewonly shadowauth
 
 server_mode="0"; [ "$USER" = "nx" ] && server_mode="1"
 
@@ -456,6 +475,7 @@ preferred_host=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 				if [ "$login_success" = "1" ]; then
 					# Reread the config files (so that $USER.node.conf get sourced)
 					set_vars_from_db "" $user "only"
+					[ "$ENABLE_SESSION_SHADOWING" = "1" ] && session_user_acl_load $user
 					break
 				else
 					echo_x "NX> 404 ERROR: wrong password or login"
@@ -775,12 +795,14 @@ server_loadbalance() {
 server_startrestore_session() {
 	local action="$1" params="$2" rc sess_lockfile
 	local agent_display samba_display cups_display media_display restore
-	local server_pid server_wait_pid new_params db_params
+	local server_pid server_wait_pid new_params db_params nshu="-1" i s
+
 
 	params+="&clientproto=$proto&login_method=$login_method"
 	echo_x
 
 	if [ "$action" = "shadow" ]; then
+		shadowviewonly="0" shadowauth="0"
 		action="start"; params=$(delparam "$params" "display");
 		params=$(delparam "$params" "session_id");
 		db_params=$(session_get "$in_session_id" 2>/dev/null)
@@ -796,9 +818,20 @@ server_startrestore_session() {
 		fi
 		[ "$shadowhost" = "127.0.0.1" ] && shadowhost=""
 
-		# not the same user? So we have a shadow cookie, we add to xauth
-		if [ "$user" !=  "$shadowuser" -a \
+		if [ "$user" != "$shadowuser" -a \
 				"$ENABLE_SESSION_SHADOWING_AUTHORIZATION" = "1" ]; then
+			shadowauth="1"
+			[ -n "$shadow_users" ] && {
+				local shu=(${shadow_users//,/ })
+				for ((i=0; i<${#shu[@]}; i++)) {
+					[ "${shu[$i]}" = "$shadowuser" ] && { nshu=$i; break; }
+				}
+			}
+			((nshu>=0)) && {
+				shadowviewonly="${shadow_oviews[$i]}" shadowauth="${shadow_uauths[$i]}"
+			}
+		fi
+		if [ "$shadowauth" = "1" ]; then
 			# Ask for permission first:
 			echo_x "NX> 726 Asking user for authorization to attach to session"
 
@@ -814,7 +847,8 @@ server_startrestore_session() {
 		fi
 
 		params+="&shadowdisplay=$shadowdisplay&shadowhost=$shadowhost&\
-shadowcookie=$shadowcookie&shadowuser=$shadowuser"
+shadowcookie=$shadowcookie&shadowuser=$shadowuser&\
+shadowviewonly=$shadowviewonly&shadowauth=$shadowauth"
 	fi
 
 	[ "$action" = "start" ] && \

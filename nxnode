@@ -721,10 +721,11 @@ node_find_application() {
 	[ -n "$NX_ACL_DIR"  ] || { echo "$node_startx"; return; }
 
 	local ucond=$(groups); ucond="'#$USER','*${ucond// /\',\'\*}','@all'"
+	local mode=".mode csv settings\n.separator '&'\n"
 	local qstr="SELECT key,value,val_depend FROM settings WHERE user IN ($ucond) \
  AND key NOT IN ('@shadow@') ORDER BY user ASC,	val_check ASC;"
 	#nxlog "$lp qstr='$qstr'" #debug
-	local ts=$(qa_dbe "$qstr")
+	local ts=$(qa_dbe "$mode" "$qstr")
 	#nxlog "$lp ts='$ts'" #debug
 	local l tpl inv pm l2="" app_match="" app_rep="$COMMAND_XMSG '$NX_ACL_WARN'"
 	while read l; do
@@ -999,7 +1000,9 @@ node_start_agent() {
 		fp=""; [ -n "$AGENT_FONT_SERVER" ] && fp="-fp $AGENT_FONT_SERVER"
 		if [ "$type" = "shadow" ]; then
 			nxlog "$lp Type \"shadow\". Add some args to nxagent"
-			r="-S -shadow $shadowhost:$shadowdisplay -shadowmode $ENABLE_INTERACTIVE_SESSION_SHADOWING"
+			local shmode=$ENABLE_INTERACTIVE_SESSION_SHADOWING
+			[ "$shmode" = "1" ] && [ "$shadowviewonly" = "1" ] && shmode="0"
+			r="-S -shadow $shadowhost:$shadowdisplay -shadowmode $shmode"
 			p="-nopersistent"
 		fi
 		# Start the agent
