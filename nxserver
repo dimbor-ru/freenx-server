@@ -212,6 +212,8 @@ _session_list_user_suspended() {
 	local options available session_id geo2 displays disp2;
 	local puser pshadowcookie pscreeninfo prootless pgeometry pstatus;
 	local ptype pdisplay psession_id psession
+	local shadow_all=""
+	[ "$4" = "shadow" ] && stringinstring ",all," ",$shadow_users," && shadow_all="1"
 	echo "NX> 127 Sessions list of user '$1' for reconnect:"
 	echo
 	if [ -z "$4" ]; then
@@ -231,7 +233,7 @@ _session_list_user_suspended() {
 		psession_id=$(getparam "$p" session_id); psession=$(getparam "$p" session)
 		if [ "$4" = "shadow" -a "$puser" != "$1" ]; then
 			[ "$ENABLE_SESSION_SHADOWING" = "1" ] || continue
-			[ -n "$NX_ACL_DIR" ] && {
+			[ -n "$NX_ACL_DIR" -a -z "$shadow_all" ] && {
 				#log "in nxacl present CHECK ,$puser, ; ,$shadow_users," #debug
 				stringinstring ",$puser," ",$shadow_users," || continue
 			}
@@ -824,11 +826,14 @@ server_startrestore_session() {
 			[ -n "$shadow_users" ] && {
 				local shu=(${shadow_users//,/ })
 				for ((i=0; i<${#shu[@]}; i++)) {
-					[ "${shu[$i]}" = "$shadowuser" ] && { nshu=$i; break; }
+					[ "${shu[$i]}" = "$shadowuser" -o "${shu[$i]}" = "all" ] && {
+						nshu=$i; break;
+					}
 				}
 			}
 			((nshu>=0)) && {
-				shadowviewonly="${shadow_oviews[$i]}" shadowauth="${shadow_uauths[$i]}"
+				shadowviewonly="${shadow_oviews[$nshu]}"
+				shadowauth="${shadow_uauths[$nshu]}"
 			}
 		fi
 		if [ "$shadowauth" = "1" ]; then
@@ -870,7 +875,7 @@ shadowviewonly=$shadowviewonly&shadowauth=$shadowauth"
 	export ENCRYPTION=$encryption
 	if [ "$ENABLE_FORCE_ENCRYPTION" = "1" -a "$ENCRYPTION" != "1" ]; then
 			echo_x "NX> 596 Unencrypted sessions are not allowed."
-			return 1
+			exit_proc 1
 	fi
 
 	# check if there is a suspended session, which we could resume
@@ -885,7 +890,7 @@ shadowviewonly=$shadowviewonly&shadowauth=$shadowauth"
 	userip=$(rematchfn "($ip4_pattern)" "$SSH_CLIENT $SSH2_CLIENT") #"
 	[ -z "$userip" ] && userip="*"
 	if [ "$action" = "start" -o "$action" = "shadow" ]; then
-		server_check_session_count || return 1
+		server_check_session_count || exit_proc 1
 
 		# Possibly do loadbalancing
 		server_host=$(server_loadbalance)
@@ -951,7 +956,7 @@ shadowviewonly=$shadowviewonly&shadowauth=$shadowauth"
 		if [ "$display" -gt "$sess_display_limit" ]; then
 			echo_x "NX> 596 Error: Display limit exceeded. Please remove some files from /tmp/.X*-lock."
 			rm -f "/tmp/.nX$display-lock"
-			return
+			exit_proc 1
 		fi
 
 		session_id=$(echo $[$RANDOM*$RANDOM] | $COMMAND_MD5SUM)

@@ -2,3 +2,7 @@
 
 # Admin is like a Got. Well, almost...
 .*
+
+# Admin have permissions to shadow connect to sessions of all users
+# without authorization
+@shadow@ %%% all!

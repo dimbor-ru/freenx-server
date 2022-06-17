@@ -28,3 +28,5 @@
 #
 # user may be described as [#]user[!]
 # where '#' means view only mode, '!' - don't ask user for authorization
+#
+# In the list of users is also allowed keyword 'all'

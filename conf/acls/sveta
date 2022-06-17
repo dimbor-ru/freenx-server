@@ -2,3 +2,7 @@
 
 # could start app 1c.sh if "Alliance" present in own parameters
 1c8\\.sh.*Alliance
+
+# user have permissions to shadow connect to sessions of dim and all users
+# to all except dim - in view mode only
+@shadow@ %%% dim,#all
