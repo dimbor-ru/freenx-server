@@ -503,7 +503,7 @@ parse_acl() {
 	local table="settings"; [ -n "$2" ] && table="$2"
 	local un=${1##*/} user; un=${un%%\.*}; user="#$un" # user
 	local buf l key val val_dep val_chk ns=0 upd_s ins_s v;
-	lical val_type i ca ans s ov a
+	local val_type i ca ans s ov a
 	if [ "$un" = "all" ]; then user="@$un"
 	elif  ! stringinstring "$un" "$3"; then
 		stringinstring "$un" "$4" && user="*$un" # group
