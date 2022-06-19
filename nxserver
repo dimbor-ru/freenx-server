@@ -804,7 +804,7 @@ server_startrestore_session() {
 	echo_x
 
 	if [ "$action" = "shadow" ]; then
-		shadowviewonly="0" shadowauth="0"
+		shadowauth="0"; shadowviewonly="0"
 		action="start"; params=$(delparam "$params" "display");
 		params=$(delparam "$params" "session_id");
 		db_params=$(session_get "$in_session_id" 2>/dev/null)
@@ -814,6 +814,7 @@ server_startrestore_session() {
 		shadowdisplay=$in_display; shadowhost=$db_host;
 		shadowuser=$db_user; shadowcookie=$db_shadowcookie
 		[ "$shadowcookie" = "none" ] && shadowcookie=""
+		[ "$in_shadowviewonly" = "1" ] && shadowviewonly="1"
 		if [ -z "$shadowdisplay" ]; then
 			echo_x "NX> 596 Could not find shadowed session $session_id. Session failed."
 			exit_proc 1
@@ -832,8 +833,8 @@ server_startrestore_session() {
 				}
 			}
 			((nshu>=0)) && {
-				shadowviewonly="${shadow_oviews[$nshu]}"
-				shadowauth="${shadow_uauths[$nshu]}"
+				[ "$shadowviewonly" = "0" ] && shadowviewonly=${shadow_oviews[$nshu]}
+				shadowauth=${shadow_uauths[$nshu]}
 			}
 		fi
 		if [ "$shadowauth" = "1" ]; then
