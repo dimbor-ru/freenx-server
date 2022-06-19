@@ -1,3 +1,10 @@
+freenx-server (2.1.1) UNRELEASED; urgency=low
+
+  * Shadow mode add view only on client request.
+  * nxshadowacl add new keyword 'all'.
+
+ -- Dmitry Borisov <i@dimbor.ru>  Sun, 19 Jun 2022 12:07:23 +0300
+
 freenx-server (2.1.0) UNRELEASED; urgency=low
 
   * Shadow mode is worked now.
