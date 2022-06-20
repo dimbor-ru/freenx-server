@@ -558,6 +558,7 @@ server_nxnode_exit_func() {
 	server_remove_usession
 	# remove lock file
 	[ -e "/tmp/.nX$display-lock" ] && rm -f /tmp/.nX$display-lock
+	exit_proc 1
 }
 
 server_nxnode_start_wait() {
