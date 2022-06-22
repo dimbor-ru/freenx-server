@@ -20,6 +20,7 @@ case "$1" in
     configure|triggered)
 			PBIN="/usr/bin"
 			groupadd nx 2>/dev/null
+			groupadd nxadmin 2>/dev/null
 			useradd -g nx -G utmp -d /var/lib/nxserver/home/ \
 				-s $PBIN/nxserver -c "NX System User" nx 2>/dev/null
 			chown nx:root $PBIN/nx-session-launcher-suid

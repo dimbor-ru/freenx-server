@@ -71,7 +71,6 @@ echo_x() { log "$@"; echo "$@"; }
 sqcols_sess="session_id, session, display, status, userip,\
  rootless, type, user, screeninfo, geometry, host, shadowcookie,\
  startTime, creationTime, endTime, agent_pid"
-sqcols_sess_c=15
 
 init_sess_db() {
 	local sess_cols="session_id TEXT PRIMARY KEY, session TEXT,\
@@ -192,7 +191,9 @@ session_user_acl_load() {
 #arg: <user>
 # load nx shadow acl for given user and store it to
 # shadow_users shadow_oviews shadow_uauths variables
-	local s ucond=$(groups); ucond="'#$1','*${ucond// /\',\'\*}','@all'"
+	[ -n "$ugroups" ] || \
+		{ ugroups=$(groups $1); ugroups=$(trim "${ugroups#*:}"); }
+	local s ucond="'#$1','*${ugroups// /\',\'\*}','@all'"
 	local mode=".mode csv settings\n.separator '&'\n"
 	local qstr="SELECT value,val_type,val_depend FROM settings WHERE user IN ($ucond) \
  AND key='@shadow@' ORDER BY user ASC, val_check DESC LIMIT 1;"
@@ -402,7 +403,7 @@ msg2agentdisplay() {
 # SERVER_NAME SESSION_HISTORY SESSION_LIMIT SESSION_USER_LIMIT
 
 # declare global variables:
-declare -g cmd in_params proto login_success login_method
+declare -g cmd in_params proto login_success login_method ugroups=""
 declare -g server_mode preferred_host session_count session_count_user
 declare -g user2 ENCRYPTION proxy_display server_host
 declare -g oifs rc NODE_HOSTNAME user fl_send="1"
@@ -558,6 +559,11 @@ server_nxnode_exit_func() {
 	server_remove_usession
 	# remove lock file
 	[ -e "/tmp/.nX$display-lock" ] && rm -f /tmp/.nX$display-lock
+	exit_proc 1
+}
+
+server_nxserver_exit_func() {
+	log "$FUNCNAME: Info: Emergency-Shutting down!"
 	exit_proc 1
 }
 
@@ -1055,6 +1061,20 @@ while true; do
 				echo_x "NX> 1001 Bye."
 			fi
 		;;
+		admin)
+			[ -n "$ugroups" ] || \
+				{ ugroups=$(groups "$user"); ugroups=$(trim "${ugroups#*:}"); }
+			if stringinstring " nxadmin " " $ugroups "; then
+				trap server_nxserver_exit_func EXIT
+				log "User '$user': admin mode starting"
+				server_nxnode_start --admin "$user"
+				log "User '$user': admin mode stopping with rc=$?"
+				#trap EXIT
+			else
+				log "User '$user': admin mode start failed"
+				echo_x "NX> 1004 admin mode start failed"; exit_proc 1;
+			fi
+		;;
 		startsession*)
 			fl_send="0"; in_params=$(server_get_params $cmd)
 			set_vars_from_ampstr "$in_params" # set global vars without prefixes
@@ -1393,6 +1413,37 @@ if [ "$1" = "--version" ]; then
   echo "NXSERVER - Version $NX_VERSION $NX_LICENSE"
   exit_proc 0
 fi
+
+declare -g admin_mode="" mloop="1" cmd0 q s l
+[ "$1" = "--admin" ] && { # admin mode loop
+	admin_mode="1"; shift;
+	trap exit_proc SIGINT; trap exit_proc SIGKILL; trap exit_proc EXIT
+	while [ "$mloop" = "1" ]; do
+		echo -n "NX> 105 "
+		unset cmd0; read cmd0 2>/dev/null
+		# do fake eval for params
+		q=0; l=$cmd0; cmd=()
+		while [ -n "$l" ]; do
+			s=${l%%[\'\"]*}; l=${l#*[\'\"]}; [ "$s" = "$l" ] && l=""
+			if ((q==0)); then
+				[ -n "$s" ] || continue
+				cmd+=($s); q=1
+			else cmd+=("$s"); q=0
+			fi
+		done
+		#log "${#cmd[@]}" #debug
+		#for ((i=0; i<${#cmd[@]}; i++)); do log "${cmd[$i]}"; done #debug
+		case ${cmd[0]} in
+		list|l) cmd_list "${cmd[@]:1}" ;;
+		ping) echo "pong" ;;
+		--send|--broadcast) cmd_terminate_or_send "${cmd[@]}" ;;
+		quit|q) mloop=0 ;;
+		*) echo "Error: Function '$cmd' not implemented yet."
+		esac
+	done
+	trap SIGINT; trap SIGKILL; trap EXIT; exit_proc 0
+} # admin mode end
+
 
 cmd=$1
 echo "NX> 100 NXSERVER - Version $NX_VERSION $NX_LICENSE"

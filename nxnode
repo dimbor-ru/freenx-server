@@ -9,6 +9,15 @@ shopt -s extglob
 
 SHARED_CONFS="/usr/share/freenx-server"
 . $SHARED_CONFS/nxfuncs
+
+[ "$1" = "--admin" ] && { # simple wrapper to start nxserver in admin mode
+	if stringinstring " nxadmin " " $(groups) "; then
+		/usr/bin/sudo /bin/bash -c '/usr/bin/nxserver --admin'
+		exit $?
+	else exit 1
+	fi
+}
+
 #
 # -----------------------------------------------------------------------------
 # Various helper functions
