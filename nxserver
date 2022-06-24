@@ -1283,9 +1283,10 @@ cmd_list_suspended() {
 		;;
 	esac
 }
+
 cmd_list() {
 	local cmd_params=$(cmd_parse_2_params "$2")
-	[ -n "$2" -a -z "$cmd_params" ] && exit_proc 1
+	[ -n "$2" -a -z "$cmd_params" ] && return
 	case $cmd_params in
 		user=*)
 			session_list_user $2
@@ -1380,6 +1381,25 @@ cmd_terminate_or_send() {
 	done <<< "$cmd_params"
 }
 
+sqcols_sess_adm="session_id, session, display, status, userip,\
+ rootless, type, user, screeninfo, geometry, host,\
+ startTime, creationTime, endTime"
+
+cmd_list0() {
+#args: term1[&term2...] [sort1[!][,sort2...]]
+#  term: <exp><cond><val_str>
+#    cond: = != > < >= <= ; val_str: val1[|val2...] or val_start,val_end
+#  if '!' present in sortN then sort order is DESC else ASC
+	local colstr="" wstr="" sortstr="" res
+	[ "$admin_mode" = "1" ] && colstr=$sqcols_sess_adm || colstr=$sqcols_sess
+	[ -n "$1" ] && wstr="WHERE $(q_where_str "$1")"
+	[ -n "$2" ] && sortstr="ORDER BY $(q_sort_str "$2")"
+	local mode=".mode csv sess\n.separator '&'\n"
+	local qstr="SELECT $colstr FROM sess $wstr $sortstr;" #; echo "$qstr" #debug
+	res=$(qa_dbe0 "$mode" "$qstr")
+	echo "${res//\"/}"
+}
+
 open_dbe $$
 attach_db "$sq_settings_fn" ro || {
 	echo "NX> 500 Error: Unable to attach db file $sq_settings_fn";
@@ -1434,8 +1454,9 @@ declare -g admin_mode="" mloop="1" cmd0 q s l
 		#log "${#cmd[@]}" #debug
 		#for ((i=0; i<${#cmd[@]}; i++)); do log "${cmd[$i]}"; done #debug
 		case ${cmd[0]} in
-		list|l) cmd_list "${cmd[@]:1}" ;;
 		ping) echo "pong" ;;
+		l) cmd_list0 "${cmd[@]:1}" ;;
+		list) cmd_list "${cmd[@]:1}" ;;
 		--send|--broadcast) cmd_terminate_or_send "${cmd[@]}" ;;
 		quit|q) mloop=0 ;;
 		*) echo "Error: Function '$cmd' not implemented yet."
