@@ -327,16 +327,60 @@ q_vals_strs_get() {
 }
 
 str_eq_cond() {
-#args: cond vals_str [vals_delim='|']
-#ret: "cond IN ('A','B','C'...)" or "cond='A'"
+#args: expr vals_str [vals_delim='|'] [NOT=""]
+#ret: "expr IN ('A','B','C'...)" or "expr='A'"
 	local delim="|"; [ -n "$3" ] && delim="$3";
-	local comma="" ivs="$2" val vals;
+	local comma="" ivs="$2" val vals="";
+	local inv1="" inv2=""
+	[ -n "$4" ] && { inv1="!"; inv2=" NOT"; }
 	[ -z "$ivs" ] && ivs="NULL" || ivs=${ivs//$delim/$'\n'}
 	while read val; do comma="${vals:+,}"; vals+="$comma'$val'"; done <<< "$ivs"
-	if [ -n "$comma" ]; then echo "$1 IN ($vals)"
-	elif [ "$ivs" = "NULL" ]; then echo "$1 IS NULL"
-	else echo "$1=$vals"
+	if [ -n "$comma" ]; then echo "$1$inv2 IN ($vals)"
+	elif [ "$ivs" = "NULL" ]; then echo "$1 IS$inv2 NULL"
+	else echo "$1$inv1=$vals"
 	fi
+}
+
+q_where_str() {
+#arg: term1[&term2...]; term: <exp><cond><val_str>
+#cond: = != > < >= <= ; val_str: val1[|val2...] or val_start,val_end
+#ret: formated string for sqlite WHERE
+	local oifs=$IFS IFS='&' terms i res; terms=($1); IFS=$oifs
+	local pat exp cond inv vals start_val stop_val s simple
+	for ((i=0;i<${#terms[@]};i++)) {
+		local pat="([[:alnum:]]+)([^[:alnum:]]+)(.+)"
+		[[ "${terms[$i]}" =~ $pat ]] || continue
+		exp=${BASH_REMATCH[1]}; cond=${BASH_REMATCH[2]}; vals=${BASH_REMATCH[3]}
+		#echo "$exp : $cond : $vals" #debug
+		[ "${cond:0:1}" = "!" ] && inv=" NOT" || inv=""
+		simple=0; stringinstring '>' "$cond" && simple=1
+		[ "$simle" = "0" ] && stringinstring '<' "$cond" && simple=1
+		if stringinstring ',' "$vals"; then
+			start_val=$(cutfn "$vals" 0 ','); stop_val=$(cutfn "$vals" 1 ',')
+			s="$exp$inv BETWEEN $start_val AND $stop_val"
+		elif [ "$simple" = "0" ]; then
+			s=$(str_eq_cond "$exp" "$vals" "" "$inv")
+		else
+			s="$exp$cond$vals"
+		fi
+		res+=${res:+ AND }$s
+	}
+	echo "$res"
+}
+
+q_sort_str() {
+#arg: exp1[!][,exp2...]
+#if '!' present then DESC else ASC
+#ret: formated string for sqlite ORDER BY
+	local oifs=$IFS IFS=',' terms i exp order res; terms=($1); IFS=$oifs
+	for ((i=0;i<${#terms[@]};i++)) {
+		exp=${terms[$i]}
+		if [ "${exp:(-1):1}" = "!" ]; then order="DESC"; exp=${exp::-1}
+		else order="ASC"
+		fi
+		res+="${res:+,}$exp $order"
+	}
+	echo "$res"
 }
 
 qtxt2cmdstrs() {
