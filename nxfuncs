@@ -426,6 +426,7 @@ set_vars_from_db() {
 	#echo "$qstr" #debug
 	ts=$(qa_dbe "$mode" "$qstr"); #echo "$ts" #debug
 	while read line; do
+		[ -n "$line" ] || continue
 		local OIFS="$IFS"; local IFS='&'; a=($line); IFS="$OIFS"
 		var=${a[0]}; value=${a[1]}; value=${value//\"/}; value=$(sq2s "$value")
 		declare -g $var="$value";
