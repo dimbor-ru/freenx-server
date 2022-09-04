@@ -37,7 +37,7 @@ if { "$auth_method"=="test-nx" } {
 	
 	while {1} {
 		expect {
-			"Are you sure you want to continue connecting (yes/no)?" { send "yes\r" }
+			"Are you sure you want to continue connecting*" { send "yes\r" }
 			"Permission denied*" { exit 1 }
 			"HELLO NXSERVER - Version*\n" {
 				break

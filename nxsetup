@@ -610,7 +610,7 @@ install_nx() {
 
 	echo "For backward compatibility to Nomachine, freenx works with dss-keys only."
 	echo "Please add string \"PubkeyAcceptedKeyTypes=+ssh-dss\" in sshd_config"
-	echo "if required. This is actual for modern openssh servers."
+	echo "and ssh_config if required. This is actual for modern openssh servers."
 
 	echo -n "Setting up user and group nx ..."
 	useradd -g nx -G utmp -d /var/lib/nxserver/home/ \
