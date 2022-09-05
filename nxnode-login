@@ -33,7 +33,7 @@ if { "$auth_method"=="test-nx" } {
 	set publickey ""
 	catch {set publickey $env(NODE_PUBLICKEY)}
 	
-	set pid [spawn -noecho $command_ssh -2 -x -l "$user" "$host" -i "$publickey" -o "RhostsAuthentication no" -o "PasswordAuthentication no" -o "RSAAuthentication no" -o "RhostsRSAAuthentication no" -o "PubkeyAuthentication yes" -o "PreferredAuthentications publickey" -o "ConnectTimeout 3" -p "$port" "$executable $command" ]
+	set pid [spawn -noecho $command_ssh -2 -x -l "$user" "$host" -i "$publickey" -o "RhostsAuthentication no" -o "PasswordAuthentication no" -o "PubkeyAuthentication yes" -o "PreferredAuthentications publickey" -o "ConnectTimeout 3" -p "$port" "$executable $command" ]
 	
 	while {1} {
 		expect {
@@ -71,7 +71,7 @@ if { "$auth_method"=="ssh" } {
 
 while {1} {
 	expect {
-		"Are you sure you want to continue connecting (yes/no)?" { send "yes\r" }
+		"Are you sure you want to continue connecting*" { send "yes\r" }
 		"assword*:"  { sleep 0.3; send "$password\r" }
 		"SSH passphrase:"  { sleep 0.3; send "$password\r" }
 		"Permission denied*" { exit 1 }
