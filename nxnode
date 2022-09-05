@@ -12,9 +12,11 @@ SHARED_CONFS="/usr/share/freenx-server"
 
 [ "$1" = "--admin" ] && { # simple wrapper to start nxserver in admin mode
 	if stringinstring " nxadmin " " $(groups) "; then
-		/usr/bin/sudo /bin/bash -c '/usr/bin/nxserver --admin'
+		/usr/bin/sudo -p "" /bin/bash -c '/usr/bin/nxserver --admin' 2>&1
 		exit $?
-	else exit 1
+	else
+		echo "NX> 2004 admin mode start failed"
+		exit 1
 	fi
 }
 

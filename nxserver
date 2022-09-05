@@ -470,8 +470,8 @@ preferred_host=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 				# SU based auth used ONLY
 				if [ "$login_success" = "0" ]; then
 					log -n "su "
-					LANG=C echo "$PASS" | \
-						$COMMAND_SUDO -u $user -Svk -p "" >/dev/null 2>&1
+					LANG=C $COMMAND_SUDO -u $user -Svk -p "" \
+						&>/dev/null <<< "$PASS"
 					if [ $? -eq 0 ]; then login_success="1"; login_method="SU"; fi
 				fi
 
@@ -564,6 +564,8 @@ server_nxnode_exit_func() {
 
 server_nxserver_exit_func() {
 	log "$FUNCNAME: Info: Emergency-Shutting down!"
+	[ -n "$adm_pid" ] && kill -0 $adm_pid &>/dev/null \
+		&& kill $adm_pid &>/dev/null
 	exit_proc 1
 }
 
@@ -1067,12 +1069,17 @@ while true; do
 			if stringinstring " nxadmin " " $ugroups "; then
 				trap server_nxserver_exit_func EXIT
 				log "User '$user': admin mode starting"
-				server_nxnode_start --admin "$user"
+				LANG=C $COMMAND_SUDO -u $user -S -v -p "" <<< "$PASS"
+				$COMMAND_SUDO -u $user -H /bin/bash -c \
+						'/usr/bin/nxnode --admin'
 				log "User '$user': admin mode stopping with rc=$?"
-				#trap EXIT
+				echo_x "NX> 1001 Bye."
+				trap EXIT
+				exit_proc 0
 			else
 				log "User '$user': admin mode start failed"
-				echo_x "NX> 1004 admin mode start failed"; exit_proc 1;
+				echo_x "NX> 2004 admin mode start failed"; exit_proc 1;
+				echo_x "NX> 1001 Bye."
 			fi
 		;;
 		startsession*)
@@ -1381,9 +1388,8 @@ cmd_terminate_or_send() {
 	done <<< "$cmd_params"
 }
 
-sqcols_sess_adm="session_id, session, display, status, userip,\
- rootless, type, user, screeninfo, geometry, host,\
- startTime, creationTime, endTime"
+sqcols_sess_adm="user, session, status, creationTime, startTime, endTime,\
+ type, session_id, display, userip, rootless, screeninfo, geometry, host"
 
 cmd_list0() {
 #args: term1[&term2...] [sort1[!][,sort2...]]
@@ -1397,7 +1403,10 @@ cmd_list0() {
 	local mode=".mode csv sess\n.separator '&'\n"
 	local qstr="SELECT $colstr FROM sess $wstr $sortstr;" #; echo "$qstr" #debug
 	res=$(qa_dbe0 "$mode" "$qstr")
+	echo_x "NX> 2126 $colstr"
+	echo_x "NX> 2127 strings list start"
 	echo "${res//\"/}"
+	echo_x "NX> 2148 strings list end"
 }
 
 open_dbe $$
@@ -1438,9 +1447,11 @@ declare -g admin_mode="" mloop="1" cmd0 q s l
 [ "$1" = "--admin" ] && { # admin mode loop
 	admin_mode="1"; shift;
 	trap exit_proc SIGINT; trap exit_proc SIGKILL; trap exit_proc EXIT
+	echo_x "NX> 2103 admin mode started"
 	while [ "$mloop" = "1" ]; do
-		echo -n "NX> 105 "
+		echo_x -n "NX> 2105 "
 		unset cmd0; read cmd0 2>/dev/null
+		[ "$cmd0" = "" ] && cmd0="quit" # FIXME?
 		# do fake eval for params
 		q=0; l=$cmd0; cmd=()
 		while [ -n "$l" ]; do
@@ -1454,7 +1465,7 @@ declare -g admin_mode="" mloop="1" cmd0 q s l
 		#log "${#cmd[@]}" #debug
 		#for ((i=0; i<${#cmd[@]}; i++)); do log "${cmd[$i]}"; done #debug
 		case ${cmd[0]} in
-		ping) echo "pong" ;;
+		ping) echo_x "pong" ;;
 		l) cmd_list0 "${cmd[@]:1}" ;;
 		list) cmd_list "${cmd[@]:1}" ;;
 		--send|--broadcast) cmd_terminate_or_send "${cmd[@]}" ;;
@@ -1462,6 +1473,7 @@ declare -g admin_mode="" mloop="1" cmd0 q s l
 		*) echo "Error: Function '$cmd' not implemented yet."
 		esac
 	done
+	echo_x "NX> 2999 admin mode stopped"
 	trap SIGINT; trap SIGKILL; trap EXIT; exit_proc 0
 } # admin mode end
 
