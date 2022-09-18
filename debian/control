@@ -2,7 +2,7 @@ Source: freenx-server
 Section: x11
 Priority: optional
 Maintainer: Dmitry Borisov <i@dimbor.ru>
-Build-Depends: debhelper (>=9)
+Build-Depends: debhelper (>=9), xutils-dev
 Standards-Version: 3.9.8
 Homepage: https://unixforum.org/viewforum.php?f=89
 
