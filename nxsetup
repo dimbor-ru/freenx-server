@@ -2,12 +2,9 @@
 
 # Coypright (c) 2004-2005 by Fabian Franz <freenx@fabian-franz.de>.
 #                    2005 by Jon Severinsson <jonno@users.berlios.de>.
-#                    2022 by Dmitry Borisov <i@dimbor.ru>
+#                    2023 by Dmitry Borisov <i@dimbor.ru>
 #
 # License: GNU GPL, version 2
-#
-# SVN: $Id: nxsetup 512 2008-03-10 23:01:03Z fabianx $
-#
 
 HELP="no"; INSTALL="no"; SETUP_NOMACHINE_KEY="no"
 SETUP_UID=""; SETUP_GID=""; LOCAL_USER_OPTION=""

@@ -2,7 +2,7 @@
 
 # Free implementation of nxserver components
 # Copyright (c) 2004 by Fabian Franz.
-#           (c) 2008-19 by Dmitry Borisov <i@dimbor.ru>
+#           (c) 2008-23 by Dmitry Borisov <i@dimbor.ru>
 # License: GNU GPL, version 2
 
 shopt -s extglob
