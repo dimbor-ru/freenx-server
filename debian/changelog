@@ -1,3 +1,9 @@
+freenx-server (2.1.2) UNRELEASED; urgency=low
+
+  * Fix ACL parsing (no globbing).
+
+ -- Dmitry Borisov <i@dimbor.ru>  Tue, 05 Sep 2023 06:48:35 +0300
+
 freenx-server (2.1.1) UNRELEASED; urgency=low
 
   * Shadow mode add view only on client request.
