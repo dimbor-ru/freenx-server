@@ -467,7 +467,7 @@ preferred_host=$(rematchfn "host=([^&]*)" "$SSH_ORIGINAL_COMMAND") #"
 				# SU based auth used ONLY
 				if [ "$login_success" = "0" ]; then
 					log -n "su "
-					LANG=C $COMMAND_SUDO -u $user -Svk -p "" \
+					LC_MESSAGES=C $COMMAND_SUDO -u $user -Svk -p "" \
 						&>/dev/null <<< "$PASS"
 					if [ $? -eq 0 ]; then login_success="1"; login_method="SU"; fi
 				fi
@@ -734,7 +734,7 @@ server_loadbalance_round_robin() {
 	while [ $i -lt 200 ]; do
 		# ln is an atomic operation
 		ln $server_lb_lockfile "$NX_SESS_DIR/round-robin.lock" && break
-		LANG=C sleep 0.01
+		LC_MESSAGES=C sleep 0.01
 		((i++))
 	done
 
@@ -1066,7 +1066,7 @@ while true; do
 			if stringinstring " nxadmin " " $ugroups "; then
 				trap server_nxserver_exit_func EXIT
 				log "User '$user': admin mode starting"
-				LANG=C $COMMAND_SUDO -u $user -S -v -p "" <<< "$PASS"
+				LC_MESSAGES=C $COMMAND_SUDO -u $user -S -v -p "" <<< "$PASS"
 				$COMMAND_SUDO -u $user -H /bin/bash -c \
 						'/usr/bin/nxnode --admin'
 				log "User '$user': admin mode stopping with rc=$?"
