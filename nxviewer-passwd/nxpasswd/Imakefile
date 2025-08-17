@@ -3,6 +3,8 @@
 EXTRA_DEFINES = -D__EXTENSIONS__
 #endif
 
+CDEBUGFLAGS += -Wno-error=implicit-function-declaration -fpermissive
+
 SRCS = vncpasswd.c
 INCLUDES = -I../include
 VNCAUTH_LIB = ../libvncauth/libvncauth.a

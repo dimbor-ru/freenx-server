@@ -3,6 +3,8 @@
 EXTRA_DEFINES = -D__EXTENSIONS__
 #endif
 
+CDEBUGFLAGS += -Wno-error=implicit-function-declaration -fpermissive
+
 SRCS = vncauth.c d3des.c
 
 OBJS = vncauth.o d3des.o
