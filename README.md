@@ -43,9 +43,6 @@ Many thanks to Djelf for long consultations on sqlite.
 Thats all worked with [opennx ce](https://github.com/dimbor-ru/opennx) liux/windows client, but original nxclient
 basicaly alive too (with restrictions).
 
-Debian package home-maded for Devuan ASCII now. There is a suspicion that
-under Debian Stretch everything will be fine.
-
 On modern systems with glibc >= 2.28 to run nxclient you must apply [solution](https://github.com/dimbor-ru/freenx-server/issues/5#issuecomment-579694048)
 from Djelf (on nxclient side of course).
 
@@ -73,5 +70,7 @@ ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/NX/lib/libjpeg.so.62
 ln -s /usr/lib/x86_64-linux-gnu/libXcomp.so.3 /usr/NX/lib/libXcomp.so
 
 Archives of old nx stuff you can find [here](http://ftp.disconnected-by-peer.at/NX/)
+Thanks to Mario Fetka (@geosone) for [NX Repos](https://ftp.disconnected-by-peer.at/Repositories/go-NX/)
+freenx-server packages are also there.
 
-dimbor. 2022
+dimbor. 2025
