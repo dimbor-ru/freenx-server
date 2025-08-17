@@ -2,5 +2,18 @@
 
 export DH_VERBOSE=1
 
+# Make sure lintian does not complain about missing hardenings.
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+
+# Make sure the decades-old source code gets compiled by allowing implicit
+# function declarations and, for gcc-14 and above, by downgrading the
+# diagnostics applied by the compiler. See
+# https://gcc.gnu.org/onlinedocs/gcc-14.1.0/gcc/Warning-Options.html
+# for further details.
+export DEB_CFLAGS_MAINT_STRIP=-Werror=implicit-function-declaration
+cc_major := $(shell $(CC) --version | head -n1 | cut -d' ' -f4 | cut -d. -f1)
+cc_major_ge_14 := $(shell [ $(cc_major) -ge 14 ] && echo 'true')
+export DEB_CFLAGS_MAINT_APPEND=$(if $(cc_major_ge_14),-fpermissive)
+
 %:
 	dh $@
